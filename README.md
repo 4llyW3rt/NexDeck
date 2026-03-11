@@ -1,7 +1,7 @@
 # 🚀 NexDeck - Hibrit Kontrol Paneli
 
 # ŞUANDA PROTOTİP HALİNDEDİR...
-
+![NexDeck Ana Görsel](main.jpg)
 NexDeck, içerik üreticileri ve profesyoneller için geliştirilmiş, yüksek maliyetli kontrol panellerine (Stream Deck vb.) yerli ve ekonomik bir alternatiftir.
 
 ### ✨ Öne Çıkan Özellikler
