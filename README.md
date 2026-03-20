@@ -34,7 +34,7 @@ NexDeck, içerik üreticileri ve profesyoneller için geliştirilmiş, yüksek m
 NexDeck; **Arduino Micro** (ATmega32U4) mimarisi üzerine kurulu olup, bilgisayar ile sürücüsüz (Plug & Play) haberleşen bir **HID (Human Interface Device)** aygıtıdır. Seri haberleşme protokolleri ve düşük gecikmeli yazılım yapısıyla profesyonel düzeyde tepki süresi sunar.
 
 ### 📝 Sürüm Notları 
-v1.1 - Donanım Entegrasyonu ve Akıllı Kısayol Güncellemesi
+v1.1 - Donanım Entegrasyonu ve Akıllı Kısayol Güncellemesi (Arduino Kod Düzenlenmesi)
 
     🛠️ Fiziksel Butonlar Aktif Edildi: 5 adet push buton donanıma tanıtıldı. Spotify/Medya kontrolleri (Önceki, Oynat/Durdur, Sonraki), sistem geneli mikrofon susturma (F13) ve tek tuşla anında masaüstüne dönme (Panik/Gizlilik - Win+D) işlevleri eklendi.
 
