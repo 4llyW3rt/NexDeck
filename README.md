@@ -1,4 +1,4 @@
-# 🚀 NexDeck - Hibrit Kontrol Paneli
+# 🚀 NexDeck - Hibrit Kontrol Paneli #
 
 # ŞUANDA PROTOTİP HALİNDEDİR...
 ![NexDeck Ana Görsel](main.jpg)
@@ -20,7 +20,7 @@ NexDeck, içerik üreticileri ve profesyoneller için geliştirilmiş, yüksek m
 2. `Nextion` klasöründeki arayüzü ekrana flaşlayın.
 3. `Software` klasöründeki AHK scriptini çalıştırın.
 
-## 📝 Proje Hakkında (Project Description)
+### 📝 Proje Hakkında (Project Description)
 
 **NexDeck**, dijital içerik üreticileri, yayıncılar ve profesyonellerin iş akışını optimize etmek amacıyla geliştirilmiş yerli ve ekonomik bir kontrol arayüzüdür. Piyasada bulunan yüksek maliyetli ve kapalı devre sistemlerin aksine NexDeck; hem dokunmatik ekranın esnekliğini hem de fiziksel potansiyometre ve butonların dokunsal hassasiyetini tek bir mekatronik gövdede birleştirir.
 
@@ -32,3 +32,14 @@ NexDeck, içerik üreticileri ve profesyoneller için geliştirilmiş, yüksek m
 
 ### 🛠️ Teknik Detaylar
 NexDeck; **Arduino Micro** (ATmega32U4) mimarisi üzerine kurulu olup, bilgisayar ile sürücüsüz (Plug & Play) haberleşen bir **HID (Human Interface Device)** aygıtıdır. Seri haberleşme protokolleri ve düşük gecikmeli yazılım yapısıyla profesyonel düzeyde tepki süresi sunar.
+
+### 📝 Sürüm Notları 
+v1.1 - Donanım Entegrasyonu ve Akıllı Kısayol Güncellemesi
+
+    🛠️ Fiziksel Butonlar Aktif Edildi: 5 adet push buton donanıma tanıtıldı. Spotify/Medya kontrolleri (Önceki, Oynat/Durdur, Sonraki), sistem geneli mikrofon susturma (F13) ve tek tuşla anında masaüstüne dönme (Panik/Gizlilik - Win+D) işlevleri eklendi.
+
+    🎛️ Rotary Encoder Entegrasyonu: Windows sistem sesini hassas şekilde açma/kısma ve tekerleğe basarak anında sessize alma (Mute) özelliği koda gömüldü.
+
+    🔊 İşitsel Geri Bildirim: Sistemin açılışına ve buton basımlarına pasif buzzer ile dinamik onay sesleri eklendi.
+
+    🖥️ Çekirdek Optimizasyonu: Nextion dokunmatik ekranın mevcut özellikleri (OBS sahne geçişleri, yayın ve kayıt kronometreleri) yeni fiziksel donanımlarla tam senkronize ve çakışmasız çalışacak şekilde aynı loop içinde birleştirildi.
