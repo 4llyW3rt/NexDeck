@@ -13,12 +13,12 @@ NexDeck, içerik üreticileri ve profesyoneller için geliştirilmiş, yüksek m
 ### 🛠️ Donanım Bileşenleri
 * Arduino Micro (ATmega32U4)
 * Nextion HMI Dokunmatik Ekran
-* 10K Potansiyometre & Mekanik Butonlar
+* Encoder & Mekanik Butonlar
 
 ### 💻 Kurulum
-1. `Firmware` klasöründeki kodu Arduino'ya yükleyin.
-2. `Nextion` klasöründeki arayüzü ekrana flaşlayın.
-3. `Software` klasöründeki AHK scriptini çalıştırın.
+1. `STDECK` klasöründeki kodu Arduino'ya yükleyin.
+2. `Nextion` klasöründeki arayüzü ekrana flaşlayın (dsplay.HMI).
+3. `Nextion` klasöründeki AHK scriptini çalıştırın.
 
 ### 📝 Proje Hakkında (Project Description)
 
