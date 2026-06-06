@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# PyInstaller
+build/
+dist/
+*.spec
+
+# Inno Setup output
+output/
+*.exe
+
+# Keep required tool exe
+!tools/nircmd.exe
+
+# Logs / temp
+*.log
+*.tmp
+*.bak
+
+# VS Code
+.vscode/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Local user config
+config.json
+plugins/
+locales/

@@ -1,0 +1,9 @@
+PyQt5
+pyserial
+keyboard
+psutil
+comtypes
+pycaw
+qrcode
+pillow
+pyinstaller

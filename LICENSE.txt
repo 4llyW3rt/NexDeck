@@ -1,0 +1,16 @@
+NEXSTUDIO ÖZGÜR YAZILIM LİSANSI (NPL-v2)
+Telif Hakkı (c) 2026 - Ali Mert Taşcı / NexHub
+
+Bu yazılım, topluluk odaklı gelişimi ve özgür kullanımı desteklemek amacıyla aşağıdaki şartlar altında sunulmuştur:
+
+1. MÜLKİYET VE ATIF: Yazılımın orijinal yapımcısı Ali Mert TAŞCI'dır. NexHub, Ali Mert Taşcı tarafından geliştirilen proje/marka adıdır. Yazılımın değiştirilmiş sürümlerinde veya eklentilerinde asıl yapımcıya atıf yapılması zorunludur.
+
+2. ANA KOD DEĞİŞİKLİĞİ: Kullanıcılar, yazılımdaki hataları gidermek, performans artırmak veya yeni özellikler eklemek amacıyla ana kaynak kodlarını değiştirme hakkına sahiptir. 
+
+3. ÜCRETSİZ KALMA ZORUNLULUĞU: Bu yazılım ve bu yazılımın kaynak kodu kullanılarak geliştirilen tüm "türev çalışmalar" (değiştirilmiş versiyonlar) tamamen ücretsiz kalmak zorundadır. Yazılımın kendisi veya değiştirilmiş bir hali asla parayla satılamaz.
+
+4. EKLENTİ (PLUGIN) SERBESTİSİ: NexStudio için eklenti veya modül geliştirmek tamamen serbesttir. Eklenti geliştirenler, kendi yazdıkları ek kodların haklarına sahiptir ancak NexStudio çekirdek yapısını ticari amaçla kullanamazlar.
+
+5. "OLDUĞU GİBİ" PRENSİBİ: Bu yazılım, geliştirme aşamasında hatalar içerebilir. Yazılım "olduğu gibi" sunulur; kullanımından doğabilecek donanımsal veya yazılımsal sorumluluk kullanıcıya aittir.
+
+6. PAYLAŞIM ŞARTI: Eğer ana kodda bir değişiklik yapıp bunu yayınlıyorsanız, yaptığınız değişiklikleri de aynı bu lisans şartlarıyla (ücretsiz ve açık kaynak) paylaşmak zorundasınız.
