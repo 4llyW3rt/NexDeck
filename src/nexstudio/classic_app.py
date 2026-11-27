@@ -187,6 +187,9 @@ class NexHubApp(QMainWindow):
         # 2.6.4: arka planda güncelleme kontrolü (açılıştan 15 sn sonra, sonra günde bir)
         from . import updater
         updater.start_background_checks()
+        # 2.8.0: ebeveyn kontrolü bekçisi (kapalıyken yalnızca durumu okur, hiçbir şey yapmaz)
+        from .parental_ui import ParentalGuard
+        self.parental_guard = ParentalGuard(self)
         if hasattr(self, "log_area"):
             self.log_area.document().setMaximumBlockCount(1500)
         flush_pending_ui_logs()
@@ -3229,7 +3232,7 @@ class NexHubApp(QMainWindow):
     def restart_as_admin(self):
         save_config(self.config)
         if relaunch_as_admin():
-            self.force_quit()
+            self.force_quit(parental_ok=True)
         else:
             QMessageBox.warning(self, "NexStudio", "Yönetici izni verilmedi.")
 
@@ -3291,7 +3294,7 @@ class NexHubApp(QMainWindow):
         show_action.triggered.connect(self.open_preferred_ui)
         tray_menu.addAction(show_action)
         exit_action = QAction(tr("tray_exit"), self)
-        exit_action.triggered.connect(self.force_quit)
+        exit_action.triggered.connect(lambda: self.force_quit())
         tray_menu.addAction(exit_action)
         self.tray_icon.setContextMenu(tray_menu)
         self.tray_icon.activated.connect(
@@ -3415,7 +3418,23 @@ class NexHubApp(QMainWindow):
         else:
             self.force_quit()
 
-    def force_quit(self):
+    def parental_blocks_quit(self):
+        """2.8.0: ebeveyn kontrolü açıkken çıkmak için ebeveyn oturumu gerekir."""
+        from . import parental
+        return parental.cfg().get("enabled") and parental.is_setup() and not parental.admin_left()
+
+    def force_quit(self, parental_ok=False):
+        if not parental_ok and self.parental_blocks_quit():
+            ui_log("👪 Çıkış engellendi: ebeveyn kontrolü açık")
+            if self.tray_icon:
+                self.tray_icon.showMessage("NexStudio", "Ebeveyn kontrolü açık. Kapatmak için Ebeveyn bölümünden şifreyle oturum aç.", QSystemTrayIcon.Warning, 4000)
+            self.hide()
+            return
+        try:
+            from . import parental
+            parental.flush()   # sayılan süre kaybolmasın
+        except Exception:
+            pass
         try:
             if self.tray_icon:
                 self.tray_icon.hide()

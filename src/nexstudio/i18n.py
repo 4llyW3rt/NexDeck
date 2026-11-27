@@ -297,6 +297,7 @@ TEXT_ONLY_LOCALE_KEYS = [
 ]
 
 def load_locales():
+    clear_ui_cache()   # 2.8.0: dil değişince kilit ekranı çevirisi yenilensin
     state.TRANSLATIONS = {}
     for lang, data in DEFAULT_TRANSLATIONS.items():
         state.TRANSLATIONS[lang] = data.copy()
@@ -387,3 +388,27 @@ def apply_language_packs_to_core():
         if pack["core"]:
             state.TRANSLATIONS.setdefault(code, {}).update(pack["core"])
             state.TRANSLATIONS[code].setdefault("lang_name", pack["name"])
+
+
+# 2.8.0: Python tarafındaki arayüz metinleri (ör. ebeveyn kilit ekranı) için önbellekli çeviri
+_UI_CACHE = {"lang": None, "ui": {}, "en": {}}
+
+
+def clear_ui_cache():
+    _UI_CACHE["lang"] = None
+
+
+def ui_tr(text, *args):
+    """Türkçe metni aktif dil paketinin 'ui' bölümünden çevirir (eksikse İngilizce, o da yoksa Türkçe)."""
+    out = str(text)
+    lang = str((state.APP_CONFIG or {}).get("language", "tr") or "tr")
+    if lang != "tr":
+        if _UI_CACHE["lang"] != lang:
+            packs = load_language_packs()
+            _UI_CACHE["ui"] = (packs.get(lang) or {}).get("ui") or {}
+            _UI_CACHE["en"] = (packs.get("en") or {}).get("ui") or {}
+            _UI_CACHE["lang"] = lang
+        out = _UI_CACHE["ui"].get(out) or _UI_CACHE["en"].get(out, out)
+    for i, val in enumerate(args):
+        out = out.replace(f"{{{i}}}", str(val))
+    return out

@@ -22,6 +22,7 @@
 
 | Sürüm | Tarih | Özet |
 |---|---|---|
+| [2.8](../../releases/tag/nexstudio-v2.8.0) | 27.11.2026 | Ebeveyn kontrolü: şifre, günlük süre ve saat sınırı, tam ekran kilit, ek süre |
 | [2.7.3](../../releases/tag/nexstudio-v2.7.3) | 27.11.2026 | Telefonda tekerlek ekleme ve serbest ızgara, Antigravity (Gemini) testleriyle bulunan güvenlik açıkları kapatıldı |
 | [2.7.2](../../releases/tag/nexstudio-v2.7.2) | 27.11.2026 | Telefondan kısayol/metin ataması kapatıldı, telefon sayfaları ve eklentiler çevrildi |
 | [2.7.1](../../releases/tag/nexstudio-v2.7.1) | 27.11.2026 | Çoklu ajan testiyle bulunan 30+ hata: Düzen menüsü, ekstra tekerlek penceresi, web cihaz güvenliği, çeviriler |

@@ -636,6 +636,9 @@ def execute_macro(action, droppable=True):
     """Görevi makro kuyruğuna ekler; arayüzü bekletmez."""
     if not isinstance(action, dict) or not action.get("type"):
         return
+    if parental_locked():
+        ui_log("👪 Kilitliyken görev çalışmaz")
+        return
     TASK_WORKER.submit(_execute_macro_now, copy.deepcopy(action), droppable=droppable)
 
 
@@ -682,6 +685,15 @@ def _send_hotkey_via_device(vk_list):
         return False
     thread.send_data("HID:" + ",".join(str(c) for c in codes) + "\n")
     return True
+
+
+def parental_locked():
+    """2.8.0: ebeveyn kilidi açıkken hiçbir tuş/telefon görevi çalışmaz."""
+    try:
+        from . import parental
+        return parental.status()["locked"]
+    except Exception:
+        return False
 
 
 def _browser_exe(name):

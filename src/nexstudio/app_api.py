@@ -265,7 +265,7 @@ def APP_CONFIG_LANG():
 class AppApi:
     """Yeni arayüzün kullandığı JSON API. remote=True: telefondan (LAN) gelen istek, kısıtlı yetki."""
 
-    LOCAL_ONLY = {"device", "web", "known_device", "ui", "bg_image", "theme", "logs", "approval", "update"}
+    LOCAL_ONLY = {"device", "web", "known_device", "ui", "bg_image", "theme", "logs", "approval", "update", "parental"}
 
     @classmethod
     def dispatch(cls, method, endpoint, body, remote=False):
@@ -358,6 +358,7 @@ class AppApi:
                 "elevated": is_process_elevated(),
                 "dev_mode": bool(cfg.get("dev_mode")),
                 "update_check": bool(cfg.get("update_check", True)),   # 2.7.1: arayüz anahtarı durumdan çizer
+                "parental_ui": bool(cfg.get("parental_ui", False)),   # 2.8.0: kenar çubuğunda "Ebeveyn" bölümü
             }
             result["device"]["ports"] = [{"label": label, "port": port} for label, port, _ in (win.scan_device_ports() if win else [])]
         return result
@@ -385,6 +386,45 @@ class AppApi:
         if not ok:
             raise ValueError("Bu istek artık geçerli değil (süresi dolmuş olabilir)")
         return {"ok": True}
+
+    # ----- 2.8.0: ebeveyn kontrolü -----
+    @classmethod
+    def get_parental(cls, body, remote):
+        from . import parental
+        st = parental.status()
+        st["settings"] = parental.public_settings() if parental.admin_left() else None
+        st["week"] = parental.usage_week() if parental.admin_left() else None
+        return {"ok": True, **st}
+
+    @classmethod
+    def post_parental(cls, body, remote):
+        from . import parental
+        op = body.get("op")
+        if op == "setup":
+            return {"ok": True, "recovery": parental.setup(body.get("password"))}
+        if op == "login":
+            if not parental.check_password(body.get("password")):   # 5 yanlıştan sonra 60 sn bekleme
+                raise PermissionError("Şifre yanlış")
+            parental.start_admin()
+            return {"ok": True}
+        if op == "logout":
+            parental.end_admin()
+            return {"ok": True}
+        if op == "recover":
+            return {"ok": True, "recovery": parental.reset_with_recovery(body.get("code"), body.get("password"))}
+        if op == "settings":
+            parental.save_settings(body.get("values") or {})
+            return {"ok": True}
+        if op == "password":
+            parental.change_password(body.get("password"))
+            return {"ok": True}
+        if op == "new_recovery":
+            return {"ok": True, "recovery": parental.regenerate_recovery()}
+        if op == "extra":
+            parental.require_admin()
+            parental.grant_extra(body.get("minutes"))
+            return {"ok": True}
+        raise ValueError("Bilinmeyen işlem")
 
     @classmethod
     def get_logs(cls, body, remote):
@@ -422,7 +462,7 @@ class AppApi:
                 try:
                     path = updater.download_and_verify()
                     if getattr(sys, "frozen", False):
-                        updater.install(path, lambda: run_on_ui(state.MAIN_WINDOW.force_quit))
+                        updater.install(path, lambda: run_on_ui(lambda: state.MAIN_WINDOW.force_quit(parental_ok=True)))
                 except Exception:
                     pass  # hata STATUS'ta; arayüz gösterir
             threading.Thread(target=_job, name="NexUpdateInstall", daemon=True).start()
@@ -682,13 +722,17 @@ class AppApi:
         # 2.7.3: telefon yalnızca web modu tuş düzenini ve ekstra tekerlekleri değiştirebilir; diğer ayarlar bilgisayardan
         if remote and key not in ("web_layout", "web_grid", "extra_wheels"):
             raise PermissionError("Bu işlem sadece bilgisayardan yapılabilir.")
+        if key in ("start_with_win", "run_in_bg") and value is False:
+            from . import parental
+            if parental.cfg().get("enabled") and parental.is_setup():
+                parental.require_admin()   # 2.8.0: çocuk korumayı bu yolla kapatamasın
         win = state.MAIN_WINDOW
         if key not in ("start_with_win", "run_in_bg", "auto_connect", "key_send_mode", "language", "app_mode", "welcome_done", "dev_mode", "web_access_mode", "web_known_only", "update_check",
-                       "web_layout", "web_grid", "extra_wheels"):
+                       "web_layout", "web_grid", "extra_wheels", "parental_ui"):
             raise ValueError("Bilinmeyen ayar")
         # 2.7.1: tür kontrolleri (ör. "false" metni açık sayılıyordu)
         if key in ("start_with_win", "run_in_bg", "auto_connect", "welcome_done", "dev_mode", "web_known_only",
-                   "update_check") and not isinstance(value, bool):
+                   "update_check", "parental_ui") and not isinstance(value, bool):
             raise ValueError("Geçersiz ayar değeri")
         if key == "key_send_mode" and value not in ("auto", "software"):
             raise ValueError("Geçersiz ayar değeri")

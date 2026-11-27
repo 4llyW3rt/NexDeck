@@ -5,6 +5,31 @@ Uygulama içindeki "Güncelleme Rehberi" kartı da aynı bilgiyi kısaca göster
 
 ---
 
+## 2.8.0 — 27.11.2026 (Ebeveyn kontrolü)
+
+### Özellik
+- Ayarlar > Genel > "Ebeveyn kontrolü" kenar çubuğuna **Ebeveyn** bölümünü ekler (`parental_ui` ayarı).
+- `parental.py`: PBKDF2 ebeveyn şifresi, tek seferlik gösterilen kurtarma kodu (`XXXX-XXXX-XXXX-XXXX`), günlük süre
+  (yalnızca biri başındayken sayılır; 2 dk boşta kalınca durur), kullanım saatleri (gece yarısını aşabilir; başlangıç = bitiş: sınırsız),
+  ek süre, 30 dk yönetici oturumu (`time.monotonic`: saati geri almak uzatmaz), 5 yanlış şifreden sonra 60 sn bekleme.
+- `parental_ui.py` (Qt): her ekranı kaplayan, en üstte duran kilit penceresi; kilitte kullanıcının pencereli programları kapatılır
+  (Windows klasöründeki kabuk/sistem işlemleri ve NexStudio'nun kendi işlemleri hariç; UWP uygulamaları da), Win / Alt+Tab / Alt+Esc /
+  Ctrl+Esc / Ctrl+Shift+Esc düşük seviye klavye kancasıyla engellenir, ekran takılıp çıkarılınca pencereler yeniden kurulur.
+  Saat/tarih atlaması (2 dk+) algılanınca "saat değiştirildi" kilidi. Win+L ile yönetici oturumu kapanır (`OpenInputDesktop`/`SwitchDesktop`).
+- Kilitliyken `execute_macro` hiçbir görevi çalıştırmaz (NexDeck, telefon). Ebeveyn kontrolü açıkken `force_quit`, tepsi "Çık",
+  `/api2/ui quit`, "arka planda çalış" ve "Windows ile başlat" kapatma ebeveyn oturumu ister (güncelleme kurulumu hariç).
+- API: `GET/POST /api2/parental` (yalnızca bilgisayardan). Kilit ekranı metinleri `i18n.ui_tr` ile çevrilir.
+- Deneme modu `NEXSTUDIO_PARENTAL_DRYRUN=1` yalnızca kaynaktan çalışırken geçerli (kurulu exe'de yok sayılır).
+
+### Nasıl test edildi
+agy (Gemini) `tests/parental_test.py`'yi yazdı (56 kontrol, deneme modunda) ve 14 atlatma/hata buldu; uygulama içinde çözülebilenler bu sürümde.
+
+### Bilinen sınırlar (2.8.x'te koruma servisiyle)
+- Çocuk yönetici yetkili hesaptaysa Ctrl+Alt+Del > Görev Yöneticisi (yönetici olarak) ile NexStudio'yu kapatabilir ya da
+  `%APPDATA%/NexStudio/config.json`'u düzenleyebilir. Çözüm: yönetici yetkisiyle çalışan koruma servisi + ayarların korumalı klasörde tutulması.
+
+---
+
 ## 2.7.3 — 27.11.2026 (Telefonda tekerlek/ızgara, güvenlik sertleştirme)
 
 ### Nasıl test edildi

@@ -173,7 +173,7 @@ body.dragging .dropzone { outline: 2px dashed color-mix(in srgb, var(--accent) 6
 .emoji-grid button { border: 0; background: rgba(127,127,127,.1); border-radius: 8px; font-size: 18px; padding: 4px 0; cursor: pointer; }
 
 /* Ayarlar / Telefon */
-#page-web, #page-settings { grid-template-columns: minmax(0, 760px); justify-content: center; overflow: auto; }
+#page-web, #page-settings, #page-parental { grid-template-columns: minmax(0, 760px); justify-content: center; overflow: auto; }
 .settings { padding: 22px 26px; display: flex; flex-direction: column; gap: 22px; height: max-content; }
 .set-group { display: flex; flex-direction: column; gap: 4px; }
 .set-group h3 { margin: 0 0 6px; font-size: 15px; font-weight: 600; }
@@ -372,6 +372,17 @@ body.hide-rail .rail { z-index: 36; }
   .deck-top:has(.screen.free) { grid-template-columns: minmax(0, 1fr); }
   .deck-top:has(.screen.free) .knob-wrap { justify-self: center; }
 }
+/* 2.8.0: ebeveyn kontrolü */
+.pc-stat { display: flex; gap: 12px; flex-wrap: wrap; }
+.pc-stat > div { flex: 1; min-width: 140px; padding: 14px; border-radius: 12px; border: 1px solid var(--line); background: rgba(127,127,127,.06); }
+.pc-stat b { display: block; font-size: 24px; font-family: var(--font-hw); }
+.pc-week { display: flex; gap: 8px; align-items: flex-end; height: 110px; }
+.pc-week div { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; color: var(--muted); }
+.pc-week i { display: block; width: 100%; background: var(--accent); border-radius: 6px 6px 2px 2px; min-height: 2px; }
+.pc-code { font-family: var(--font-hw); font-size: 22px; letter-spacing: 2px; padding: 12px; border-radius: 10px; background: rgba(127,127,127,.1); text-align: center; user-select: all; }
+.pc-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+#parental-panel input.inp { padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: rgba(127,127,127,.08); color: inherit; font-size: 14px; color-scheme: dark light; }
+.pc-form input { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: rgba(127,127,127,.08); font-size: 15px; color: inherit; }
 </style>
 </head>
 <body>
@@ -389,6 +400,10 @@ body.hide-rail .rail { z-index: 36; }
     <button data-page="settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
       Ayarlar
+    </button>
+    <button data-page="parental" id="nav-parental" class="local-only" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6z"/><path d="M9.5 12l2 2 3.5-4"/></svg>
+      Ebeveyn
     </button>
     <button data-page="logs" id="nav-logs" hidden>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 4h11l3 3v13H5z"/><path d="M8 10h8M8 14h8M8 18h5"/></svg>
@@ -468,6 +483,10 @@ body.hide-rail .rail { z-index: 36; }
     <section class="page" id="page-logs" aria-label="Günlük">
       <div class="logbox panel"><div class="row" style="justify-content:space-between"><h2>Canlı günlük</h2><button class="btn ghost" id="log-clear">Temizle</button></div><pre id="log-live" data-no-i18n></pre></div>
       <div class="logbox panel"><div class="row" style="justify-content:space-between"><h2>Hata günlüğü</h2><div class="row"><button class="btn ghost" id="err-refresh">Yenile</button><button class="btn ghost" id="err-open">Dosyayı aç</button></div></div><pre id="log-errors" data-no-i18n></pre></div>
+    </section>
+
+    <section class="page" id="page-parental" aria-label="Ebeveyn kontrolü">
+      <div class="settings panel" id="parental-panel"></div>
     </section>
 
     <section class="page" id="page-settings" aria-label="Ayarlar">
@@ -614,7 +633,7 @@ async function loadLanguage(code) {
 /* ---------- yardımcılar ---------- */
 const $ = s => document.querySelector(s);
 // 2.6.1: Tarayıcının hazır soru kutuları ("127.0.0.1:xxxx diyor ki") yerine uygulamanın kendi penceresi
-function dialog({ title, text = "", input = null, ok = "Tamam", danger = false, choices = null, value = "", allowEmpty = false, maxlength = 0 }) {
+function dialog({ title, text = "", input = null, ok = "Tamam", danger = false, choices = null, value = "", allowEmpty = false, maxlength = 0, password = false }) {
   return new Promise(resolve => {
     const m = $("#modal"), inp = $("#modal-input"), okBtn = $("#modal-ok"), sel = $("#modal-select");
     sel.hidden = !choices;
@@ -623,11 +642,12 @@ function dialog({ title, text = "", input = null, ok = "Tamam", danger = false, 
     $("#modal-text").textContent = text; $("#modal-text").hidden = !text;
     inp.hidden = input === null; inp.value = input ?? "";
     if (maxlength) inp.maxLength = maxlength; else inp.removeAttribute("maxlength");
+    inp.type = password ? "password" : "text";   // 2.8.0: şifreler gizli yazılır
     okBtn.textContent = ok; okBtn.classList.toggle("danger-bg", danger);
     okBtn.style.background = danger ? "#E5484D" : ""; okBtn.style.borderColor = danger ? "#E5484D" : "";
     const done = v => { m.hidden = true; $("#modal-form").onsubmit = null; $("#modal-cancel").onclick = null; m.onclick = null; document.removeEventListener("keydown", onKey); resolve(v); };
     const onKey = e => { if (e.key === "Escape") done(input === null ? false : null); };
-    $("#modal-form").onsubmit = e => { e.preventDefault(); done(choices ? sel.value : input === null ? true : allowEmpty ? inp.value.trim() : inp.value.trim() || null); };
+    $("#modal-form").onsubmit = e => { e.preventDefault(); done(choices ? sel.value : input === null ? true : password ? (inp.value || null) : allowEmpty ? inp.value.trim() : inp.value.trim() || null); };
     $("#modal-cancel").onclick = () => done(input === null ? false : null);
     m.onclick = e => { if (e.target === m) done(input === null ? false : null); };
     document.addEventListener("keydown", onKey);
@@ -684,6 +704,7 @@ function renderAll() {
   applyTheme(S.theme);
   document.querySelectorAll(".local-only").forEach(e => e.hidden = REMOTE);
   $("#nav-logs").hidden = REMOTE || !(S.settings && S.settings.dev_mode);
+  $("#nav-parental").hidden = REMOTE || !(S.settings && S.settings.parental_ui);   // 2.8.0
   if ($("#nav-logs").hidden && $("#page-logs").classList.contains("active")) document.querySelector('.rail [data-page="device"]').click();
   document.querySelectorAll(".remote-only").forEach(e => e.hidden = !REMOTE);
   document.querySelectorAll(".control-only").forEach(e => e.hidden = !REMOTE || ui.mode !== "control");
@@ -1063,6 +1084,7 @@ function renderSettings() {
       ${S.profiles.map(p => `<div class="set-row"><div><span ${p === "Varsayılan" ? "" : "data-no-i18n"}>${esc(p)}</span>${p === S.active_profile ? ' <span class="small">· aktif</span>' : ""}</div><div class="row"><button class="btn ghost" data-pren="${esc(p)}">Adlandır</button><button class="btn ghost" data-pcopy="${esc(p)}">Kopyala</button>${S.profiles.length > 1 ? `<button class="btn ghost danger" data-pdel="${esc(p)}">Sil</button>` : ""}</div></div>`).join("")}
     </div>
     <div class="set-group"><h3>Genel</h3>
+      <div class="set-row"><div>Ebeveyn kontrolü<div class="desc">Kenar çubuğuna "Ebeveyn" bölümünü ekler: kişisel şifre, günlük süre ve saat sınırı, süre bitince kilit.</div></div>${sw("parental_ui", st.parental_ui)}</div>
       <div class="set-row"><div>NexStudio ${esc(S.version)}<div class="desc" id="upd-desc">${updateText()}</div></div>
         <div class="row" id="upd-actions">${updateButtons()}</div></div>
       <div class="set-row"><div>Güncellemeleri otomatik denetle<div class="desc">Günde bir kez GitHub'daki son sürüme bakar; yeni sürüm olunca haber verir.</div></div>${sw("update_check", ((S.settings || {}).update_check ?? upd.auto_check) !== false)}</div>
@@ -1204,6 +1226,82 @@ $("#log-clear").onclick = () => { $("#log-live").textContent = ""; };
 $("#err-refresh").onclick = () => pollLogs(true);
 $("#err-open").onclick = () => act("ui", { op: "open_logs" });
 
+/* ---------- ebeveyn kontrolü (2.8.0) ---------- */
+async function showRecovery(code) {
+  await dialog({ title: "Kurtarma kodu", text: L("Bu kodu bir yere yaz ve sakla. Şifreyi unutursan yalnızca bu kodla yeni şifre belirleyebilirsin. Kod bir daha gösterilmez.") + "\n\n" + code, ok: "Kaydettim" });
+}
+async function askNewPassword() {
+  const a = await dialog({ title: "Yeni şifre (en az 6 karakter)", input: "", password: true }); if (!a) return null;
+  const b = await dialog({ title: "Yeni şifre (tekrar)", input: "", password: true }); if (b === null) return null;
+  if (a !== b) { toast(L("Şifreler aynı değil"), true); return null; }
+  return a;
+}
+async function renderParental() {
+  clearTimeout(renderParental._t);   // açıkken 10 sn'de bir yenilenir (yazı alanı odaktayken değil)
+  renderParental._t = setTimeout(() => { if ($("#page-parental").classList.contains("active") && !$("#parental-panel").contains(document.activeElement)) renderParental(); }, 10000);
+  const box = $("#parental-panel");
+  let p;
+  try { p = await api("parental"); } catch (e) { box.textContent = e.message; return; }
+  const q = s => box.querySelector(s);
+  const head = `<div class="set-group"><h3>Ebeveyn kontrolü</h3><p class="muted" style="margin:0">Süre sınırı, kullanım saatleri ve süre bitince kilit. Ayarlar yalnızca ebeveyn şifresiyle değişir.${p.dry_run ? " · " + L("DENEME MODU: kilit hiçbir programı kapatmaz") : ""}</p></div>`;
+  if (!p.setup) {
+    box.innerHTML = head + `<div class="set-group"><h3>Şifre belirle</h3>
+      <p class="muted" style="margin:0">Bu şifre yalnızca senin (ebeveynin). Çocuğun bilmemeli. En az 6 karakter.</p>
+      <div class="pc-form"><input type="password" id="pc-pw1" placeholder="Şifre" autocomplete="new-password"><input type="password" id="pc-pw2" placeholder="Şifre (tekrar)" autocomplete="new-password"><button class="btn primary" id="pc-setup">Kur</button></div></div>
+      <div class="mode-card"><span class="big">⚠️</span><div class="grow"><h4>Tam koruma için</h4><p>Bu bilgisayarı çocukla aynı Windows hesabında kullanıyorsan ve hesap yönetici yetkiliyse, bilgili bir çocuk Windows'un izin penceresine "Evet" diyerek korumayı aşabilir. En sağlamı: çocuğa yönetici olmayan ayrı bir Windows hesabı ya da izin penceresinin şifre sorması.</p></div></div>`;
+    q("#pc-setup").onclick = async () => {
+      if (q("#pc-pw1").value !== q("#pc-pw2").value) return toast(L("Şifreler aynı değil"), true);
+      const r = await api("parental", { op: "setup", password: q("#pc-pw1").value }).catch(e => toast(e.message, true));
+      if (r) { await showRecovery(r.recovery); renderParental(); }
+    };
+    return;
+  }
+  const stat = `<div class="pc-stat">
+    <div><span class="muted">Bugün kullanılan</span><b>${p.used_min} ${L("dk")}</b></div>
+    <div><span class="muted">Kalan</span><b>${p.left_min == null ? "∞" : p.left_min + " " + L("dk")}</b></div>
+    <div><span class="muted">Kullanım saatleri</span><b>${esc(p.start)}–${esc(p.end)}</b></div>
+    <div><span class="muted">Durum</span><b>${!p.enabled ? L("Kapalı") : p.locked ? L("Kilitli") : L("Açık")}</b></div></div>`;
+  if (!p.admin_left) {
+    box.innerHTML = head + stat + `<div class="set-group"><h3>Yönetici oturumu</h3>
+      <p class="muted" style="margin:0">Ayarları değiştirmek için ebeveyn şifresini gir. Oturum 30 dakika açık kalır; Windows kilitlenince (Win+L) kapanır.</p>
+      <div class="pc-form"><input type="password" id="pc-pw" placeholder="Ebeveyn şifresi" autocomplete="current-password"><button class="btn primary" id="pc-login">Aç</button><button class="btn ghost" id="pc-forgot">Şifremi unuttum</button></div></div>`;
+    const login = async () => { const r = await api("parental", { op: "login", password: q("#pc-pw").value }).catch(e => toast(e.message, true)); if (r) renderParental(); };
+    q("#pc-login").onclick = login;
+    q("#pc-pw").onkeydown = e => { if (e.key === "Enter") login(); };
+    q("#pc-forgot").onclick = async () => {
+      const code = await ask("Kurtarma kodu"); if (!code) return;
+      const pw = await askNewPassword(); if (!pw) return;
+      const r = await api("parental", { op: "recover", code, password: pw }).catch(e => toast(e.message, true));
+      if (r) { await showRecovery(r.recovery); renderParental(); }
+    };
+    return;
+  }
+  const s = p.settings, max = Math.max(60, ...p.week.map(d => d.min));
+  box.innerHTML = head + stat + `
+    <div class="set-group"><h3>Ayarlar</h3>
+      <div class="set-row"><div>Ebeveyn kontrolü açık<div class="desc">Kapalıyken süre sayılmaz, kilit uygulanmaz.</div></div><button class="switch" role="switch" id="pc-enabled" aria-checked="${!!s.enabled}"></button></div>
+      <div class="set-row"><div>Günlük süre (dakika)<div class="desc">0 = sınırsız. Sadece bilgisayar başında biri varken sayılır.</div></div><input class="inp" type="number" id="pc-daily" min="0" max="1440" step="15" value="${s.daily_min}" style="width:110px"></div>
+      <div class="set-row"><div>Kullanım saatleri<div class="desc">Bu saatlerin dışında bilgisayar kilitlidir.</div></div><div class="row"><input class="inp" type="time" id="pc-start" value="${esc(s.start)}"><span>–</span><input class="inp" type="time" id="pc-end" value="${esc(s.end)}"></div></div>
+      <div class="set-row"><div>Uyarı (dakika kala)<div class="desc">Süre bitmeden önce işini kaydetmesi için bildirim.</div></div><input class="inp" type="number" id="pc-warn" min="1" max="30" value="${s.warn_min}" style="width:90px"></div>
+      <div class="row" style="justify-content:flex-end"><button class="btn primary" id="pc-save">Kaydet</button></div>
+    </div>
+    <div class="set-group"><h3>Son 7 gün</h3><div class="pc-week">${p.week.map(d => `<div title="${d.min} ${L("dk")}"><i style="height:${Math.round(d.min / max * 90)}px"></i>${esc(d.day.slice(5))}</div>`).join("")}</div></div>
+    <div class="set-group"><h3>Bugün ek süre</h3><div class="pc-form">${[15, 30, 60].map(m => `<button class="btn" data-extra="${m}">+${m} ${L("dk")}</button>`).join("")}</div></div>
+    <div class="set-group"><h3>Güvenlik</h3><div class="pc-form">
+      <button class="btn" id="pc-chpw">Şifreyi değiştir</button><button class="btn" id="pc-newcode">Yeni kurtarma kodu</button>
+      <button class="btn ghost" id="pc-logout">Oturumu kapat (${Math.ceil(p.admin_left / 60)} ${L("dk")})</button></div></div>`;
+  q("#pc-enabled").onclick = e => e.currentTarget.setAttribute("aria-checked", e.currentTarget.getAttribute("aria-checked") !== "true");
+  q("#pc-save").onclick = async () => {
+    const values = { enabled: q("#pc-enabled").getAttribute("aria-checked") === "true", daily_min: Number(q("#pc-daily").value), start: q("#pc-start").value, end: q("#pc-end").value, warn_min: Number(q("#pc-warn").value) };
+    const r = await api("parental", { op: "settings", values }).catch(e => toast(e.message, true));
+    if (r) { toast(L("Kaydedildi")); renderParental(); }
+  };
+  box.querySelectorAll("[data-extra]").forEach(b => b.onclick = async () => { const r = await api("parental", { op: "extra", minutes: Number(b.dataset.extra) }).catch(e => toast(e.message, true)); if (r) { toast(L("Ek süre verildi")); renderParental(); } });
+  q("#pc-chpw").onclick = async () => { const pw = await askNewPassword(); if (pw) { const r = await api("parental", { op: "password", password: pw }).catch(e => toast(e.message, true)); if (r) toast(L("Şifre değişti")); } };
+  q("#pc-newcode").onclick = async () => { if (!(await sure("Yeni kurtarma kodu üretilsin mi?", "Eski kod geçersiz olur.", "Üret"))) return; const r = await api("parental", { op: "new_recovery" }).catch(e => toast(e.message, true)); if (r) showRecovery(r.recovery); };
+  q("#pc-logout").onclick = async () => { await api("parental", { op: "logout" }).catch(() => {}); renderParental(); };
+}
+
 /* ---------- güncelleme (2.6.4) ---------- */
 let upd = {};
 function updateText() {
@@ -1322,6 +1420,7 @@ document.querySelectorAll(".rail [data-page]").forEach(b => b.onclick = () => {
   document.querySelectorAll(".page").forEach(p => p.classList.toggle("active", p.id === "page-" + b.dataset.page));
   if (b.dataset.page === "web") renderWeb();
   if (b.dataset.page === "logs") startLogs();
+  if (b.dataset.page === "parental") renderParental();
   window.scrollTo(0, 0);
 });
 document.querySelectorAll(".modeswitch button").forEach(b => b.onclick = () => {

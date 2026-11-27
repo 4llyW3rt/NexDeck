@@ -172,6 +172,12 @@ NEXSTUDIO_ZERO_WIDTH_WATERMARK = "​‌​‌‍​​‌‌‍‌​‌​‍�
 # =========================================================
 NEXSTUDIO_CHANGELOG = {
     "tr": [
+        ("2.8.0", "27.11.2026", [
+            "Ebeveyn kontrolü: Ayarlar > Genel'den açılan 'Ebeveyn' bölümü; kişisel şifre ve kurtarma kodu, günlük süre ve kullanım saatleri, 7 günlük kullanım grafiği.",
+            "Süre bitince tam ekran kilit: açık programlar kapanır, kilit boyunca hiçbir şey açılamaz; Win, Alt+Tab ve Görev Yöneticisi kısayolu çalışmaz. 5 dakika kala uyarı gelir.",
+            "Ebeveyn kilit ekranından şifreyle ek süre verir ya da 30 dakikalık yönetici oturumu açar; Windows kilitlenince oturum kapanır. Saat değiştirilirse bilgisayar kilitlenir.",
+            "Ebeveyn kontrolü açıkken NexStudio şifresiz kapatılamaz; kilitliyken NexDeck tuşları ve telefon görevleri çalışmaz.",
+        ]),
         ("2.7.3", "27.11.2026", [
             "Telefonda 'Düzenle' modunda ekstra tekerlek eklenip değiştirilebilir; telefonun Ayarlar'ında web modu tuş düzeni (serbest ızgara) seçilebilir.",
             "Güvenlik: telefondan atanan web adresleri sıkı denetlenir ve tarayıcı komut satırı olmadan açılır; telefon kendini 'hatırlanan cihaz' yapamaz; masaüstü arayüzü başka sitelerden gelen isteklere kapalı.",
@@ -297,6 +303,12 @@ NEXSTUDIO_CHANGELOG = {
         ]),
     ],
     "en": [
+        ("2.8.0", "2026-11-27", [
+            "Parental control: a 'Parental' section enabled in Settings > General; personal password and recovery code, daily time and allowed hours, 7-day usage chart.",
+            "When time is up a full-screen lock appears: open programs are closed and nothing can be opened while locked; Win, Alt+Tab and the Task Manager shortcut are blocked. Warning 5 minutes before.",
+            "On the lock screen the parent can grant extra time with the password or open a 30-minute parent session, which ends when Windows is locked. Changing the clock locks the computer.",
+            "While parental control is on, NexStudio can't be closed without the password; NexDeck keys and phone tasks don't run while locked.",
+        ]),
         ("2.7.3", "2026-11-27", [
             "In 'Edit' mode the phone can add and change extra wheels; the phone's Settings can switch the web-mode key layout (free grid).",
             "Security: web addresses assigned from the phone are strictly validated and the browser opens without a command shell; a phone can't make itself a 'remembered device'; the desktop UI rejects requests from other sites.",
@@ -416,7 +428,7 @@ import traceback
 import shutil
 from PyQt5.QtCore import QObject
 
-APP_VERSION = "2.7.3"
+APP_VERSION = "2.8.0"
 ERROR_LOG_FILE = os.path.join(LOGS_DIR, "error.log")
 CONFIG_BACKUP_FILE = CONFIG_FILE + ".bak"
 WEB_HISTORY_LIMIT = 100
