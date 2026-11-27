@@ -172,6 +172,11 @@ NEXSTUDIO_ZERO_WIDTH_WATERMARK = "​‌​‌‍​​‌‌‍‌​‌​‍�
 # =========================================================
 NEXSTUDIO_CHANGELOG = {
     "tr": [
+        ("2.8.1", "27.11.2026", [
+            "Ebeveyn kontrolü + Telegram: kilit ekranındaki 'Ebeveynden ek süre iste' düğmesi ebeveyne düğmeli mesaj gönderir (+15/+30/+60/Reddet); ev dışından tek dokunuşla onay.",
+            "Telegram komutları: /durum ve /ekle 30. Her akşam belirlenen saatte günlük kullanım raporu.",
+            "Kurulum Ebeveyn bölümünde: kendi botunu aç, anahtarı yapıştır, gösterilen kodu bota gönder. Bot yalnızca eşleşen sohbeti dinler.",
+        ]),
         ("2.8.0", "27.11.2026", [
             "Ebeveyn kontrolü: Ayarlar > Genel'den açılan 'Ebeveyn' bölümü; kişisel şifre ve kurtarma kodu, günlük süre ve kullanım saatleri, 7 günlük kullanım grafiği.",
             "Süre bitince tam ekran kilit: açık programlar kapanır, kilit boyunca hiçbir şey açılamaz; Win, Alt+Tab ve Görev Yöneticisi kısayolu çalışmaz. 5 dakika kala uyarı gelir.",
@@ -303,6 +308,11 @@ NEXSTUDIO_CHANGELOG = {
         ]),
     ],
     "en": [
+        ("2.8.1", "2026-11-27", [
+            "Parental control + Telegram: the 'Ask parent for extra time' button on the lock screen sends the parent a message with buttons (+15/+30/+60/Deny); approve from anywhere with one tap.",
+            "Telegram commands: /durum (status) and /ekle 30 (add minutes). A daily usage report every evening at the chosen time.",
+            "Setup in the Parental section: create your own bot, paste its token, send the shown code to the bot. The bot only listens to the paired chat.",
+        ]),
         ("2.8.0", "2026-11-27", [
             "Parental control: a 'Parental' section enabled in Settings > General; personal password and recovery code, daily time and allowed hours, 7-day usage chart.",
             "When time is up a full-screen lock appears: open programs are closed and nothing can be opened while locked; Win, Alt+Tab and the Task Manager shortcut are blocked. Warning 5 minutes before.",
@@ -428,7 +438,7 @@ import traceback
 import shutil
 from PyQt5.QtCore import QObject
 
-APP_VERSION = "2.8.0"
+APP_VERSION = "2.8.1"
 ERROR_LOG_FILE = os.path.join(LOGS_DIR, "error.log")
 CONFIG_BACKUP_FILE = CONFIG_FILE + ".bak"
 WEB_HISTORY_LIMIT = 100

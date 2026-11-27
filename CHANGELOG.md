@@ -5,6 +5,20 @@ Uygulama içindeki "Güncelleme Rehberi" kartı da aynı bilgiyi kısaca göster
 
 ---
 
+## 2.8.1 — 27.11.2026 (Ebeveyn kontrolü + Telegram)
+
+- `telegram.py`: ebeveynin kendi botu üzerinden köprü (sunucusuz). Eşleştirme: bellekte tutulan, 10 dk geçerli 6 haneli kod
+  (`/start KOD`); yalnızca eşleşen sohbetten gelen mesaj ve düğmeler işlenir.
+- Kilit ekranında "Ebeveynden ek süre iste": +15/+30/+60/Reddet düğmeli mesaj; cevap anında uygulanır. İstek 30 dk sonra düşer,
+  iki istek arası 2 dk; eski/tekrarlanan düğme cevapları yok sayılır. İstek arka planda gönderilir (kilit ekranı donmaz).
+- Komutlar `/durum`, `/ekle N` (1–600); her gün `report_time`'da günlük rapor (gönderilemezse tekrar denenir).
+- Ağ: yalnızca api.telegram.org; kullanıcı ortamındaki vekil sunucu/sertifika ayarları yok sayılır (`trust_env=False`, certifi),
+  hata mesajlarında bot anahtarı görünmez.
+- Test: `tests/telegram_test.py` (agy; yerel sahte Telegram sunucusu, 20 kontrol) yayın betiğinde.
+- Bilinen sınır: bot anahtarı `config.json`'da; korumalı klasöre taşınması koruma servisiyle (2.8.2).
+
+---
+
 ## 2.8.0 — 27.11.2026 (Ebeveyn kontrolü)
 
 ### Özellik

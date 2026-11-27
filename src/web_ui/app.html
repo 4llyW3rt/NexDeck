@@ -1230,6 +1230,31 @@ $("#err-open").onclick = () => act("ui", { op: "open_logs" });
 async function showRecovery(code) {
   await dialog({ title: "Kurtarma kodu", text: L("Bu kodu bir yere yaz ve sakla. Şifreyi unutursan yalnızca bu kodla yeni şifre belirleyebilirsin. Kod bir daha gösterilmez.") + "\n\n" + code, ok: "Kaydettim" });
 }
+// 2.8.1: Telegram ile ev dışından ek süre onayı ve günlük rapor
+function telegramBlock(t) {
+  t = t || {};
+  const head = `<div class="set-group"><h3>Telegram</h3><p class="muted" style="margin:0">${L("Ev dışındayken ek süre isteklerini Telegram'dan onayla, günlük raporu al. Mesajlar yalnızca senin botun ve senin sohbetin arasında.")}</p>`;
+  if (!t.has_token) return head + `
+    <ol class="muted" style="margin:6px 0;padding-left:20px;line-height:1.7">
+      <li>${L("Telegram'da @BotFather'ı aç ve /newbot yaz; bota bir ad ver.")}</li>
+      <li>${L("BotFather'ın verdiği anahtarı (ör. 123456:ABC…) aşağıya yapıştır.")}</li>
+      <li>${L("Gösterilen kodu kendi botuna gönder.")}</li></ol>
+    <div class="pc-form"><input type="password" id="tg-token" placeholder="${L("Bot anahtarı")}" autocomplete="off" style="flex:1;min-width:240px"><button class="btn primary" id="tg-save">${L("Bağla")}</button></div></div>`;
+  if (!t.paired) return head + `
+    <p style="margin:6px 0">${L("Telegram'da @{0} botuna şu mesajı gönder:").replace("{0}", esc(t.bot))}</p>
+    <div class="pc-code">/start ${esc(t.pair_code)}</div>
+    <div class="pc-form"><a class="btn" href="https://t.me/${encodeURIComponent(t.bot)}?start=${encodeURIComponent(t.pair_code)}" target="_blank" rel="noopener">${L("Telegram'da aç")}</a><button class="btn ghost" id="tg-off">${L("Vazgeç")}</button></div></div>`;
+  return head + `
+    <div class="set-row"><div>${L("Bağlı bot")}<div class="desc">@${esc(t.bot)} · ${L("Komutlar: /durum, /ekle 30")}</div></div><div class="row"><button class="btn" id="tg-test">${L("Deneme mesajı")}</button><button class="btn ghost danger" id="tg-off">${L("Bağlantıyı kaldır")}</button></div></div>
+    <div class="set-row"><div>${L("Günlük rapor saati")}</div><input class="inp" type="time" id="tg-report" value="${esc(t.report_time)}"></div></div>`;
+}
+function wireTelegram(box) {
+  const q = s => box.querySelector(s);
+  if (q("#tg-save")) q("#tg-save").onclick = async () => { const r = await api("parental", { op: "tg_token", token: q("#tg-token").value }).catch(e => toast(e.message, true)); if (r) renderParental(); };
+  if (q("#tg-off")) q("#tg-off").onclick = async () => { await api("parental", { op: "tg_disconnect" }).catch(e => toast(e.message, true)); renderParental(); };
+  if (q("#tg-test")) q("#tg-test").onclick = async () => { const r = await api("parental", { op: "tg_test" }).catch(e => toast(e.message, true)); if (r) toast(L("Deneme mesajı gönderildi")); };
+  if (q("#tg-report")) q("#tg-report").onchange = async e => { const r = await api("parental", { op: "tg_report_time", value: e.target.value }).catch(err => toast(err.message, true)); if (r) toast(L("Kaydedildi")); };
+}
 async function askNewPassword() {
   const a = await dialog({ title: "Yeni şifre (en az 6 karakter)", input: "", password: true }); if (!a) return null;
   const b = await dialog({ title: "Yeni şifre (tekrar)", input: "", password: true }); if (b === null) return null;
@@ -1287,6 +1312,7 @@ async function renderParental() {
     </div>
     <div class="set-group"><h3>Son 7 gün</h3><div class="pc-week">${p.week.map(d => `<div title="${d.min} ${L("dk")}"><i style="height:${Math.round(d.min / max * 90)}px"></i>${esc(d.day.slice(5))}</div>`).join("")}</div></div>
     <div class="set-group"><h3>Bugün ek süre</h3><div class="pc-form">${[15, 30, 60].map(m => `<button class="btn" data-extra="${m}">+${m} ${L("dk")}</button>`).join("")}</div></div>
+    ${telegramBlock(p.telegram)}
     <div class="set-group"><h3>Güvenlik</h3><div class="pc-form">
       <button class="btn" id="pc-chpw">Şifreyi değiştir</button><button class="btn" id="pc-newcode">Yeni kurtarma kodu</button>
       <button class="btn ghost" id="pc-logout">Oturumu kapat (${Math.ceil(p.admin_left / 60)} ${L("dk")})</button></div></div>`;
@@ -1300,6 +1326,7 @@ async function renderParental() {
   q("#pc-chpw").onclick = async () => { const pw = await askNewPassword(); if (pw) { const r = await api("parental", { op: "password", password: pw }).catch(e => toast(e.message, true)); if (r) toast(L("Şifre değişti")); } };
   q("#pc-newcode").onclick = async () => { if (!(await sure("Yeni kurtarma kodu üretilsin mi?", "Eski kod geçersiz olur.", "Üret"))) return; const r = await api("parental", { op: "new_recovery" }).catch(e => toast(e.message, true)); if (r) showRecovery(r.recovery); };
   q("#pc-logout").onclick = async () => { await api("parental", { op: "logout" }).catch(() => {}); renderParental(); };
+  wireTelegram(box);
 }
 
 /* ---------- güncelleme (2.6.4) ---------- */

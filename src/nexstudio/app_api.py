@@ -394,6 +394,8 @@ class AppApi:
         st = parental.status()
         st["settings"] = parental.public_settings() if parental.admin_left() else None
         st["week"] = parental.usage_week() if parental.admin_left() else None
+        from . import telegram
+        st["telegram"] = telegram.public() if parental.admin_left() else None   # 2.8.1
         return {"ok": True, **st}
 
     @classmethod
@@ -420,6 +422,22 @@ class AppApi:
             return {"ok": True}
         if op == "new_recovery":
             return {"ok": True, "recovery": parental.regenerate_recovery()}
+        # 2.8.1: Telegram
+        if op in ("tg_token", "tg_disconnect", "tg_test", "tg_report_time"):
+            from . import telegram
+            if op == "tg_token":
+                return {"ok": True, **telegram.set_token(body.get("token"))}
+            if op == "tg_disconnect":
+                telegram.disconnect()
+                return {"ok": True}
+            parental.require_admin()
+            if op == "tg_report_time":
+                telegram.set_report_time(body.get("value"))
+                return {"ok": True}
+            if not telegram.paired():
+                raise ValueError("Telegram bağlı değil")
+            telegram.send(telegram.ui_tr("👋 NexStudio deneme mesajı") + "\n" + telegram._status_text())
+            return {"ok": True}
         if op == "extra":
             parental.require_admin()
             parental.grant_extra(body.get("minutes"))

@@ -1,7 +1,7 @@
 ; NexStudio Inno Setup betiği (2.6.4+: kullanıcı klasörüne kurulur, yönetici izni istemez)
 ; Önce build.bat çalıştırın, sonra bu dosyayı Inno Setup Compiler ile derleyin.
 #define MyAppName "NexStudio"
-#define MyAppVersion "2.8.0"
+#define MyAppVersion "2.8.1"
 #define MyAppPublisher "Ali Mert Taşcı / NexHub"
 #define MyAppExeName "NexStudio.exe"
 
@@ -19,7 +19,7 @@ DefaultDirName={autopf}\{#MyAppName}
 UsePreviousAppDir=no
 DefaultGroupName={#MyAppName}
 OutputDir=..\output
-OutputBaseFilename=NexStudio_Setup_2_8_0
+OutputBaseFilename=NexStudio_Setup_2_8_1
 SetupIconFile=..\src\app_icon.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma2

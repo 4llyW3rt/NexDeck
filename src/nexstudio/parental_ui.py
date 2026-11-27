@@ -161,6 +161,9 @@ class LockWindow(QWidget):
             self.minutes.addItem(ui_tr("+{0} dk", m), m)
         self.btn_extra = QPushButton(ui_tr("Ek süre ver"))
         self.btn_admin = QPushButton(ui_tr("Yönetici oturumu")); self.btn_admin.setObjectName("ghost")
+        # 2.8.1: Telegram'dan ebeveyne ek süre isteği
+        self.btn_request = QPushButton(ui_tr("📩 Ebeveynden ek süre iste"))
+        self.btn_request.clicked.connect(self._request)
         row.addStretch(1)
         for w in (self.pw, self.minutes, self.btn_extra, self.btn_admin):
             row.addWidget(w)
@@ -168,6 +171,11 @@ class LockWindow(QWidget):
         box.addLayout(row)
         self.msg = QLabel(); self.msg.setAlignment(Qt.AlignCenter); self.msg.setStyleSheet("color:#E5484D;font-size:14px;")
         box.addWidget(self.msg)
+        box.addSpacing(18)
+        req_row = QHBoxLayout(); req_row.addStretch(1); req_row.addWidget(self.btn_request); req_row.addStretch(1)
+        box.addLayout(req_row)
+        self.req_info = QLabel(); self.req_info.setAlignment(Qt.AlignCenter); self.req_info.setStyleSheet("color:#9AA3B5;font-size:14px;")
+        box.addWidget(self.req_info)
         self.btn_extra.clicked.connect(lambda: self._unlock(extra=True))
         self.btn_admin.clicked.connect(lambda: self._unlock(extra=False))
         # Enter: ek süre görünüyorsa ek süre, değilse (saat dışı / saat oynandı) yönetici oturumu
@@ -198,6 +206,18 @@ class LockWindow(QWidget):
             ui_log("👪 Ebeveyn yönetici oturumu açtı (30 dk)")
         self.guard.tick()
 
+    def _request(self):
+        import threading
+        from . import telegram
+        self.btn_request.setEnabled(False)
+
+        def run():
+            try:
+                telegram.request_extra()
+            except Exception as e:
+                self.guard.req_error = (ui_tr(str(e)), time.monotonic() + 6)
+        threading.Thread(target=run, daemon=True).start()
+
     def update_texts(self, st):
         title, text = TEXTS.get(st["reason"], TEXTS["limit"])
         self.title.setText(ui_tr(title))
@@ -206,6 +226,16 @@ class LockWindow(QWidget):
         # saat dışında / saat oynanınca ek süre verilmez, sadece yönetici oturumu
         self.minutes.setVisible(st["reason"] == "limit")
         self.btn_extra.setVisible(st["reason"] == "limit")
+        from . import telegram
+        can_request = st["reason"] == "limit" and telegram.paired()
+        req = telegram.request_state()
+        self.btn_request.setVisible(can_request)
+        self.btn_request.setEnabled(req["state"] != "pending")
+        self.req_info.setVisible(can_request)
+        err, until = getattr(self.guard, "req_error", ("", 0))
+        self.req_info.setText(err if err and time.monotonic() < until else
+                              {"pending": ui_tr("İstek gönderildi, ebeveynin cevabı bekleniyor…"),
+                               "denied": ui_tr("Ebeveynin isteği reddetti.")}.get(req["state"], ""))
 
     def keyPressEvent(self, e):
         if parental.DRY_RUN and e.key() == Qt.Key_Escape:
@@ -229,6 +259,8 @@ class ParentalGuard:
         self.keys = KeyBlocker()
         self._last_flush = time.monotonic()
         self._clock_offset = time.time() - time.monotonic()
+        from . import telegram
+        telegram.start()   # 2.8.1: bot kurulu değilse boşta bekler
         self.timer = QTimer(app_window)
         self.timer.timeout.connect(self.tick)
         self.timer.start(1000)
@@ -296,6 +328,8 @@ class ParentalGuard:
 
     def hide_lock(self):
         self.locked = False
+        from . import telegram
+        telegram.clear_answered()
         self.keys.stop()
         self._close_windows()
         ui_log("👪 Kilit kalktı")
