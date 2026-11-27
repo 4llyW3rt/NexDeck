@@ -5,6 +5,38 @@ Uygulama içindeki "Güncelleme Rehberi" kartı da aynı bilgiyi kısaca göster
 
 ---
 
+## 2.5.0 — 27.11.2026 (Yeni arayüz)
+
+### Mimari
+- Yeni arayüz `src/web_ui/app.html` (tek dosya, HTML/CSS/JS). Masaüstünde `NexStudio.exe --ui <adres>` ile **ayrı bir pencere işleminde**
+  (pywebview + Windows WebView2) açılır. Çekirdek (seri port, görevler, tray) ayrı işlemde çalışmaya devam eder; arayüz çökse bile tuşlar çalışır.
+- Çekirdek `127.0.0.1` üzerinde rastgele portta yerel API açar (`AppApi`, `/api2/*`). Her açılışta yeni rastgele anahtar; anahtar
+  `runtime.json` dosyasına yazılır, çerez ile taşınır.
+- Telefonda aynı HTML **NexStudio Web** olarak açılır (`http://<ip>:<port>/<token>`). Yazma istekleri `X-Nex-Pin` başlığı veya tanınan cihaz
+  çerezi ister; ayarlar, cihaz bağlantısı, profil oluşturma/silme sadece bilgisayardan yapılabilir. Eski web arayüzü: adresin sonuna `?classic=1`.
+- WebView2 yoksa ya da pencere açılamazsa otomatik olarak klasik (PyQt) görünüm açılır.
+- İkinci kez açılınca çalışan kopyaya "göster" sinyali gönderilir (uyarı kutusu yerine pencere öne gelir).
+
+### Yeni özellikler
+- Cihaz ortada; görevler sürükle-bırak ya da tıklayarak atanır. Kısa/uzun basış sekmeleri, "Dene", "Görevi kaldır".
+- Tuş başına emoji ya da kendi resmi (160 px'e küçültülüp `%APPDATA%\NexStudio\icons` içine kaydedilir).
+- Açık/koyu tema, vurgu rengi (hazır + özel), arka plan rengi veya fotoğrafı (2560 px'e küçültülür), panel şeffaflığı.
+- Kısayol alanı tuşlara basarak doldurulur (klavye düzeninden bağımsız). Uygulama seçimi için Windows dosya penceresi.
+- Telefon sayfası: gerçek QR kod (tıklayınca netleşir), PIN, adres kopyalama, kodu yenileme, tanınan cihazları adlandırma/unutma.
+- NexStudio Web'de "Kontrol" modu (tuşa dokun, görev bilgisayarda çalışsın, ses −/+) ve "Düzenle" modu.
+- Ekran sayfası adları sekmeye çift tıklayarak değişir; sayfa 3–4 butonlarına ekranda yazacak metin girilebilir.
+- Klasik görünüm: Ayarlar > Gelişmiş > "Klasik görünüme geç"; geri dönüş klasik Ayarlar'daki "Yeni görünüme geç" ile.
+- Güncelleme Rehberi tüm sürümleri (1.0'dan bugüne) kaydırılabilir şekilde gösterir.
+- Tekerlek yeniden döner: sürükleme (her 14° bir adım, eski web arayüzüyle aynı), fare tekerleği, ok tuşları. Adımlar 70 ms'de bir toplu gönderilir.
+- Canlı gösterim (`/api2/live`): cihazdaki tuş basışı ekranda yanıp söner, fiziksel tekerlek ekrandaki tekerleği döndürür, ekran butonuna basılınca uygulama o sayfaya geçer.
+
+### Doğrulama
+- Yerel API: durum okuma, görev atama, hatalı görev reddi, profil oluşturma/silme, tema, web başlatma (gerçek QR), ses uygulamaları, yetkisiz istek 403.
+- Telefon: PIN ile giriş, profil değiştirme izinli; ayar ve profil oluşturma yasak; yanlış PIN 401.
+- Paketlenmiş exe yeni pencereyi açtı; kurulumdan sonra cihaz COM12'de firmware 2.0 + HID ile bağlandı.
+
+---
+
 ## 2.0.0 — 25.11.2026 (Kararlılık sürümü)
 
 Temel: `NexStudio--NEXT/nexstudio_ui_1_5_final.py` (1.5 Final, 18.06.2026).

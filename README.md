@@ -1,204 +1,104 @@
-# 🚀 NexDeck - Hibrit Kontrol Paneli
+# NexDeck & NexStudio
 
-## ŞU ANDA PROTOTİP HALİNDEDİR...
+**NexDeck**, Arduino Pro Micro tabanlı, dokunmatik ekranlı (Nextion 3.5"), 5 mekanik tuşlu, tekerlekli ve buzzer'lı açık kaynak bir makro kontrol panelidir — Stream Deck benzeri, yerli ve uygun maliyetli bir alternatif.
+**NexStudio** ise NexDeck'i yöneten Windows uygulamasıdır: tuşlara görev atarsın, profiller arasında geçersin, telefondan kontrol edersin.
 
-![NexDeck Yeni Görünüm](assets/front.jpg)
+![NexDeck](assets/main.jpg)
 
-NexDeck, içerik üreticileri ve profesyoneller için geliştirilmiş, yüksek maliyetli kontrol panellerine (Stream Deck vb.) yerli ve ekonomik bir alternatiftir.
+## Öne çıkanlar (2.5)
 
-> Not: Projenin eski prototip görünümü `main.jpg` dosyasında korunmuştur.  
-> Güncel cihaz görünümü ise `front.jpg` dosyasında yer almaktadır.
+- **Stream Deck tarzı arayüz:** cihaz ekranda birebir çizili; görevleri tuşlara sürükleyip bırak.
+- **Gerçek USB klavye modu:** NexDeck tuşları donanım klavyesi gibi basabilir; hile korumalı oyunlarda ve OBS'de güvenilir çalışır.
+- **NexStudio Web:** aynı arayüz telefonda (aynı Wi-Fi, PIN korumalı). *Kontrol* modunda tuşa dokun, görev bilgisayarda çalışsın.
+- **Profiller:** her profil kendi tuş atamalarını tutar; cihazdaki bir tuşla profil değiştir.
+- **Kişiselleştirme:** tuşlara emoji ya da resim, açık/koyu tema, vurgu rengi, arka plan fotoğrafı, şeffaf paneller.
+- **Canlı gösterim:** cihazdaki tuşa basınca ekranda yanıp söner, tekerleği çevirince ekrandaki tekerlek döner.
+- **Eklentiler:** OBS, Spotify, Discord, Zoom, VS Code, Photoshop… ve kendi eklentini birkaç satırla yazabilirsin.
+- **Kararlılık:** kopunca otomatik yeniden bağlanma, bozulmaya dayanıklı ayar dosyası, hata günlüğü.
 
----
+## Sürüm geçmişi
 
-## 🆕 Güncelleme Notu - Yeni Arayüz ve Yazılım Geliştirmeleri
+| Sürüm | Tarih | Özet |
+|---|---|---|
+| [2.5](../../releases/tag/nexstudio-v2.5.0) | 27.11.2026 | Yeni arayüz, NexStudio Web, döndürülebilir tekerlek, canlı gösterim |
+| [2.0](../../releases/tag/nexstudio-v2.0.0) | 25.11.2026 | Kararlılık sürümü, firmware 2.0 (USB HID), otomatik yeniden bağlanma |
+| [1.5](../../releases/tag/nexstudio-v1.5.0) | 18.06.2026 | Web Kontrolü güvenliği, tanınan cihazlar, sistem günlüğü |
+| 1.x | 2026 | İlk NexDeck masaüstü uygulaması |
 
-NexDeck projesi ilk prototip aşamasından sonra yalnızca donanım odaklı bir yapı olmaktan çıkarılarak daha gelişmiş bir masaüstü kontrol uygulamasına dönüştürülmüştür.  
-Bu süreçte hem masaüstü yazılımı hem de mobil/web kontrol tarafı ciddi şekilde geliştirilmiştir.
+Tüm ayrıntılar ve her değişikliğin nedeni: [CHANGELOG.md](CHANGELOG.md)
 
-### Yeni Eklenen ve Geliştirilen Özellikler
+## Depo yapısı
 
-- Modern masaüstü kontrol uygulaması geliştirildi.
-- Türkçe / İngilizce dil desteği düzenlendi.
-- Fiziksel tuşlara görev atama sistemi geliştirildi.
-- Dokunmatik ekran önizleme ve atama sistemi geliştirildi.
-- Tekerlek / encoder kontrolü geliştirildi.
-- Windows sistem sesi kontrolü geliştirildi.
-- Uygulama bazlı ses karıştırıcısı entegrasyonu eklendi.
-- Mobil Web Kontrolü özelliği eklendi.
-- QR / PIN tabanlı bağlantı sistemi eklendi.
-- Telefon üzerinden tuş atama ve temel kontrol desteği geliştirildi.
-- Web arayüzü daha modern ve mobil uyumlu hale getirildi.
-- Cihaz bağlı olmasa bile Web Kontrolü üzerinden atama ve test yapılabilecek yapı hazırlandı.
-- Inno Setup ile kurulum paketi desteği eklendi.
-- Lisans metni kurulum sürecine dahil edildi.
-- Proje sahipliği ve marka bilgileri **Ali Mert Taşcı / NexHub** olarak düzenlendi.
+```
+src/
+├── nexstudio_ui.py        Uygulama çekirdeği (PyQt5): seri port, görevler, web sunucusu, klasik görünüm
+├── web_ui/app.html        Yeni arayüz (masaüstü penceresi + NexStudio Web)
+├── plugins/               Hazır eklentiler (ilk açılışta %APPDATA%\NexStudio\plugins'e kopyalanır)
+├── locales/               tr / en dil dosyaları
+└── nircmd.exe, ikonlar
+hardware/
+├── NewArduino/            Pro Micro firmware (2.0) ve eski firmware yedeği
+├── Nextion/               Ekran tasarımı (dsplay.HMI) ve derlenmiş dosya (dsplay.tft)
+└── STDECK/                İlk prototip firmware (sadece HID)
+installer/                 Inno Setup betiği
+tests/                     Otomatik testler
+docs/ui_prototype/         Yeni arayüzün ilk tıklanabilir taslağı
+NexStudio.spec, build.bat  Exe derleme
+```
 
----
+## Kurulum (kullanıcılar)
 
-## 🖼️ Görseller
+[Releases](../../releases) sayfasından `NexStudio_Setup_x.y.z.exe` dosyasını indirip kurun. Windows 10/11 gerekir; yeni arayüz Windows'un WebView2 bileşenini kullanır (Windows 11'de hazır gelir, yoksa uygulama klasik görünümle açılır).
 
-### Yeni Cihaz Görünümü
-![NexDeck Yeni Görünüm](assets/front.jpg)
-
-### Eski Prototip Görünümü
-![NexDeck Eski Görünüm](assets/main.jpg)
-
----
-
-## ✨ Öne Çıkan Özellikler
-
-- **Hibrit Kontrol:** Nextion dokunmatik ekran + Fiziksel butonlar + Potansiyometre / Encoder (Ses ayarı)
-- **Maliyet Avantajı:** Piyasadaki muadillerinden %80 daha uygun maliyet
-- **Tam Özelleştirme:** AutoHotkey ve masaüstü yazılım desteği ile gelişmiş atama sistemi
-- **Mekatronik Tasarım:** 3D yazıcı ile üretilen modüler gövde
-- **Web Kontrolü:** Telefon üzerinden bağlantı ve kontrol imkanı
-- **Geliştirilebilir Altyapı:** Açık yapısı sayesinde yeni özellik eklemeye uygun mimari
-
----
-
-## 🛠️ Donanım Bileşenleri
-
-- Arduino Micro (ATmega32U4)
-- Nextion HMI Dokunmatik Ekran
-- Encoder & Mekanik Butonlar
-
----
-
-## 💻 Kurulum
-
-### Donanım / İlk Prototip Kurulumu
-
-1. `STDECK` klasöründeki kodu Arduino'ya yükleyin.
-2. `Nextion` klasöründeki arayüzü ekrana flaşlayın (`dsplay.HMI`).
-3. `Nextion` klasöründeki AHK scriptini çalıştırın.
-
-### Masaüstü Yazılımı
-
-Güncel NexDeck masaüstü uygulaması kaynak koddan veya hazır kurulum dosyasıyla kullanılabilir.
-
-#### Kaynak Koddan Çalıştırma
+## Geliştirme
 
 ```powershell
-py -m venv .venv
-.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-py src\nexstudio_ui.py
+python src\nexstudio_ui.py
 ```
 
-#### Kurulum Dosyası ile Kullanım
+Gerçek ayarlarına dokunmadan denemek için ayrı veri klasörü:
 
-Son kullanıcılar için önerilen yöntem, GitHub **Releases** bölümünden kurulum dosyasını indirip yüklemektir.
-
----
-
-## 🌐 Web Kontrolü
-
-NexDeck Web Kontrolü sayesinde kullanıcılar aynı ağ üzerindeki telefonlarından uygulamaya bağlanabilir.
-
-### Web Kontrolü ile Yapılabilenler
-
-- Tuş atama
-- Dokunmatik ekran önizleme
-- Tekerlek / encoder kontrolü
-- Bazı ses kontrol işlemleri
-- Mobil uyumlu uzaktan kullanım
-
-> Web Kontrolü şu anda cihaz bağlı olmadan da kullanılabilir.  
-> Bu sayede kullanıcılar yalnızca telefon üzerinden atama yapabilir ve kontrolleri test edebilir.
-
----
-
-## 📝 Proje Hakkında (Project Description)
-
-**NexDeck**, dijital içerik üreticileri, yayıncılar ve profesyonellerin iş akışını optimize etmek amacıyla geliştirilmiş yerli ve ekonomik bir kontrol arayüzüdür. Piyasada bulunan yüksek maliyetli ve kapalı devre sistemlerin aksine NexDeck; hem dokunmatik ekranın esnekliğini hem de fiziksel potansiyometre ve butonların dokunsal hassasiyetini tek bir mekatronik gövdede birleştirir.
-
-İlk sürümler donanım prototipi üzerine yoğunlaşırken, yeni geliştirmelerle birlikte NexDeck artık masaüstü uygulaması, mobil web paneli, ses karıştırıcısı entegrasyonu ve kullanıcı dostu kurulum sistemi ile daha kapsamlı bir çözüme dönüşmüştür.
-
----
-
-## 🎯 Neden NexDeck?
-
-- **Maliyet Etkinliği:** Mevcut profesyonel çözümlere kıyasla %80 daha düşük maliyetle üretilebilir.
-- **Hibrit Kontrol:** Nextion HMI ekran üzerinden dijital sayfa kontrolü ve fiziksel encoder ile hassas ses yönetimi.
-- **Açık Kaynak & Özgürlük:** Geliştirilmeye açık ve topluluk odaklı yapı.
-- **Modüler Yapı:** 3D yazıcı ile üretilebilen, geliştirilmeye açık ve kişiselleştirilebilir donanım tasarımı.
-- **Yazılım Genişletilebilirliği:** Masaüstü uygulaması ve web kontrol paneli ile daha güçlü kullanım senaryoları.
-
----
-
-## 🛠️ Teknik Detaylar
-
-NexDeck; **Arduino Micro** (ATmega32U4) mimarisi üzerine kurulu olup, bilgisayar ile sürücüsüz (Plug & Play) haberleşen bir **HID (Human Interface Device)** aygıtıdır. Seri haberleşme protokolleri ve düşük gecikmeli yazılım yapısıyla profesyonel düzeyde tepki süresi sunar.
-
-Yeni yazılım tarafında ise:
-
-- PyQt tabanlı masaüstü arayüz
-- QR / PIN destekli mobil web erişimi
-- Windows ses kontrolü ve ses karıştırıcısı entegrasyonu
-- Inno Setup ile kurulum paketi oluşturma desteği
-
-bulunmaktadır.
-
----
-
-## 📝 Sürüm Notları
-
-### v1.1 - Donanım Entegrasyonu ve Akıllı Kısayol Güncellemesi (Arduino Kod Düzenlenmesi)
-
-- **Fiziksel Butonlar Aktif Edildi:** 5 adet push buton donanıma tanıtıldı. Spotify/Medya kontrolleri (Önceki, Oynat/Durdur, Sonraki), sistem geneli mikrofon susturma (F13) ve tek tuşla anında masaüstüne dönme (Panik/Gizlilik - Win+D) işlevleri eklendi.
-- **Rotary Encoder Entegrasyonu:** Windows sistem sesini hassas şekilde açma/kısma ve tekerleğe basarak anında sessize alma (Mute) özelliği koda gömüldü.
-- **İşitsel Geri Bildirim:** Sistemin açılışına ve buton basımlarına pasif buzzer ile dinamik onay sesleri eklendi.
-- **Çekirdek Optimizasyonu:** Nextion dokunmatik ekranın mevcut özellikleri (OBS sahne geçişleri, yayın ve kayıt kronometreleri) yeni fiziksel donanımlarla tam senkronize ve çakışmasız çalışacak şekilde aynı loop içinde birleştirildi.
-
-### v2.0 - NexStudio Masaüstü Uygulaması ve Web Kontrolü Güncellemesi
-
-- Modern masaüstü kullanıcı arayüzü geliştirildi.
-- Türkçe / İngilizce arayüz desteği eklendi.
-- Fiziksel tuşlar ve dokunmatik ekran için gelişmiş görev atama sistemi eklendi.
-- Encoder / tekerlek kontrol altyapısı geliştirildi.
-- Windows sistem sesi ve uygulama bazlı ses karıştırıcısı desteği eklendi.
-- Telefon üzerinden erişilebilen Web Kontrolü geliştirildi.
-- QR / PIN ile hızlı bağlantı sistemi eklendi.
-- Cihaz olmadan temel web kontrol ve atama desteği sağlandı.
-- Inno Setup tabanlı kurulum paketi hazırlandı.
-- Lisans ve proje sahipliği bilgileri güncellendi.
-
----
-
-## 📂 Proje Yapısı
-
-```text
-NexDeck/
-│
-├─ README.md
-├─ LICENSE.txt
-├─ requirements.txt
-├─ .gitignore
-│
-├─ src/
-│  └─ nexstudio_ui.py
-│
-├─ installer/
-│  └─ NexDeck_Setup.iss
-│
-├─ assets/
-│  ├─ app_icon.ico
-│  ├─ front.jpg
-│  └─ main.jpg
-│
-├─ tools/
-│  └─ nircmd.exe
-│
-└─ hardware/
-   ├─ STDECK/
-   └─ Nextion/
+```powershell
+$env:NEXSTUDIO_DATA_DIR = "$env:TEMP\nexstudio-test"; python src\nexstudio_ui.py
 ```
 
----
+Exe ve kurulum: `build.bat` → `dist\NexStudio\NexStudio.exe`, sonra `installer\NexStudio_Setup.iss` dosyasını Inno Setup ile derleyin.
 
-## 📜 Lisans
+Testler: [tests/README.md](tests/README.md)
 
-Bu proje **NEXSTUDIO ÖZGÜR YAZILIM LİSANSI (NPL-v2)** ile lisanslanmıştır.
+## Firmware
 
-**Telif Hakkı (c) 2026 - Ali Mert Taşcı / NexHub**
+1. Arduino IDE'de **Encoder** (Paul Stoffregen) ve **HID-Project** (NicoHood) kütüphanelerini kurun.
+2. Kart: *Arduino Leonardo* (Pro Micro 5V/16 MHz).
+3. `hardware/NewArduino/NexDeckArduino.ino` dosyasını yükleyin.
+
+NexStudio bağlanınca Sistem Günlüğü'nde `NexDeck tanındı · firmware 2.0 · özellikler: HID, PING` görünür. Seri protokol firmware dosyasının başında açıklanmıştır.
+
+## Eklenti yazma
+
+`%APPDATA%\NexStudio\plugins\` içine bir `.py` dosyası koyun:
+
+```python
+PLUGIN_NAME = "Örnek"
+ACTIONS = {
+    "Kaydet": {"type": "plugin", "plugin_name": PLUGIN_NAME, "function": "save"},
+}
+
+def execute(func):
+    if func == "save":
+        nex.send_hotkey("ctrl+s")   # güvenilir tuş gönderimi (SendInput / USB HID)
+        nex.log("Kaydedildi")       # Sistem Günlüğü'ne yazar
+```
+
+`nex` nesnesini NexStudio ekler; ayarlar için `nex.get_setting("anahtar", varsayılan)`. Her eklenti kendi thread'inde çalışır.
+
+## Katkı
+
+Hata bildirimi ve öneriler için Issues açabilir, Pull Request gönderebilirsiniz. Büyük değişikliklerden önce bir Issue ile konuşalım.
+
+## Lisans
+
+NEXSTUDIO ÖZGÜR YAZILIM LİSANSI (NPL-v2) — ücretsiz kalmak ve asıl yapımcıya atıf yapmak şartıyla değiştirilebilir ve paylaşılabilir. Ayrıntılar: [LICENSE.txt](LICENSE.txt)
+
+Telif Hakkı (c) 2026 — Ali Mert Taşcı / NexHub

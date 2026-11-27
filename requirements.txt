@@ -5,3 +5,4 @@ comtypes>=1.4
 qrcode[pil]>=7.4
 keyboard>=0.13.5
 obsws-python>=1.7
+pywebview>=5.0

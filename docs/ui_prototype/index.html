@@ -1,0 +1,694 @@
+<!doctype html>
+<html lang="tr" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NexStudio 3 — arayüz taslağı</title>
+<style>
+/* =========================================================
+   NexStudio yeni arayüz TASLAĞI (tıklanabilir prototip)
+   Sadece görünüm ve akışı göstermek içindir; cihaza bağlanmaz.
+   ========================================================= */
+:root {
+  --accent: #F2601C;           /* NexDeck turuncusu, ayarlardan değişir */
+  --accent-ink: #ffffff;
+  --glass: 0.86;               /* panel opaklığı (arka plan fotoğrafı için) */
+  --font-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-hw: "Bahnschrift", "DIN Alternate", "Segoe UI", sans-serif;
+  --r-panel: 18px;
+  --r-key: 12px;
+}
+[data-theme="dark"] {
+  --bg: #171A21;
+  --panel-rgb: 38, 43, 54;
+  --line: #363C4B;
+  --text: #ECEEF3;
+  --muted: #9097A8;
+  --body: #1E222B;             /* cihaz kasası */
+  --body-edge: #2E3442;
+  --cap: #2B303C;              /* tuş başlığı */
+  --cap-top: #353B49;
+  --screen: #0C0F14;
+}
+[data-theme="light"] {
+  --bg: #E6E8EC;
+  --panel-rgb: 250, 251, 252;
+  --line: #CDD2DB;
+  --text: #1C2130;
+  --muted: #5D6577;
+  --body: #2A2F3A;
+  --body-edge: #3A4150;
+  --cap: #F3F4F6;
+  --cap-top: #FFFFFF;
+  --screen: #0C0F14;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+  background-size: cover;
+  background-position: center;
+}
+body.has-photo { background-image: var(--bg-photo); }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.app { display: grid; grid-template-columns: 76px 1fr; height: 100vh; }
+.panel {
+  background: rgba(var(--panel-rgb), var(--glass));
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  backdrop-filter: blur(18px) saturate(1.2);
+}
+
+/* ---------- Sol ince menü ---------- */
+.rail {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 16px 0; margin: 12px 0 12px 12px;
+}
+.logo {
+  width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center;
+  background: var(--accent); color: var(--accent-ink);
+  font-family: var(--font-hw); font-weight: 700; font-size: 22px; margin-bottom: 14px;
+}
+.rail button {
+  width: 56px; padding: 9px 0 7px; border: 0; border-radius: 12px; background: transparent;
+  color: var(--muted); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  font-size: 11px;
+}
+.rail button svg { width: 22px; height: 22px; }
+.rail button[aria-current="page"] { color: var(--text); background: rgba(127,127,127,.14); }
+.rail button[aria-current="page"] svg { color: var(--accent); }
+.rail .spacer { flex: 1; }
+
+/* ---------- Üst bar ---------- */
+.main { display: grid; grid-template-rows: auto minmax(0, 1fr); min-width: 0; min-height: 0; height: 100vh; padding: 12px; gap: 12px; }
+.rail { height: calc(100vh - 24px); }
+#page-device > * { min-height: 0; }
+.topbar { display: flex; align-items: center; gap: 12px; padding: 10px 14px; }
+.profiles { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.profiles .label { color: var(--muted); margin-right: 4px; }
+.chip {
+  border: 1px solid var(--line); background: transparent; border-radius: 999px;
+  padding: 6px 14px; cursor: pointer;
+}
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.chip.add { color: var(--muted); }
+.topbar .grow { flex: 1; }
+.status { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: #2FBF71; box-shadow: 0 0 0 4px rgba(47,191,113,.18); }
+.status strong { color: var(--text); font-weight: 600; }
+
+/* ---------- Sayfalar ---------- */
+.page { display: none; min-height: 0; height: 100%; }
+.page.active { display: grid; }
+#page-device { grid-template-columns: 270px 1fr 320px; gap: 12px; }
+
+/* Görev kütüphanesi */
+.library { display: flex; flex-direction: column; min-height: 0; padding: 14px; gap: 10px; }
+.library h2, .inspector h2, .settings h2 { font-family: var(--font-hw); font-weight: 600; font-size: 18px; margin: 0; }
+.search { width: 100%; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line); background: rgba(127,127,127,.08); }
+.lib-scroll { overflow: auto; min-height: 0; margin: 0 -6px; padding: 0 6px; }
+.cat { margin: 10px 0 6px; color: var(--muted); font-size: 12px; font-weight: 600; }
+.action {
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px;
+  cursor: grab; user-select: none; border: 1px solid transparent;
+}
+.action:hover { background: rgba(127,127,127,.1); border-color: var(--line); }
+.action:active { cursor: grabbing; }
+.action .ic { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: rgba(127,127,127,.14); font-size: 16px; flex: none; }
+.lib-hint { color: var(--muted); font-size: 12px; line-height: 1.45; }
+
+/* Cihaz */
+.stage { display: grid; place-items: center; min-height: 0; overflow: auto; padding: 8px; position: relative; }
+.stage-hint { position: absolute; top: 10px; left: 0; right: 0; text-align: center; color: var(--muted); font-size: 13px; }
+.deck {
+  width: min(640px, 100%); padding: 26px 28px 30px; border-radius: 28px;
+  background: linear-gradient(180deg, var(--body-edge), var(--body) 18%);
+  box-shadow: 0 30px 60px -20px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.08);
+  color: #ECEEF3;
+}
+.deck-top { display: grid; grid-template-columns: 1fr minmax(96px, 150px); gap: clamp(12px, 3vw, 26px); align-items: center; }
+.knob { width: min(128px, 100%); height: auto; aspect-ratio: 1; }
+.brand { font-family: var(--font-hw); font-weight: 700; letter-spacing: .04em; font-size: 15px; margin: 0 0 10px 2px; }
+.brand span { color: var(--accent); }
+
+.screen {
+  background: var(--screen); border-radius: 10px; padding: 10px; aspect-ratio: 3 / 2;
+  box-shadow: inset 0 0 0 3px #000, inset 0 0 22px rgba(0,0,0,.8);
+  display: grid; grid-template-rows: auto 1fr; gap: 8px;
+}
+.screen-tabs { display: flex; gap: 4px; }
+.screen-tabs button {
+  flex: 1; border: 0; border-radius: 6px; padding: 4px 0; background: #1A1F29; color: #8B93A5;
+  font-family: var(--font-hw); font-size: 12px; cursor: pointer;
+}
+.screen-tabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); }
+.slots { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(2, 1fr); gap: 7px; }
+.slot {
+  border-radius: 8px; border: 1px solid #262D3A; background: #141922; color: #DDE2EC;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  font-family: var(--font-hw); font-size: 11.5px; text-align: center; padding: 4px; cursor: pointer; position: relative;
+  overflow: hidden;
+}
+.slot .em { font-size: 20px; line-height: 1; }
+.slot.nav { background: transparent; border-style: dashed; color: #5C6577; cursor: default; font-size: 18px; }
+.slot.empty { color: #5C6577; }
+.slot.empty .em { opacity: .5; }
+
+.knob-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.knob {
+  width: min(128px, 100%); aspect-ratio: 1; border-radius: 50%; border: 0; cursor: pointer; position: relative;
+  background:
+    radial-gradient(circle at 50% 50%, #3A4150 0 44%, transparent 45%),
+    repeating-conic-gradient(#2A303C 0 4deg, #454C5C 4deg 8deg);
+  box-shadow: 0 12px 24px rgba(0,0,0,.5), inset 0 2px 2px rgba(255,255,255,.12);
+}
+.knob::after { content: ""; position: absolute; top: 22px; left: 50%; width: 4px; height: 18px; margin-left: -2px; border-radius: 2px; background: var(--accent); }
+.knob-label { font-family: var(--font-hw); font-size: 12px; color: #B7BECC; text-align: center; line-height: 1.35; }
+
+.keys { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-top: 26px; }
+.key {
+  aspect-ratio: 1; border-radius: var(--r-key); border: 0; cursor: pointer; position: relative;
+  background: linear-gradient(180deg, var(--cap-top), var(--cap));
+  box-shadow: 0 6px 0 #10131A, 0 10px 18px rgba(0,0,0,.45);
+  color: var(--text); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+  font-family: var(--font-hw); font-size: 12.5px; padding: 6px; text-align: center;
+  transition: transform .08s;
+}
+[data-theme="light"] .key { color: #1C2130; }
+.key .em { font-size: 24px; line-height: 1; }
+.key .num { position: absolute; top: 6px; left: 8px; font-size: 11px; color: var(--muted); }
+.key .long { position: absolute; bottom: 6px; right: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+.key:active { transform: translateY(3px); }
+
+/* seçim ve sürükle-bırak durumları */
+.selected { outline: 3px solid var(--accent); outline-offset: 3px; }
+body.dragging .dropzone { outline: 2px dashed rgba(242,96,28,.55); outline-color: color-mix(in srgb, var(--accent) 60%, transparent); outline-offset: 2px; }
+.dropzone.over { outline: 3px solid var(--accent) !important; transform: scale(1.04); }
+.dropzone.over::before {
+  content: "Buraya bırak"; position: absolute; inset: 0; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--accent) 85%, black); color: #fff; font-size: 12px; border-radius: inherit; z-index: 2;
+}
+
+/* Sağ panel: seçili tuş */
+.inspector { padding: 16px; display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow: auto; }
+.insp-empty { color: var(--muted); line-height: 1.5; }
+.insp-head { display: flex; gap: 12px; align-items: center; }
+.insp-icon {
+  width: 56px; height: 56px; border-radius: 12px; border: 1px dashed var(--line); display: grid; place-items: center;
+  font-size: 28px; cursor: pointer; background: rgba(127,127,127,.08); flex: none; background-size: cover;
+}
+.insp-title { font-family: var(--font-hw); font-size: 17px; font-weight: 600; }
+.insp-sub { color: var(--muted); font-size: 12.5px; }
+.tabs { display: flex; background: rgba(127,127,127,.12); border-radius: 10px; padding: 3px; }
+.tabs button { flex: 1; border: 0; background: transparent; padding: 7px; border-radius: 8px; cursor: pointer; color: var(--muted); }
+.tabs button[aria-selected="true"] { background: rgba(var(--panel-rgb), 1); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 12.5px; color: var(--muted); }
+.field input, .field select { padding: 9px 11px; border-radius: 10px; border: 1px solid var(--line); background: rgba(127,127,127,.08); }
+.assigned {
+  display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 12px;
+  border: 1px solid var(--line); background: rgba(127,127,127,.06);
+}
+.assigned .ic { font-size: 20px; }
+.assigned .grow { flex: 1; }
+.btn { border: 1px solid var(--line); background: transparent; border-radius: 10px; padding: 9px 14px; cursor: pointer; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.btn.ghost { color: var(--muted); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.test-note { font-size: 12px; color: var(--muted); }
+
+/* ---------- Web ve Ayarlar sayfaları ---------- */
+#page-web, #page-settings { grid-template-columns: minmax(0, 760px); justify-content: center; overflow: auto; }
+.settings { padding: 22px 26px; display: flex; flex-direction: column; gap: 22px; }
+.set-group { display: flex; flex-direction: column; gap: 12px; }
+.set-group h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 0; border-top: 1px solid var(--line); }
+.set-row:first-of-type { border-top: 0; }
+.set-row .desc { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.swatches { display: flex; gap: 8px; }
+.swatch { width: 30px; height: 30px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
+.swatch[aria-pressed="true"] { border-color: var(--text); }
+.seg { display: inline-flex; background: rgba(127,127,127,.12); border-radius: 10px; padding: 3px; }
+.seg button { border: 0; background: transparent; padding: 6px 14px; border-radius: 8px; cursor: pointer; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: rgba(var(--panel-rgb), 1); color: var(--text); font-weight: 600; }
+.switch { width: 44px; height: 26px; border-radius: 999px; border: 0; background: #586072; position: relative; cursor: pointer; flex: none; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: left .15s; }
+.switch[aria-checked="true"] { background: var(--accent); }
+.switch[aria-checked="true"]::after { left: 21px; }
+details.adv summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
+details.adv[open] summary { margin-bottom: 8px; }
+
+.web-hero { display: grid; grid-template-columns: 180px 1fr; gap: 22px; align-items: center; }
+.qr {
+  width: 180px; height: 180px; border-radius: 14px; background:
+    conic-gradient(from 90deg at 2px 2px, #0000 90deg, #111 0) 0 0/18px 18px, #fff;
+  border: 10px solid #fff; display: grid; place-items: center; filter: blur(6px); transition: filter .2s; cursor: pointer;
+}
+.qr.shown { filter: none; }
+.pin { font-family: var(--font-hw); font-size: 34px; letter-spacing: .18em; }
+.muted { color: var(--muted); }
+
+/* Güncelleme rehberi çekmecesi */
+.drawer {
+  position: fixed; top: 12px; right: 12px; bottom: 12px; width: min(380px, calc(100vw - 24px)); z-index: 30;
+  visibility: hidden; transition: transform .25s ease, visibility 0s linear .25s;
+  display: flex; flex-direction: column; padding: 18px; gap: 10px;
+  transform: translateX(110%);
+}
+.drawer.open { transform: none; visibility: visible; transition: transform .25s ease; }
+html, body { overflow-x: hidden; }
+.drawer .scroll { overflow: auto; padding-right: 6px; }
+.rel { margin: 16px 0 6px; font-family: var(--font-hw); font-size: 16px; font-weight: 600; }
+.rel small { color: var(--muted); font-family: var(--font-ui); font-weight: 400; font-size: 12px; margin-left: 6px; }
+.drawer ul { margin: 0; padding-left: 18px; line-height: 1.5; }
+.drawer li { margin: 3px 0; }
+
+.toast {
+  position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); opacity: 0;
+  background: #10131A; color: #fff; padding: 10px 16px; border-radius: 10px; transition: .2s; z-index: 40;
+  border-left: 4px solid var(--accent);
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+.proto-badge {
+  position: fixed; left: 50%; top: 0; transform: translateX(-50%); z-index: 50;
+  background: var(--accent); color: var(--accent-ink); font-size: 12px; padding: 3px 12px; border-radius: 0 0 8px 8px;
+}
+
+@media (max-width: 1180px) {
+  #page-device { grid-template-columns: 230px 1fr; }
+  .inspector { grid-column: 1 / -1; }
+}
+@media (max-width: 760px) {
+  /* Telefonda sayfa akışlı; alt menü ekrana sabit */
+  .app { display: block; height: auto; }
+  .main { height: auto; padding-bottom: 90px; }
+  .page { height: auto; }
+  .rail {
+    position: fixed; left: 12px; right: 12px; bottom: 12px; height: auto; margin: 0; z-index: 20;
+    flex-direction: row; justify-content: space-around; padding: 6px;
+  }
+  .rail .logo, .rail .spacer { display: none; }
+  #page-device { grid-template-columns: 1fr; }
+  .stage { order: -1; overflow: visible; padding: 28px 0 0; }
+  .library { max-height: none; }
+  .lib-scroll { max-height: 220px; }
+  .topbar { flex-wrap: wrap; }
+  .stage { display: block; }
+  .deck { width: 100%; padding: 14px; border-radius: 20px; }
+  .deck-top { grid-template-columns: minmax(0, 1fr) 76px; gap: 10px; }
+  .deck-top > * { min-width: 0; }
+  .knob { width: 72px; }
+  .knob::after { top: 10px; height: 12px; }
+  .knob-label { font-size: 10.5px; }
+  .slot { font-size: 10px; }
+  .slot .em { font-size: 16px; }
+  .keys { gap: 6px; margin-top: 18px; }
+  .key { min-width: 0; font-size: 10px; padding: 4px; overflow: hidden; }
+  .key .em { font-size: 18px; }
+  .status { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="proto-badge">Taslak · cihaza bağlı değil</div>
+<div class="app">
+  <nav class="rail panel" aria-label="Ana menü">
+    <div class="logo" aria-hidden="true">N</div>
+    <button data-page="device" aria-current="page">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="3"/><rect x="6" y="7" width="8" height="6" rx="1"/><circle cx="17" cy="10" r="2"/><path d="M6 16h2M10 16h2M14 16h2"/></svg>
+      Cihaz
+    </button>
+    <button data-page="web">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18h2"/></svg>
+      Telefon
+    </button>
+    <button data-page="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
+      Ayarlar
+    </button>
+    <div class="spacer"></div>
+    <button id="open-changelog" title="Güncelleme rehberi">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8v5l3 2"/><circle cx="12" cy="12" r="9"/></svg>
+      Yenilikler
+    </button>
+  </nav>
+
+  <div class="main">
+    <header class="topbar panel">
+      <div class="profiles" role="group" aria-label="Profil">
+        <span class="label">Profil</span>
+        <div id="profile-chips" class="profiles"></div>
+        <button class="chip add" id="add-profile" title="Yeni profil">+ Yeni</button>
+      </div>
+      <div class="grow"></div>
+      <div class="status"><span class="dot" aria-hidden="true"></span><span><strong>NexDeck</strong> bağlı · COM12 · firmware 2.0</span></div>
+    </header>
+
+    <!-- ============ CİHAZ ============ -->
+    <section class="page active" id="page-device" aria-label="Cihaz">
+      <aside class="library panel">
+        <h2>Görevler</h2>
+        <input class="search" id="search" type="search" placeholder="Görev ara (ör. ses, OBS, kopyala)">
+        <div class="lib-scroll" id="library"></div>
+        <p class="lib-hint">Bir görevi tutup cihazdaki tuşa sürükle. Ya da önce tuşa tıkla, sonra görevi seç.</p>
+      </aside>
+
+      <div class="stage">
+        <div class="stage-hint" id="stage-hint">Ayarlamak istediğin tuşa, ekran butonuna ya da tekerleğe tıkla</div>
+        <div class="deck" id="deck">
+          <div class="deck-top">
+            <div>
+              <div class="brand">NEX<span>DECK</span></div>
+              <div class="screen">
+                <div class="screen-tabs" role="tablist" aria-label="Ekran sayfası" id="screen-tabs"></div>
+                <div class="slots" id="slots"></div>
+              </div>
+            </div>
+            <div class="knob-wrap">
+              <button class="knob dropzone" id="knob" data-sig="ENC:BTN" aria-label="Tekerlek"></button>
+              <div class="knob-label" id="knob-label">Çevir: Genel ses<br>Bas: —</div>
+            </div>
+          </div>
+          <div class="keys" id="keys"></div>
+        </div>
+      </div>
+
+      <aside class="inspector panel" id="inspector" aria-live="polite"></aside>
+    </section>
+
+    <!-- ============ TELEFON / WEB ============ -->
+    <section class="page" id="page-web" aria-label="Telefondan kontrol">
+      <div class="settings panel">
+        <h2>Telefondan kontrol</h2>
+        <div class="web-hero">
+          <div class="qr" id="qr" title="Göstermek için tıkla" role="button" tabindex="0"></div>
+          <div>
+            <p style="margin:0 0 8px">Telefonun kamerasıyla QR kodu okut, sonra bu kodu gir:</p>
+            <div class="pin" id="pin">••••••</div>
+            <p class="muted" style="margin:10px 0 0">Sadece aynı Wi-Fi ağındaki cihazlar bağlanabilir. QR ve PIN, tıklayana kadar gizli kalır.</p>
+            <div class="row" style="margin-top:14px">
+              <button class="btn primary" id="web-toggle">Web kontrolünü durdur</button>
+              <button class="btn" id="web-reset">Kodu yenile</button>
+            </div>
+          </div>
+        </div>
+        <div class="set-group">
+          <h3>Tanınan cihazlar</h3>
+          <div class="set-row"><div>Ali'nin telefonu<div class="desc">Son giriş: bugün 02:41</div></div><button class="btn ghost">Unut</button></div>
+          <div class="set-row"><div>Tablet<div class="desc">Son giriş: 3 gün önce</div></div><button class="btn ghost">Unut</button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ AYARLAR ============ -->
+    <section class="page" id="page-settings" aria-label="Ayarlar">
+      <div class="settings panel">
+        <h2>Ayarlar</h2>
+
+        <div class="set-group">
+          <h3>Görünüm</h3>
+          <div class="set-row"><div>Tema</div>
+            <div class="seg" id="theme-seg"><button data-theme="dark" aria-pressed="true">Koyu</button><button data-theme="light" aria-pressed="false">Açık</button></div></div>
+          <div class="set-row"><div>Vurgu rengi</div><div class="swatches" id="swatches"></div></div>
+          <div class="set-row"><div>Arka plan<div class="desc">Düz renk ya da kendi fotoğrafın</div></div>
+            <div class="row">
+              <input type="color" id="bg-color" value="#171A21" aria-label="Arka plan rengi" style="width:44px;height:36px;padding:2px;border-radius:8px;border:1px solid var(--line);background:none">
+              <label class="btn" for="bg-photo">Fotoğraf seç</label><input type="file" id="bg-photo" accept="image/*" hidden>
+              <button class="btn ghost" id="bg-clear">Kaldır</button>
+            </div></div>
+          <div class="set-row"><div>Panel şeffaflığı<div class="desc">Fotoğraf arka planda daha çok görünsün</div></div>
+            <input type="range" id="glass" min="40" max="100" value="86" aria-label="Panel opaklığı"></div>
+        </div>
+
+        <div class="set-group">
+          <h3>Genel</h3>
+          <div class="set-row"><div>Windows açılınca başlat</div><button class="switch" role="switch" aria-checked="true"></button></div>
+          <div class="set-row"><div>Kapatınca arka planda çalış<div class="desc">Sağ alttaki simgeden tekrar açılır</div></div><button class="switch" role="switch" aria-checked="true"></button></div>
+          <div class="set-row"><div>Dil</div><div class="seg"><button aria-pressed="true">Türkçe</button><button aria-pressed="false">English</button></div></div>
+        </div>
+
+        <details class="adv">
+          <summary>Gelişmiş</summary>
+          <div class="set-group">
+            <div class="set-row"><div>Tuş gönderim yöntemi<div class="desc">Oyunlar için cihaz USB klavye gibi basar</div></div>
+              <select style="padding:8px;border-radius:10px;border:1px solid var(--line);background:rgba(127,127,127,.08)"><option>Otomatik</option><option>Sadece yazılım</option></select></div>
+            <div class="set-row"><div>Yönetici olarak çalıştır<div class="desc">Yönetici olarak açılan programlara tuş göndermek için</div></div><button class="btn">Yeniden başlat</button></div>
+            <div class="set-row"><div>Eklentiler</div><button class="btn">Klasörü aç</button></div>
+            <div class="set-row"><div>Sistem günlüğü ve hatalar</div><button class="btn">Günlüğü aç</button></div>
+            <div class="set-row"><div>Klasik görünüm<div class="desc">Eski NexStudio arayüzünü aç</div></div><button class="btn">Klasik görünüme geç</button></div>
+          </div>
+        </details>
+      </div>
+    </section>
+  </div>
+</div>
+
+<aside class="drawer panel" id="drawer" aria-label="Güncelleme rehberi">
+  <div class="row" style="justify-content:space-between;align-items:center">
+    <h2 style="font-family:var(--font-hw);margin:0">Yenilikler</h2>
+    <button class="btn ghost" id="close-changelog">Kapat</button>
+  </div>
+  <div class="scroll" id="changelog"></div>
+</aside>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+/* ---------- Örnek veri (gerçek sinyal adlarıyla) ---------- */
+const LIB = [
+  ["Medya", [["⏯️","Oynat / duraklat"],["⏭️","Sonraki şarkı"],["⏮️","Önceki şarkı"],["🔇","Sesi kapat"]]],
+  ["OBS", [["🔴","Yayını başlat / durdur"],["⏺️","Kaydı başlat / durdur"],["🎙️","Mikrofonu sustur"],["🎬","Sahne 1'e geç"]]],
+  ["Uygulama ve web", [["🚀","Uygulama aç","app"],["🌐","Web sitesi aç","web"],["❌","Uygulamayı kapat","app"]]],
+  ["Klavye", [["⌨️","Kısayol gönder","hotkey"],["📝","Metin yaz","text"],["F13","F13 tuşu"]]],
+  ["Pencere", [["🖥️","Masaüstünü göster"],["⬅️","Sola yasla"],["➡️","Sağa yasla"]]],
+  ["Profil", [["👤","Sonraki profile geç"],["👥","Önceki profile geç"]]],
+  ["Sistem", [["🔒","Bilgisayarı kilitle"],["📸","Ekran görüntüsü al"],["🧮","Hesap makinesi"]]],
+  ["Discord", [["🎧","Sustur / aç"],["🔕","Sağırlaştır"]]],
+];
+const PROFILES = ["Varsayılan","GameToGame","zengame","YAYIN"];
+// 8 ekran yuvası; null = ileri/geri gezinme tuşu (görev almaz)
+const SLOT_SIGNALS = {
+  1: ["NEX:MIC_TOGGLE","NEX:DESK_TOGGLE","NEX:CAM_TOGGLE","NEX:LIVE_TOGGLE","NEX:SCENE_1","NEX:SCENE_2","NEX:SCENE_3",null],
+  2: ["NEX:MEDIA_PREV","NEX:MEDIA_PP","NEX:MEDIA_NEXT","NEX:REC_TOGGLE",null,"NEX:OPEN_YT","NEX:OPEN_KICK",null],
+  3: ["NEX:P3_B1","NEX:P3_B2","NEX:P3_B3","NEX:P3_B4",null,"NEX:P3_B5","NEX:P3_B6",null],
+  4: ["NEX:P4_B1","NEX:P4_B2","NEX:P4_B3","NEX:P4_B4",null,"NEX:P4_B5","NEX:P4_B6",null],
+};
+const PAGE_NAMES = {1:"Yayın",2:"Medya",3:"Sayfa 3",4:"Sayfa 4"};
+const state = {
+  profile: "zengame", page: 1, selected: null, pressTab: "short", bgPhoto: null,
+  buttons: {
+    "BTN:1": {em:"🚀", name:"Uygulama aç", arg:"Discord.exe"}, "BTN:1:LONG": {em:"🚀", name:"Uygulama aç", arg:"Steam"},
+    "BTN:2": {em:"⏮️", name:"Önceki şarkı"}, "BTN:3": {em:"⏯️", name:"Oynat / duraklat"}, "BTN:4": {em:"⏭️", name:"Sonraki şarkı"},
+    "BTN:4:LONG": {em:"📝", name:"Metin yaz"}, "BTN:5": {em:"⌨️", name:"Kısayol gönder", arg:"ctrl+shift+m"},
+    "BTN:5:LONG": {em:"🖥️", name:"Masaüstünü göster"}, "ENC:BTN": {em:"🌐", name:"Web sitesi aç", arg:"youtube.com"},
+    "NEX:MIC_TOGGLE": {em:"🎙️", name:"Mikrofon"}, "NEX:DESK_TOGGLE": {em:"🔊", name:"Masaüstü sesi"},
+    "NEX:CAM_TOGGLE": {em:"📷", name:"Kamera"}, "NEX:LIVE_TOGGLE": {em:"🔴", name:"Yayın"},
+    "NEX:SCENE_1": {em:"🎬", name:"Sahne 1"}, "NEX:SCENE_2": {em:"🎬", name:"Sahne 2"}, "NEX:SCENE_3": {em:"🎬", name:"Sahne 3"},
+    "NEX:MEDIA_PREV": {em:"⏮️", name:"Önceki"}, "NEX:MEDIA_PP": {em:"⏯️", name:"Oynat"}, "NEX:MEDIA_NEXT": {em:"⏭️", name:"Sonraki"},
+    "NEX:REC_TOGGLE": {em:"⏺️", name:"Kayıt"}, "NEX:OPEN_YT": {em:"▶️", name:"YouTube"}, "NEX:OPEN_KICK": {em:"🟩", name:"Kick"},
+    "NEX:P3_B2": {em:"🚀", name:"Uygulama aç"}, "NEX:P3_B3": {em:"⌨️", name:"Kısayol"},
+  },
+  encoderTurn: "Genel ses",
+};
+const CHANGELOG = [
+  ["3.0 (taslak)", "", ["Stream Deck tarzı yeni arayüz: cihaz ortada, görevler sürükle-bırak ile atanıyor.", "Açık/koyu tema, vurgu rengi, arka plan fotoğrafı ve şeffaflık ayarı.", "Masaüstü ve telefon aynı arayüzü kullanıyor."]],
+  ["2.0", "25–27.11.2026", ["Kararlılık: çökme, donma ve tuşların ardarda çalışması giderildi.", "Tuşlar gerçek tarama kodu ile gönderiliyor; OBS ve oyunlar tuşu kaçırmıyor.", "Firmware 2.0: cihaz gerçek USB klavye gibi basabiliyor.", "Kablo çıkınca bildirim ve otomatik yeniden bağlanma.", "Profil değiştirme görevleri, birden fazla cihaz desteği."]],
+  ["1.5 Final", "18.06.2026", ["Web Kontrolü güvenliği: gizli PIN/QR paneli, tanınan cihazlar, hatalı PIN kilidi.", "Sistem günlüğü: temizleme, dışa aktarma, 7 günlük otomatik silme."]],
+  ["1.5.8 – 1.5.10", "18.06.2026", ["PIN/URL/QR varsayılan gizli, QR büyütme, gömülü logo, son bağlantı kartı."]],
+  ["1.5.6 – 1.5.7", "17.06.2026", ["Günlük dosyası ve dışa aktarma, 5 hatalı PIN'de 5 dk engel, cihaz adlandırma.", "PIN ekranına logo ve canlı geri sayım."]],
+  ["1.5.3 – 1.5.5", "17.06.2026", ["Tam ekranda beyaz alan sorunu giderildi, tray'den normal boyutta açılış, otomatik boş web portu."]],
+  ["1.0", "06.06.2026", ["Arayüz sadeleştirildi.", "Ses kontrolü %1 adımlı.", "Tekerlek ayarı Tekerlek Butonu panelinde.", "Web Kontrolü ve Hesap ayrıldı."]],
+];
+const ACCENTS = ["#F2601C","#E5383B","#3B82F6","#10B981","#A855F7","#EAB308"];
+
+/* ---------- yardımcılar ---------- */
+const $ = s => document.querySelector(s);
+const el = (tag, attrs = {}, html = "") => { const e = document.createElement(tag); Object.assign(e, attrs); if (html) e.innerHTML = html; return e; };
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 1800); }
+function sigLabel(sig) {
+  if (sig === "ENC:BTN") return "Tekerlek butonu";
+  if (sig.startsWith("BTN:")) return `Tuş ${sig.split(":")[1]}`;
+  return `Ekran ${PAGE_NAMES[state.page]} · yuva`;
+}
+function baseSig(sig) { return sig.replace(":LONG", ""); }
+
+/* ---------- çizim ---------- */
+function renderProfiles() {
+  const box = $("#profile-chips"); box.innerHTML = "";
+  PROFILES.forEach(p => {
+    const b = el("button", {className: "chip", textContent: p});
+    b.setAttribute("aria-pressed", p === state.profile);
+    b.onclick = () => { state.profile = p; renderProfiles(); toast(`Profil: ${p}`); };
+    box.append(b);
+  });
+}
+function renderLibrary(filter = "") {
+  const box = $("#library"); box.innerHTML = "";
+  const q = filter.trim().toLocaleLowerCase("tr");
+  LIB.forEach(([cat, items]) => {
+    const hits = items.filter(([, n]) => !q || n.toLocaleLowerCase("tr").includes(q) || cat.toLocaleLowerCase("tr").includes(q));
+    if (!hits.length) return;
+    box.append(el("div", {className: "cat", textContent: cat}));
+    hits.forEach(([em, name, kind]) => {
+      const a = el("div", {className: "action", draggable: true, tabIndex: 0}, `<span class="ic">${em}</span><span>${name}</span>`);
+      a.dataset.em = em; a.dataset.name = name; a.dataset.kind = kind || "";
+      a.addEventListener("dragstart", e => { e.dataTransfer.setData("text/plain", JSON.stringify({em, name, kind})); document.body.classList.add("dragging"); });
+      a.addEventListener("dragend", () => document.body.classList.remove("dragging"));
+      a.addEventListener("click", () => { if (state.selected) assign(state.selected, {em, name, kind}); else toast("Önce cihazdan bir tuş seç"); });
+      a.addEventListener("keydown", e => { if (e.key === "Enter") a.click(); });
+      box.append(a);
+    });
+  });
+  if (!box.children.length) box.append(el("p", {className: "lib-hint", textContent: "Bu aramayla eşleşen görev yok. Eklentiler klasörüne yeni görev ekleyebilirsin."}));
+}
+function renderScreen() {
+  const tabs = $("#screen-tabs"); tabs.innerHTML = "";
+  [1,2,3,4].forEach(n => {
+    const b = el("button", {textContent: PAGE_NAMES[n]}); b.setAttribute("role", "tab"); b.setAttribute("aria-selected", n === state.page);
+    b.onclick = () => { state.page = n; renderScreen(); }; tabs.append(b);
+  });
+  const slots = $("#slots"); slots.innerHTML = "";
+  SLOT_SIGNALS[state.page].forEach((sig, i) => {
+    if (!sig) {
+      const nav = el("div", {className: "slot nav", textContent: i === 7 ? "▶" : "◀", title: "Sayfa değiştirme tuşu"});
+      return slots.append(nav);
+    }
+    const cfg = state.buttons[sig];
+    const s = el("button", {className: "slot dropzone" + (cfg ? "" : " empty")}, cfg ? `<span class="em">${cfg.em}</span>${cfg.name}` : `<span class="em">＋</span>Boş`);
+    s.dataset.sig = sig; wireTarget(s); slots.append(s);
+  });
+  markSelected();
+}
+function renderKeys() {
+  const box = $("#keys"); box.innerHTML = "";
+  for (let i = 1; i <= 5; i++) {
+    const sig = `BTN:${i}`, cfg = state.buttons[sig];
+    const k = el("button", {className: "key dropzone"}, `<span class="num">${i}</span><span class="em">${cfg ? cfg.em : "＋"}</span><span>${cfg ? cfg.name : "Boş"}</span>${state.buttons[sig + ":LONG"] ? '<span class="long" title="Uzun basışta da görev var"></span>' : ""}`);
+    k.dataset.sig = sig; k.setAttribute("aria-label", `Tuş ${i}: ${cfg ? cfg.name : "boş"}`);
+    wireTarget(k); box.append(k);
+  }
+  const enc = state.buttons["ENC:BTN"];
+  $("#knob-label").innerHTML = `Çevir: ${state.encoderTurn}<br>Bas: ${enc ? enc.name : "—"}`;
+  markSelected();
+}
+function wireTarget(node) {
+  node.addEventListener("click", () => select(node.dataset.sig));
+  node.addEventListener("dragover", e => { e.preventDefault(); node.classList.add("over"); });
+  node.addEventListener("dragleave", () => node.classList.remove("over"));
+  node.addEventListener("drop", e => {
+    e.preventDefault(); node.classList.remove("over"); document.body.classList.remove("dragging");
+    const data = JSON.parse(e.dataTransfer.getData("text/plain"));
+    select(node.dataset.sig); assign(state.selected, data);
+  });
+}
+function markSelected() {
+  document.querySelectorAll(".dropzone").forEach(n => n.classList.toggle("selected", n.dataset.sig === (state.selected && baseSig(state.selected))));
+}
+function select(sig) {
+  state.pressTab = "short"; state.selected = sig; markSelected(); renderInspector();
+  $("#stage-hint").style.visibility = "hidden";
+}
+function currentSig() {
+  const base = baseSig(state.selected);
+  return state.pressTab === "long" && base.startsWith("BTN:") ? base + ":LONG" : base;
+}
+function assign(sig, data) {
+  const s = state.pressTab === "long" && sig.startsWith("BTN:") ? baseSig(sig) + ":LONG" : baseSig(sig);
+  state.buttons[s] = {em: data.em, name: data.name, kind: data.kind};
+  renderKeys(); renderScreen(); renderInspector();
+  toast(`${sigLabel(baseSig(sig))} → ${data.name}`);
+}
+function renderInspector() {
+  const box = $("#inspector");
+  if (!state.selected) {
+    box.innerHTML = `<h2>Tuş ayarları</h2><p class="insp-empty">Cihazdan bir tuş seç. Seçtiğin tuşun görevi, ikonu ve uzun basış ayarı burada görünür.</p>`;
+    return;
+  }
+  const base = baseSig(state.selected), sig = currentSig(), cfg = state.buttons[sig];
+  const isPhysical = base.startsWith("BTN:"), isEnc = base === "ENC:BTN";
+  let fields = "";
+  if (cfg && cfg.kind === "app") fields = `<div class="field"><label>Uygulama</label><div class="row"><input style="flex:1" value="${cfg.arg || ""}" placeholder="ör. Discord.exe"><button class="btn">Seç…</button></div></div>`;
+  if (cfg && cfg.kind === "web") fields = `<div class="field"><label>Adres</label><input value="${cfg.arg || ""}" placeholder="ör. youtube.com"></div>`;
+  if (cfg && cfg.kind === "hotkey") fields = `<div class="field"><label>Kısayol</label><input value="${cfg.arg || ""}" placeholder="Tuşlara bas, otomatik yazılır"></div>`;
+  if (cfg && cfg.kind === "text") fields = `<div class="field"><label>Yazılacak metin</label><input placeholder="ör. merhaba"></div>`;
+  box.innerHTML = `
+    <div class="insp-head">
+      <div class="insp-icon" id="icon-pick" title="İkon ya da resim seç" style="${cfg && cfg.img ? `background-image:url(${cfg.img})` : ""}">${cfg && !cfg.img ? cfg.em : (cfg ? "" : "＋")}</div>
+      <div><div class="insp-title">${isEnc ? "Tekerlek" : sigLabel(base)}</div><div class="insp-sub">${isPhysical ? "Fiziksel tuş" : isEnc ? "Çevirme ve basma" : "Dokunmatik ekran"}</div></div>
+    </div>
+    <input type="file" id="icon-file" accept="image/*" hidden>
+    ${isPhysical ? `<div class="tabs" role="tablist"><button data-tab="short" aria-selected="${state.pressTab === "short"}">Kısa basış</button><button data-tab="long" aria-selected="${state.pressTab === "long"}">Uzun basış</button></div>` : ""}
+    ${isEnc ? `<div class="field"><label>Çevirince</label><select id="enc-turn">${["Genel ses","Aktif pencerenin sesi","Ekran parlaklığı","Spotify sesi","Discord sesi"].map(o => `<option ${o === state.encoderTurn ? "selected" : ""}>${o}</option>`).join("")}</select></div><div class="field"><label>Basınca</label></div>` : ""}
+    ${cfg ? `<div class="assigned"><span class="ic">${cfg.em}</span><div class="grow"><div>${cfg.name}</div><div class="insp-sub">Soldan başka bir görev sürükleyerek değiştir</div></div></div>${fields}
+      <div class="row"><button class="btn primary" id="test-btn">Dene</button><button class="btn ghost" id="clear-btn">Görevi kaldır</button></div>
+      <div class="test-note">"Dene" görevi cihaza basmışsın gibi hemen çalıştırır.</div>`
+    : `<p class="insp-empty">Bu ${isPhysical && state.pressTab === "long" ? "uzun basışa" : "tuşa"} henüz görev atanmadı. Soldaki listeden bir görevi sürükle ya da tıkla.</p>`}
+  `;
+  box.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { state.pressTab = b.dataset.tab; renderInspector(); });
+  const t = box.querySelector("#test-btn"); if (t) t.onclick = () => toast(`Çalıştırıldı: ${cfg.name}`);
+  const c = box.querySelector("#clear-btn"); if (c) c.onclick = () => { delete state.buttons[sig]; renderKeys(); renderScreen(); renderInspector(); toast("Görev kaldırıldı"); };
+  const et = box.querySelector("#enc-turn"); if (et) et.onchange = () => { state.encoderTurn = et.value; renderKeys(); toast(`Tekerlek: ${et.value}`); };
+  box.querySelector("#icon-pick").onclick = () => cfg ? box.querySelector("#icon-file").click() : toast("Önce bir görev ata");
+  box.querySelector("#icon-file").onchange = e => {
+    const f = e.target.files[0]; if (!f) return;
+    const r = new FileReader(); r.onload = () => { cfg.img = r.result; renderInspector(); renderKeysWithImages(); toast("İkon güncellendi"); }; r.readAsDataURL(f);
+  };
+}
+function renderKeysWithImages() {
+  renderKeys(); renderScreen();
+  document.querySelectorAll(".dropzone").forEach(n => {
+    const cfg = state.buttons[n.dataset.sig]; const em = n.querySelector(".em");
+    if (cfg && cfg.img && em) em.outerHTML = `<img src="${cfg.img}" alt="" style="width:34px;height:34px;object-fit:cover;border-radius:8px">`;
+  });
+}
+function renderChangelog() {
+  $("#changelog").innerHTML = CHANGELOG.map(([v, d, items]) =>
+    `<div class="rel">${v}${d ? `<small>${d}</small>` : ""}</div><ul>${items.map(i => `<li>${i}</li>`).join("")}</ul>`).join("");
+}
+
+/* ---------- gezinme ---------- */
+document.querySelectorAll(".rail [data-page]").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".rail [data-page]").forEach(x => x.removeAttribute("aria-current"));
+  b.setAttribute("aria-current", "page");
+  document.querySelectorAll(".page").forEach(p => p.classList.toggle("active", p.id === "page-" + b.dataset.page));
+});
+$("#open-changelog").onclick = () => $("#drawer").classList.add("open");
+$("#close-changelog").onclick = () => $("#drawer").classList.remove("open");
+$("#search").oninput = e => renderLibrary(e.target.value);
+$("#add-profile").onclick = () => { const n = prompt("Yeni profil adı:"); if (n) { PROFILES.push(n); state.profile = n; renderProfiles(); toast(`Profil oluşturuldu: ${n}`); } };
+
+/* ---------- görünüm ayarları ---------- */
+const root = document.documentElement;
+document.querySelectorAll("#theme-seg button").forEach(b => b.onclick = () => {
+  root.dataset.theme = b.dataset.theme;
+  document.querySelectorAll("#theme-seg button").forEach(x => x.setAttribute("aria-pressed", x === b));
+  $("#bg-color").value = b.dataset.theme === "dark" ? "#171A21" : "#E6E8EC";
+  document.body.style.backgroundColor = "";
+});
+ACCENTS.forEach(c => {
+  const s = el("button", {className: "swatch", title: c}); s.style.background = c; s.setAttribute("aria-pressed", c === "#F2601C");
+  s.onclick = () => { root.style.setProperty("--accent", c); document.querySelectorAll(".swatch").forEach(x => x.setAttribute("aria-pressed", x === s)); };
+  $("#swatches").append(s);
+});
+$("#bg-color").oninput = e => { document.body.style.backgroundColor = e.target.value; };
+$("#bg-photo").onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader(); r.onload = () => { root.style.setProperty("--bg-photo", `url(${r.result})`); document.body.classList.add("has-photo"); $("#glass").value = 70; root.style.setProperty("--glass", .7); toast("Arka plan fotoğrafı ayarlandı"); }; r.readAsDataURL(f);
+};
+$("#bg-clear").onclick = () => { document.body.classList.remove("has-photo"); toast("Arka plan fotoğrafı kaldırıldı"); };
+$("#glass").oninput = e => root.style.setProperty("--glass", e.target.value / 100);
+document.querySelectorAll(".switch").forEach(s => s.onclick = () => s.setAttribute("aria-checked", s.getAttribute("aria-checked") !== "true"));
+$("#qr").onclick = () => { $("#qr").classList.toggle("shown"); $("#pin").textContent = $("#qr").classList.contains("shown") ? "4K7Q2M" : "••••••"; };
+$("#web-reset").onclick = () => toast("Yeni QR ve PIN oluşturuldu; eski bağlantılar kapandı");
+$("#web-toggle").onclick = e => { const on = e.target.textContent.includes("durdur"); e.target.textContent = on ? "Web kontrolünü başlat" : "Web kontrolünü durdur"; toast(on ? "Web kontrolü durduruldu" : "Web kontrolü başladı"); };
+
+renderProfiles(); renderLibrary(); renderScreen(); renderKeys(); renderInspector(); renderChangelog();
+</script>
+</body>
+</html>

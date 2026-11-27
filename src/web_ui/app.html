@@ -1,0 +1,830 @@
+<!doctype html>
+<html lang="tr" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#171A21">
+<title>NexStudio</title>
+<script>/*__NEX_BOOT__*/</script>
+<style>
+/* =========================================================
+   NexStudio 2.5 arayüzü
+   Masaüstünde pencere içinde, telefonda "NexStudio Web" olarak açılır.
+   Veriler çekirdekten (nexstudio_ui.py > AppApi) gelir.
+   ========================================================= */
+:root {
+  --accent: #F2601C;
+  --accent-ink: #ffffff;
+  --glass: 0.86;
+  --font-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-hw: "Bahnschrift", "DIN Alternate", "Segoe UI", system-ui, sans-serif;
+  --r-panel: 18px;
+  --r-key: 12px;
+}
+[data-theme="dark"] {
+  --bg: #171A21; --panel-rgb: 38, 43, 54; --line: #363C4B; --text: #ECEEF3; --muted: #9097A8;
+  --body: #1E222B; --body-edge: #2E3442; --cap: #2B303C; --cap-top: #353B49; --screen: #0C0F14;
+}
+[data-theme="light"] {
+  --bg: #E6E8EC; --panel-rgb: 250, 251, 252; --line: #CDD2DB; --text: #1C2130; --muted: #5D6577;
+  --body: #2A2F3A; --body-edge: #3A4150; --cap: #F3F4F6; --cap-top: #FFFFFF; --screen: #0C0F14;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; overflow-x: hidden; }
+body {
+  font-family: var(--font-ui); font-size: 14px; color: var(--text);
+  background: var(--bg-custom, var(--bg)); background-size: cover; background-position: center; background-attachment: fixed;
+}
+body.has-photo { background-image: var(--bg-photo); }
+button, input, select { font: inherit; color: inherit; }
+button { -webkit-tap-highlight-color: transparent; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+[hidden] { display: none !important; }
+
+.app { display: grid; grid-template-columns: 76px 1fr; height: 100vh; }
+.panel {
+  background: rgba(var(--panel-rgb), var(--glass)); border: 1px solid var(--line);
+  border-radius: var(--r-panel); backdrop-filter: blur(18px) saturate(1.2);
+}
+
+/* Sol menü */
+.rail { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px 0; margin: 12px 0 12px 12px; height: calc(100vh - 24px); }
+.logo { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: var(--accent); color: var(--accent-ink); font-family: var(--font-hw); font-weight: 700; font-size: 22px; margin-bottom: 14px; }
+.rail button { width: 56px; padding: 9px 0 7px; border: 0; border-radius: 12px; background: transparent; color: var(--muted); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; }
+.rail button svg { width: 22px; height: 22px; }
+.rail button[aria-current="page"] { color: var(--text); background: rgba(127,127,127,.14); }
+.rail button[aria-current="page"] svg { color: var(--accent); }
+.rail .spacer { flex: 1; }
+
+/* Üst bar */
+.main { display: grid; grid-template-rows: auto minmax(0, 1fr); min-width: 0; min-height: 0; height: 100vh; padding: 12px; gap: 12px; }
+.topbar { display: flex; align-items: center; gap: 12px; padding: 10px 14px; flex-wrap: wrap; }
+.profiles { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.profiles .label { color: var(--muted); margin-right: 4px; }
+.chip { border: 1px solid var(--line); background: transparent; border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.chip.add { color: var(--muted); }
+.topbar .grow { flex: 1; }
+.status { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: #8C94A6; flex: none; }
+.dot.on { background: #2FBF71; box-shadow: 0 0 0 4px rgba(47,191,113,.18); }
+.status strong { color: var(--text); font-weight: 600; }
+.modeswitch { display: inline-flex; background: rgba(127,127,127,.12); border-radius: 10px; padding: 3px; }
+.modeswitch button { border: 0; background: transparent; padding: 6px 14px; border-radius: 8px; cursor: pointer; color: var(--muted); }
+.modeswitch button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+
+/* Sayfalar */
+.page { display: none; min-height: 0; height: 100%; }
+.page.active { display: grid; }
+#page-device { grid-template-columns: 270px 1fr 320px; gap: 12px; }
+#page-device > * { min-height: 0; }
+body.control #page-device { grid-template-columns: 1fr; }
+body.control .library, body.control .inspector { display: none; }
+
+/* Görev kütüphanesi */
+.library { display: flex; flex-direction: column; min-height: 0; padding: 14px; gap: 10px; }
+h2 { font-family: var(--font-hw); font-weight: 600; font-size: 18px; margin: 0; }
+.search { width: 100%; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line); background: rgba(127,127,127,.08); }
+.lib-scroll { overflow: auto; min-height: 0; margin: 0 -6px; padding: 0 6px; }
+.cat { margin: 10px 0 6px; color: var(--muted); font-size: 12px; font-weight: 600; }
+.action { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; cursor: grab; user-select: none; border: 1px solid transparent; }
+.action:hover { background: rgba(127,127,127,.1); border-color: var(--line); }
+.action:active { cursor: grabbing; }
+.action .ic { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: rgba(127,127,127,.14); font-size: 16px; flex: none; }
+.lib-hint { color: var(--muted); font-size: 12px; line-height: 1.45; margin: 0; }
+
+/* Cihaz */
+.stage { display: grid; place-items: center; min-height: 0; overflow: auto; padding: 8px; position: relative; }
+.stage-hint { position: absolute; top: 10px; left: 0; right: 0; text-align: center; color: var(--muted); font-size: 13px; padding: 0 12px; }
+.deck { width: min(640px, 100%); padding: 26px 28px 30px; border-radius: 28px; background: linear-gradient(180deg, var(--body-edge), var(--body) 18%); box-shadow: 0 30px 60px -20px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.08); color: #ECEEF3; }
+.deck-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(96px, 150px); gap: clamp(12px, 3vw, 26px); align-items: center; }
+.deck-top > * { min-width: 0; }
+.brand { font-family: var(--font-hw); font-weight: 700; letter-spacing: .04em; font-size: 15px; margin: 0 0 10px 2px; }
+.brand span { color: var(--accent); }
+.screen { background: var(--screen); border-radius: 10px; padding: 10px; aspect-ratio: 3 / 2; box-shadow: inset 0 0 0 3px #000, inset 0 0 22px rgba(0,0,0,.8); display: grid; grid-template-rows: auto 1fr; gap: 8px; }
+.screen-tabs { display: flex; gap: 4px; }
+.screen-tabs button { flex: 1; min-width: 0; border: 0; border-radius: 6px; padding: 4px 2px; background: #1A1F29; color: #8B93A5; font-family: var(--font-hw); font-size: 12px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.screen-tabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); }
+.slots { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(2, 1fr); gap: 7px; min-height: 0; }
+.slot { min-width: 0; border-radius: 8px; border: 1px solid #262D3A; background: #141922; color: #DDE2EC; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-family: var(--font-hw); font-size: 11.5px; text-align: center; padding: 4px; cursor: pointer; position: relative; overflow: hidden; }
+.slot .lbl, .key .lbl { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word; }
+.em { font-size: 20px; line-height: 1; }
+img.em { width: 26px; height: 26px; object-fit: cover; border-radius: 6px; }
+.slot.nav { background: transparent; border-style: dashed; color: #5C6577; cursor: default; font-size: 18px; }
+.slot.empty { color: #5C6577; }
+.knob-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+/* Tekerlek: dış gövde sabit, yüzey (knob-face) döner. Sürükle / fare tekerleği / ok tuşları ile çevrilir. */
+.knob { width: min(128px, 100%); aspect-ratio: 1; border-radius: 50%; border: 0; padding: 0; cursor: grab; position: relative; background: #1A1E27; box-shadow: 0 12px 24px rgba(0,0,0,.5); touch-action: none; }
+.knob.dragging { cursor: grabbing; }
+.knob-face { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; transform: rotate(var(--rot, 0deg)); transition: transform .14s ease-out;
+  background: radial-gradient(circle at 50% 50%, #3A4150 0 44%, transparent 45%), repeating-conic-gradient(#2A303C 0 4deg, #454C5C 4deg 8deg);
+  box-shadow: inset 0 2px 2px rgba(255,255,255,.12); }
+.knob.dragging .knob-face { transition: none; }
+.knob-face::after { content: ""; position: absolute; top: 17%; left: 50%; width: 4px; height: 14%; margin-left: -2px; border-radius: 2px; background: var(--accent); }
+.live { animation: live .45s ease-out; }
+@keyframes live { 0% { box-shadow: 0 0 0 0 var(--accent), 0 0 24px var(--accent); } 100% { box-shadow: 0 0 0 10px transparent; } }
+.knob-label { font-family: var(--font-hw); font-size: 12px; color: #B7BECC; text-align: center; line-height: 1.35; }
+.vol { display: flex; gap: 8px; }
+.vol button { width: 44px; height: 36px; border-radius: 10px; border: 1px solid #3A4150; background: #262B36; color: #fff; font-size: 18px; cursor: pointer; }
+.keys { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-top: 26px; }
+.key { min-width: 0; aspect-ratio: 1; border-radius: var(--r-key); border: 0; cursor: pointer; position: relative; background: linear-gradient(180deg, var(--cap-top), var(--cap)); box-shadow: 0 6px 0 #10131A, 0 10px 18px rgba(0,0,0,.45); color: var(--text); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; font-family: var(--font-hw); font-size: 12.5px; padding: 6px; text-align: center; transition: transform .08s; overflow: hidden; }
+[data-theme="light"] .key { color: #1C2130; }
+.key .em { font-size: 24px; }
+.key img.em { width: 34px; height: 34px; }
+.key .num { position: absolute; top: 6px; left: 8px; font-size: 11px; color: var(--muted); }
+.key .long { position: absolute; bottom: 6px; right: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+.key:active, .slot:active { transform: translateY(2px); }
+.pressed { animation: press .35s; }
+@keyframes press { 30% { box-shadow: 0 0 0 4px var(--accent); } }
+
+.selected { outline: 3px solid var(--accent); outline-offset: 3px; }
+body.dragging .dropzone { outline: 2px dashed color-mix(in srgb, var(--accent) 60%, transparent); outline-offset: 2px; }
+.dropzone.over { outline: 3px solid var(--accent) !important; transform: scale(1.04); }
+.dropzone.over::before { content: "Buraya bırak"; position: absolute; inset: 0; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 85%, black); color: #fff; font-size: 12px; border-radius: inherit; z-index: 2; }
+
+/* Sağ panel */
+.inspector { padding: 16px; display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow: auto; }
+.insp-empty { color: var(--muted); line-height: 1.5; margin: 0; }
+.insp-head { display: flex; gap: 12px; align-items: center; }
+.insp-icon { width: 56px; height: 56px; border-radius: 12px; border: 1px dashed var(--line); display: grid; place-items: center; font-size: 28px; cursor: pointer; background: rgba(127,127,127,.08); flex: none; overflow: hidden; padding: 0; }
+.insp-icon img { width: 100%; height: 100%; object-fit: cover; }
+.insp-title { font-family: var(--font-hw); font-size: 17px; font-weight: 600; }
+.insp-sub { color: var(--muted); font-size: 12.5px; }
+.tabs { display: flex; background: rgba(127,127,127,.12); border-radius: 10px; padding: 3px; }
+.tabs button { flex: 1; border: 0; background: transparent; padding: 7px; border-radius: 8px; cursor: pointer; color: var(--muted); }
+.tabs button[aria-selected="true"] { background: rgba(var(--panel-rgb), 1); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 12.5px; color: var(--muted); }
+.field input, .field select, select.inp { padding: 9px 11px; border-radius: 10px; border: 1px solid var(--line); background: rgba(127,127,127,.08); min-width: 0; }
+.field select option, select.inp option { color: #1C2130; }
+.assigned { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: rgba(127,127,127,.06); }
+.assigned .ic { font-size: 20px; }
+.assigned .grow { flex: 1; min-width: 0; }
+.btn { border: 1px solid var(--line); background: transparent; border-radius: 10px; padding: 9px 14px; cursor: pointer; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.btn.ghost { color: var(--muted); }
+.btn.danger { color: #E5484D; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.small { font-size: 12px; color: var(--muted); }
+.emoji-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; }
+.emoji-grid button { border: 0; background: rgba(127,127,127,.1); border-radius: 8px; font-size: 18px; padding: 4px 0; cursor: pointer; }
+
+/* Ayarlar / Telefon */
+#page-web, #page-settings { grid-template-columns: minmax(0, 760px); justify-content: center; overflow: auto; }
+.settings { padding: 22px 26px; display: flex; flex-direction: column; gap: 22px; height: max-content; }
+.set-group { display: flex; flex-direction: column; gap: 4px; }
+.set-group h3 { margin: 0 0 6px; font-size: 15px; font-weight: 600; }
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 0; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.set-row .desc { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.swatches { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.swatch { width: 30px; height: 30px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
+.swatch[aria-pressed="true"] { border-color: var(--text); }
+input[type="color"] { width: 40px; height: 34px; padding: 2px; border-radius: 8px; border: 1px solid var(--line); background: none; cursor: pointer; }
+.seg { display: inline-flex; background: rgba(127,127,127,.12); border-radius: 10px; padding: 3px; }
+.seg button { border: 0; background: transparent; padding: 6px 14px; border-radius: 8px; cursor: pointer; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: rgba(var(--panel-rgb), 1); color: var(--text); font-weight: 600; }
+.switch { width: 44px; height: 26px; border-radius: 999px; border: 0; background: #586072; position: relative; cursor: pointer; flex: none; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: left .15s; }
+.switch[aria-checked="true"] { background: var(--accent); }
+.switch[aria-checked="true"]::after { left: 21px; }
+details.adv summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
+.web-hero { display: grid; grid-template-columns: 200px 1fr; gap: 22px; align-items: center; }
+.qr { width: 200px; height: 200px; border-radius: 14px; background: #fff; display: grid; place-items: center; overflow: hidden; cursor: pointer; border: 0; padding: 8px; color: #1C2130; }
+.qr img { width: 100%; height: 100%; image-rendering: pixelated; }
+.qr.blur img { filter: blur(7px); }
+.pin { font-family: var(--font-hw); font-size: 34px; letter-spacing: .18em; }
+.muted { color: var(--muted); }
+.url { font-size: 12px; color: var(--muted); word-break: break-all; }
+
+/* Yenilikler */
+.drawer { position: fixed; top: 12px; right: 12px; bottom: 12px; width: min(380px, calc(100vw - 24px)); z-index: 30; display: flex; flex-direction: column; padding: 18px; gap: 10px; transform: translateX(110%); visibility: hidden; transition: transform .25s ease, visibility 0s linear .25s; }
+.drawer.open { transform: none; visibility: visible; transition: transform .25s ease; }
+.drawer .scroll { overflow: auto; padding-right: 6px; }
+.rel { margin: 16px 0 6px; font-family: var(--font-hw); font-size: 16px; font-weight: 600; }
+.rel small { color: var(--muted); font-family: var(--font-ui); font-weight: 400; font-size: 12px; margin-left: 6px; }
+.drawer ul { margin: 0; padding-left: 18px; line-height: 1.5; }
+.drawer li { margin: 3px 0; }
+
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); opacity: 0; background: #10131A; color: #fff; padding: 10px 16px; border-radius: 10px; transition: .2s; z-index: 40; border-left: 4px solid var(--accent); max-width: calc(100vw - 32px); pointer-events: none; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+.toast.err { border-left-color: #E5484D; }
+
+.offline { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(0,0,0,.6); z-index: 60; color: #fff; text-align: center; padding: 24px; }
+
+@media (max-width: 1180px) {
+  #page-device { grid-template-columns: 240px 1fr; }
+  .inspector { grid-column: 1 / -1; }
+}
+@media (max-width: 760px) {
+  .app { display: block; height: auto; }
+  .main { height: auto; padding-bottom: 92px; }
+  .page { height: auto; }
+  .rail { position: fixed; left: 12px; right: 12px; bottom: 12px; height: auto; margin: 0; z-index: 20; flex-direction: row; justify-content: space-around; padding: 6px; }
+  .rail .logo, .rail .spacer { display: none; }
+  #page-device { grid-template-columns: 1fr; }
+  .stage { order: -1; overflow: visible; padding: 26px 0 0; display: block; }
+  .lib-scroll { max-height: 240px; }
+  .deck { padding: 14px; border-radius: 20px; }
+  .deck-top { grid-template-columns: minmax(0, 1fr) 80px; gap: 10px; }
+  .knob { width: 72px; }
+  .knob-label { font-size: 10.5px; }
+  .slot { font-size: 10px; }
+  .slot .em { font-size: 16px; }
+  .keys { gap: 6px; margin-top: 18px; }
+  .key { font-size: 10px; padding: 4px; }
+  .key .em { font-size: 18px; }
+  .status { width: 100%; }
+  .web-hero { grid-template-columns: 1fr; }
+  .settings { padding: 18px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="rail panel" aria-label="Ana menü">
+    <div class="logo" aria-hidden="true">N</div>
+    <button data-page="device" aria-current="page">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="3"/><rect x="6" y="7" width="8" height="6" rx="1"/><circle cx="17" cy="10" r="2"/><path d="M6 16h2M10 16h2M14 16h2"/></svg>
+      Cihaz
+    </button>
+    <button data-page="web" class="local-only">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18h2"/></svg>
+      Telefon
+    </button>
+    <button data-page="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
+      Ayarlar
+    </button>
+    <div class="spacer"></div>
+    <button id="open-changelog">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8v5l3 2"/><circle cx="12" cy="12" r="9"/></svg>
+      Yenilikler
+    </button>
+  </nav>
+
+  <div class="main">
+    <header class="topbar panel">
+      <div class="profiles" role="group" aria-label="Profil">
+        <span class="label">Profil</span>
+        <span id="profile-chips" class="profiles"></span>
+        <button class="chip add local-only" id="add-profile">+ Yeni</button>
+      </div>
+      <div class="grow"></div>
+      <div class="modeswitch remote-only" role="group" aria-label="Mod">
+        <button data-mode="control" aria-pressed="true">Kontrol</button>
+        <button data-mode="edit" aria-pressed="false">Düzenle</button>
+      </div>
+      <div class="status"><span class="dot" id="dev-dot" aria-hidden="true"></span><span id="dev-text">Bağlanıyor…</span></div>
+    </header>
+
+    <section class="page active" id="page-device" aria-label="Cihaz">
+      <aside class="library panel">
+        <h2>Görevler</h2>
+        <input class="search" id="search" type="search" placeholder="Görev ara (ör. ses, OBS, kopyala)">
+        <div class="lib-scroll" id="library"></div>
+        <p class="lib-hint" id="lib-hint">Bir görevi tutup cihazdaki tuşa sürükle. Ya da önce tuşa tıkla, sonra görevi seç.</p>
+      </aside>
+      <div class="stage">
+        <div class="stage-hint" id="stage-hint">Ayarlamak istediğin tuşa, ekran butonuna ya da tekerleğe tıkla</div>
+        <div class="deck">
+          <div class="deck-top">
+            <div>
+              <div class="brand">NEX<span>DECK</span></div>
+              <div class="screen">
+                <div class="screen-tabs" role="tablist" aria-label="Ekran sayfası" id="screen-tabs"></div>
+                <div class="slots" id="slots"></div>
+              </div>
+            </div>
+            <div class="knob-wrap">
+              <button class="knob dropzone" id="knob" data-sig="ENC:BTN" aria-label="Tekerlek. Sürükleyerek, fare tekerleğiyle ya da ok tuşlarıyla çevir" title="Sürükleyerek ya da fare tekerleğiyle çevir"><span class="knob-face" id="knob-face"></span></button>
+              <div class="vol remote-only control-only"><button data-vol="-2" aria-label="Sesi azalt">−</button><button data-vol="2" aria-label="Sesi artır">+</button></div>
+              <div class="knob-label" id="knob-label"></div>
+            </div>
+          </div>
+          <div class="keys" id="keys"></div>
+        </div>
+      </div>
+      <aside class="inspector panel" id="inspector" aria-live="polite"></aside>
+    </section>
+
+    <section class="page" id="page-web" aria-label="Telefondan kontrol">
+      <div class="settings panel" id="web-panel"></div>
+    </section>
+
+    <section class="page" id="page-settings" aria-label="Ayarlar">
+      <div class="settings panel" id="settings-panel"></div>
+    </section>
+  </div>
+</div>
+
+<aside class="drawer panel" id="drawer" aria-label="Yenilikler">
+  <div class="row" style="justify-content:space-between">
+    <h2>Yenilikler</h2>
+    <button class="btn ghost" id="close-changelog">Kapat</button>
+  </div>
+  <div class="scroll" id="changelog"></div>
+</aside>
+<div class="toast" id="toast" role="status"></div>
+<div class="offline" id="offline" hidden><div><h2>NexStudio'ya ulaşılamıyor</h2><p>Uygulama kapalı olabilir ya da web kontrolü durdurulmuş olabilir. Bağlantı gelince sayfa kendini yeniler.</p></div></div>
+<input type="file" id="file-icon" accept="image/*" hidden>
+<input type="file" id="file-bg" accept="image/*" hidden>
+
+<script>
+"use strict";
+/* ---------- başlangıç ---------- */
+const BOOT = window.NEX_BOOT || { apiBase: "/api2", remote: false, auth: "" };
+const REMOTE = !!BOOT.remote;
+const PIN = (new URLSearchParams(BOOT.auth || "")).get("pin") || "";
+const ICON_BASE = BOOT.apiBase.replace(/api2$/, "icons");
+const EMOJIS = "🎙️ 🔇 🔊 🔉 🎧 📷 🎬 🔴 ⏺️ ⏯️ ⏭️ ⏮️ 🎵 🎮 🕹️ 🚀 🌐 ▶️ 💬 📁 📸 🔒 🌙 ⏻ 💻 ⌨️ 📝 📋 💾 🎨 🎞️ 🧩 👤 ⭐ ❤️ 🔥 ✅ ⚙️ 🛠️ 🧮".split(" ");
+const ACCENTS = ["#F2601C", "#E5383B", "#3B82F6", "#10B981", "#A855F7", "#EAB308"];
+const PHYS_LABEL = { "ENC:BTN": "Tekerlek butonu" };
+let S = null;                     // çekirdekten gelen durum
+const ui = { page: 1, selected: null, pressTab: "short", mode: REMOTE ? "control" : "edit", libKey: "", audio: null };
+
+/* ---------- API ---------- */
+async function api(endpoint, body) {
+  const url = `${BOOT.apiBase}/${endpoint}${REMOTE && BOOT.auth ? (endpoint.includes("?") ? "&" : "?") + BOOT.auth : ""}`;
+  const opt = { method: body === undefined ? "GET" : "POST", headers: {}, credentials: "same-origin" };
+  if (body !== undefined) { opt.headers["Content-Type"] = "application/json"; opt.body = JSON.stringify(body); }
+  if (PIN) opt.headers["X-Nex-Pin"] = PIN;
+  let res;
+  try { res = await fetch(url, opt); } catch (e) { setOffline(true); throw new Error("Bağlantı yok"); }
+  setOffline(false);
+  const data = await res.json().catch(() => ({ ok: false, error: `Sunucu hatası (${res.status})` }));
+  if (!res.ok || data.ok === false) throw new Error(data.error || `Hata (${res.status})`);
+  return data;
+}
+async function act(endpoint, body, okMsg) {
+  try { const r = await api(endpoint, body); if (okMsg) toast(okMsg); await refresh(); return r; }
+  catch (e) { toast(e.message, true); }
+}
+function setOffline(v) { document.getElementById("offline").hidden = !v; }
+const iconUrl = name => `${ICON_BASE}/${encodeURIComponent(name)}${REMOTE && BOOT.auth ? "?" + BOOT.auth : ""}`;
+
+/* ---------- yardımcılar ---------- */
+const $ = s => document.querySelector(s);
+const esc = t => String(t ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+function toast(msg, err) {
+  const t = $("#toast"); t.textContent = msg; t.classList.toggle("err", !!err); t.classList.add("show");
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), err ? 3500 : 1800);
+}
+function glyph(cfg, cls = "em") {
+  if (!cfg) return `<span class="${cls}">＋</span>`;
+  if (cfg.icon) return `<img class="${cls}" src="${iconUrl(cfg.icon)}" alt="">`;
+  return `<span class="${cls}">${esc(cfg.emoji || "✨")}</span>`;
+}
+const baseSig = s => s.replace(":LONG", "");
+const pageName = n => (S.page_names && S.page_names[n]) || `Sayfa ${n}`;
+function sigLabel(sig) {
+  if (PHYS_LABEL[sig]) return PHYS_LABEL[sig];
+  if (sig.startsWith("BTN:")) return `Tuş ${sig.split(":")[1]}`;
+  for (const [p, list] of Object.entries(S.slots)) { const i = list.indexOf(sig); if (i >= 0) return `${pageName(p)} · ${i < 4 ? i + 1 : i}. buton`; }
+  return sig;
+}
+function findCat(name) { for (const c of S.library) if (c.items.some(i => i.name === name)) return c.cat; return ""; }
+function currentSig() { const b = baseSig(ui.selected); return ui.pressTab === "long" && b.startsWith("BTN:") ? b + ":LONG" : b; }
+
+/* ---------- tema ---------- */
+function applyTheme(t) {
+  if (REMOTE) { try { t = { ...t, ...JSON.parse(localStorage.getItem("nex-theme") || "{}") }; } catch (e) {} }
+  const root = document.documentElement;
+  root.dataset.theme = t.mode === "light" ? "light" : "dark";
+  root.style.setProperty("--accent", t.accent || "#F2601C");
+  root.style.setProperty("--glass", t.glass ?? 0.86);
+  if (t.bg_color) document.body.style.setProperty("--bg-custom", t.bg_color); else document.body.style.removeProperty("--bg-custom");
+  if (t.bg_image) { root.style.setProperty("--bg-photo", `url("${iconUrl(t.bg_image)}")`); document.body.classList.add("has-photo"); }
+  else document.body.classList.remove("has-photo");
+  document.querySelector('meta[name="theme-color"]').content = t.mode === "light" ? "#E6E8EC" : "#171A21";
+}
+async function setTheme(patch) {
+  if (REMOTE) { const cur = JSON.parse(localStorage.getItem("nex-theme") || "{}"); localStorage.setItem("nex-theme", JSON.stringify({ ...cur, ...patch })); applyTheme(S.theme); renderSettings(); return; }
+  await act("theme", patch);
+}
+
+/* ---------- çizim ---------- */
+function renderAll() {
+  applyTheme(S.theme);
+  document.querySelectorAll(".local-only").forEach(e => e.hidden = REMOTE);
+  document.querySelectorAll(".remote-only").forEach(e => e.hidden = !REMOTE);
+  document.querySelectorAll(".control-only").forEach(e => e.hidden = !REMOTE || ui.mode !== "control");
+  document.body.classList.toggle("control", REMOTE && ui.mode === "control");
+  $("#stage-hint").textContent = ui.mode === "control" ? "Bir tuşa dokun, görevi bilgisayarında çalıştırsın" : "Ayarlamak istediğin tuşa, ekran butonuna ya da tekerleğe tıkla";
+  $("#stage-hint").style.visibility = ui.selected && ui.mode === "edit" ? "hidden" : "visible";
+  renderTop(); renderLibrary(); renderScreen(); renderKeys(); renderInspector(); renderChangelog();
+  if (!REMOTE) { renderSettings(); if ($("#page-web").classList.contains("active")) renderWeb(); }
+  else renderSettings();
+}
+function renderTop() {
+  const box = $("#profile-chips"); box.innerHTML = "";
+  S.profiles.forEach(p => {
+    const b = document.createElement("button"); b.className = "chip"; b.textContent = p; b.setAttribute("aria-pressed", p === S.active_profile);
+    b.onclick = () => p !== S.active_profile && act("profile", { op: "switch", name: p }, `Profil: ${p}`);
+    box.append(b);
+  });
+  const d = S.device;
+  $("#dev-dot").classList.toggle("on", d.connected);
+  $("#dev-text").innerHTML = d.connected ? `<strong>NexDeck</strong> bağlı · ${esc(d.port)}${d.fw ? " · firmware " + esc(d.fw) : ""}` : "<strong>NexDeck</strong> bağlı değil";
+}
+function renderLibrary() {
+  const q = $("#search").value.trim().toLocaleLowerCase("tr");
+  const key = q + "|" + JSON.stringify(S.library);
+  if (key === ui.libKey) return; ui.libKey = key;
+  const box = $("#library"); box.innerHTML = "";
+  S.library.forEach(({ cat, items }) => {
+    const hits = items.filter(i => !q || i.name.toLocaleLowerCase("tr").includes(q) || cat.toLocaleLowerCase("tr").includes(q));
+    if (!hits.length) return;
+    const h = document.createElement("div"); h.className = "cat"; h.textContent = cat; box.append(h);
+    hits.forEach(it => {
+      const a = document.createElement("div"); a.className = "action"; a.draggable = true; a.tabIndex = 0;
+      a.innerHTML = `<span class="ic">${esc(it.emoji)}</span><span>${esc(it.name)}</span>`;
+      const data = { cat, act: it.name, needs: it.needs };
+      a.addEventListener("dragstart", e => { e.dataTransfer.setData("text/plain", JSON.stringify(data)); document.body.classList.add("dragging"); });
+      a.addEventListener("dragend", () => document.body.classList.remove("dragging"));
+      a.addEventListener("click", () => ui.selected ? assign(currentSig(), data) : toast("Önce cihazdan bir tuş seç"));
+      a.addEventListener("keydown", e => { if (e.key === "Enter") a.click(); });
+      box.append(a);
+    });
+  });
+  if (!box.children.length) box.innerHTML = `<p class="lib-hint">Bu aramayla eşleşen görev yok. Ayarlar &gt; Gelişmiş &gt; Eklentiler klasöründen yeni görev ekleyebilirsin.</p>`;
+}
+function renderScreen() {
+  const tabs = $("#screen-tabs"); tabs.innerHTML = "";
+  [1, 2, 3, 4].forEach(n => {
+    const b = document.createElement("button"); b.textContent = pageName(n); b.setAttribute("role", "tab"); b.setAttribute("aria-selected", n === ui.page);
+    b.title = REMOTE ? "" : "Adını değiştirmek için çift tıkla";
+    b.onclick = () => { ui.page = n; renderScreen(); };
+    if (!REMOTE) b.ondblclick = async () => { const name = prompt("Sayfa adı:", pageName(n)); if (name !== null) act("page_name", { page: String(n), name }, "Sayfa adı kaydedildi"); };
+    tabs.append(b);
+  });
+  const slots = $("#slots"); slots.innerHTML = "";
+  (S.slots[String(ui.page)] || []).forEach((sig, i) => {
+    if (!sig) { const nav = document.createElement("div"); nav.className = "slot nav"; nav.textContent = i === 7 ? "▶" : "◀"; nav.title = "Sayfa değiştirme tuşu (görev almaz)"; return slots.append(nav); }
+    const cfg = S.buttons[sig];
+    const s = document.createElement("button"); s.className = "slot dropzone" + (cfg ? "" : " empty"); s.dataset.sig = sig;
+    s.innerHTML = cfg ? `${glyph(cfg)}<span class="lbl">${esc(cfg.btn_text || cfg.name)}</span>` : `<span class="em">＋</span><span class="lbl">Boş</span>`;
+    wireTarget(s); slots.append(s);
+  });
+  markSelected();
+}
+function renderKeys() {
+  const box = $("#keys"); box.innerHTML = "";
+  for (let i = 1; i <= 5; i++) {
+    const sig = `BTN:${i}`, cfg = S.buttons[sig];
+    const k = document.createElement("button"); k.className = "key dropzone"; k.dataset.sig = sig;
+    k.innerHTML = `<span class="num">${i}</span>${glyph(cfg)}<span class="lbl">${cfg ? esc(cfg.name) : "Boş"}</span>${S.buttons[sig + ":LONG"] ? '<span class="long" title="Uzun basışta da görev var"></span>' : ""}`;
+    k.setAttribute("aria-label", `Tuş ${i}: ${cfg ? cfg.name : "boş"}`);
+    wireTarget(k); box.append(k);
+  }
+  wireTarget($("#knob"), true);
+  const enc = S.buttons["ENC:BTN"];
+  const turnLabel = (ui.audio || []).find(o => o.value === S.encoder_turn)?.label || { general_volume: "Genel ses", active_window: "Aktif pencere", brightness: "Parlaklık" }[S.encoder_turn] || S.encoder_turn.replace("app_volume:", "");
+  $("#knob-label").innerHTML = `Çevir: ${esc(turnLabel)}<br>Bas: ${enc ? esc(enc.name) : "—"}`;
+  markSelected();
+}
+function wireTarget(node, once) {
+  if (once && node.dataset.wired) return; node.dataset.wired = "1";
+  node.addEventListener("click", () => {
+    if (performance.now() - (node._dragEnd || 0) < 350) return;  // tekerlek çevrildiyse tıklama sayılmaz
+    if (ui.mode === "control") return runKey(node.dataset.sig, node);
+    select(node.dataset.sig);
+  });
+  node.addEventListener("dragover", e => { e.preventDefault(); node.classList.add("over"); });
+  node.addEventListener("dragleave", () => node.classList.remove("over"));
+  node.addEventListener("drop", e => {
+    e.preventDefault(); node.classList.remove("over"); document.body.classList.remove("dragging");
+    let data; try { data = JSON.parse(e.dataTransfer.getData("text/plain")); } catch (err) { return; }
+    select(node.dataset.sig); assign(currentSig(), data);
+  });
+}
+async function runKey(sig, node) {
+  if (!S.buttons[sig]) return toast("Bu tuşa görev atanmamış. Düzenle moduna geçip görev ata.");
+  node.classList.remove("pressed"); void node.offsetWidth; node.classList.add("pressed");
+  try { await api("test", { sig }); } catch (e) { toast(e.message, true); }
+}
+function markSelected() {
+  document.querySelectorAll(".dropzone").forEach(n => n.classList.toggle("selected", ui.mode === "edit" && !!ui.selected && n.dataset.sig === baseSig(ui.selected)));
+}
+function select(sig) {
+  if (ui.selected !== sig) ui.pressTab = "short";
+  ui.selected = sig; markSelected(); renderInspector(); $("#stage-hint").style.visibility = "hidden";
+  if (sig === "ENC:BTN" && !ui.audio) loadAudio();
+  if (window.innerWidth <= 1180) $("#inspector").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+async function assign(sig, data, extra = {}) {
+  try {
+    await api("assign", { sig, cat: data.cat, act: data.act, ...extra });
+    toast(`${sigLabel(baseSig(sig))}: ${data.act}`);
+    await refresh();
+    if (data.needs && data.needs !== "browser" && !extra.arg) setTimeout(() => $("#arg-input")?.focus(), 50);
+  } catch (e) { toast(e.message, true); }
+}
+async function loadAudio() {
+  try { ui.audio = (await api("audio_apps")).options; renderInspector(); renderKeys(); } catch (e) { ui.audio = []; }
+}
+
+/* ---------- sağ panel ---------- */
+function renderInspector() {
+  const box = $("#inspector");
+  if (!ui.selected) { box.innerHTML = `<h2>Tuş ayarları</h2><p class="insp-empty">Cihazdan bir tuş seç. Seçtiğin tuşun görevi, ikonu ve uzun basış ayarı burada görünür.</p>`; return; }
+  const base = baseSig(ui.selected), sig = currentSig(), cfg = S.buttons[sig];
+  const isPhys = base.startsWith("BTN:"), isEnc = base === "ENC:BTN", isText = /^NEX:P[34]_/.test(base);
+  const cat = cfg ? findCat(cfg.name) : "";
+  let fields = "";
+  if (cfg) {
+    const pick = !REMOTE && window.pywebview?.api ? `<button class="btn" id="pick-app">Seç…</button>` : "";
+    if (cfg.needs === "app") fields += `<div class="field"><label>Uygulama veya dosya yolu</label><div class="row"><input id="arg-input" style="flex:1" value="${esc(cfg.arg)}" placeholder="ör. C:\\Program Files\\Discord\\Discord.exe">${pick}</div></div>
+      <div class="field"><label>Ne yapsın</label><select id="app-action">${[["open", "Aç"], ["close", "Kapat"], ["force_close", "Zorla kapat"]].map(([v, l]) => `<option value="${v}" ${cfg.app_action === v ? "selected" : ""}>${l}</option>`).join("")}</select></div>`;
+    if (cfg.needs === "web") fields += `<div class="field"><label>Web adresi</label><input id="arg-input" value="${esc(cfg.arg)}" placeholder="ör. youtube.com"></div>`;
+    if (cfg.needs === "hotkey") fields += `<div class="field"><label>Kısayol</label><input id="arg-input" value="${esc(cfg.arg)}" placeholder="Kutuya tıkla ve tuşlara bas"><span class="small">Kutuya tıklayıp kısayola bas; Ctrl/Shift/Alt/Win otomatik eklenir.</span></div>`;
+    if (cfg.needs === "text") fields += `<div class="field"><label>Yazılacak metin</label><input id="arg-input" value="${esc(cfg.arg)}" placeholder="ör. merhaba"></div>`;
+    if (cfg.needs === "web" || cfg.needs === "browser") fields += `<div class="field"><label>Tarayıcı</label><select id="browser">${[["default", "Varsayılan"], ["chrome", "Chrome"], ["edge", "Edge"], ["firefox", "Firefox"]].map(([v, l]) => `<option value="${v}" ${cfg.browser === v ? "selected" : ""}>${l}</option>`).join("")}</select></div>`;
+    if (isText) fields += `<div class="field"><label>Ekranda yazacak metin</label><input id="btn-text" maxlength="20" value="${esc(cfg.btn_text)}" placeholder="${esc(cfg.name)}"></div>`;
+  }
+  const encField = isEnc ? `<div class="field"><label>Tekerleği çevirince</label><select id="enc-turn">${(ui.audio || [{ value: S.encoder_turn, label: "Yükleniyor…" }]).map(o => `<option value="${esc(o.value)}" ${o.value === S.encoder_turn ? "selected" : ""}>${esc(o.label)}</option>`).join("")}</select></div><div class="field"><label>Tekerleğe basınca</label></div>` : "";
+  box.innerHTML = `
+    <div class="insp-head">
+      <button class="insp-icon" id="icon-pick" title="İkon ya da resim seç">${cfg ? (cfg.icon ? `<img src="${iconUrl(cfg.icon)}" alt="">` : esc(cfg.emoji)) : "＋"}</button>
+      <div><div class="insp-title">${esc(isEnc ? "Tekerlek" : sigLabel(base))}</div><div class="insp-sub">${isPhys ? "Fiziksel tuş" : isEnc ? "Çevirme ve basma" : "Dokunmatik ekran"}</div></div>
+    </div>
+    <div id="icon-tools" hidden>
+      <div class="emoji-grid">${EMOJIS.map(e => `<button data-emoji="${e}">${e}</button>`).join("")}</div>
+      <div class="row" style="margin-top:8px"><button class="btn" id="icon-upload">Resim yükle</button>${cfg && cfg.icon ? '<button class="btn ghost" id="icon-remove">Resmi kaldır</button>' : ""}</div>
+    </div>
+    ${isPhys ? `<div class="tabs" role="tablist"><button data-tab="short" aria-selected="${ui.pressTab === "short"}">Kısa basış</button><button data-tab="long" aria-selected="${ui.pressTab === "long"}">Uzun basış</button></div>` : ""}
+    ${encField}
+    ${cfg ? `<div class="assigned"><span class="ic">${glyph(cfg)}</span><div class="grow"><div>${esc(cfg.name)}</div><div class="insp-sub">${esc(cfg.details || "Soldan başka bir görev sürükleyerek değiştir")}</div></div></div>
+      ${fields}
+      <div class="row"><button class="btn primary" id="test-btn">Dene</button><button class="btn ghost" id="clear-btn">Görevi kaldır</button></div>
+      <div class="small">"Dene" görevi cihazdan basılmış gibi hemen çalıştırır.</div>`
+    : `<p class="insp-empty">Bu ${isPhys && ui.pressTab === "long" ? "uzun basışa" : "tuşa"} henüz görev atanmadı. Soldaki listeden bir görevi sürükle ya da tıkla.</p>`}`;
+
+  box.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { ui.pressTab = b.dataset.tab; renderInspector(); });
+  const q = id => box.querySelector(id);
+  q("#icon-pick").onclick = () => cfg ? (q("#icon-tools").hidden = !q("#icon-tools").hidden) : toast("Önce bir görev ata");
+  box.querySelectorAll("[data-emoji]").forEach(b => b.onclick = () => act("icon", { sig, emoji: b.dataset.emoji }, "İkon değişti"));
+  if (q("#icon-upload")) q("#icon-upload").onclick = () => { $("#file-icon").dataset.sig = sig; $("#file-icon").click(); };
+  if (q("#icon-remove")) q("#icon-remove").onclick = () => act("icon", { sig }, "Resim kaldırıldı");
+  if (q("#test-btn")) q("#test-btn").onclick = () => api("test", { sig }).then(() => toast(`Çalıştırıldı: ${cfg.name}`)).catch(e => toast(e.message, true));
+  if (q("#clear-btn")) q("#clear-btn").onclick = () => act("clear", { sig }, "Görev kaldırıldı");
+  if (q("#enc-turn")) q("#enc-turn").onchange = e => act("encoder", { turn: e.target.value }, "Tekerlek ayarı kaydedildi");
+  const save = () => cfg && assign(sig, { cat, act: cfg.name }, {
+    arg: q("#arg-input")?.value ?? cfg.arg, browser: q("#browser")?.value ?? cfg.browser,
+    app_action: q("#app-action")?.value ?? cfg.app_action, btn_text: q("#btn-text")?.value ?? cfg.btn_text,
+  });
+  const argInput = q("#arg-input");
+  if (argInput) {
+    argInput.addEventListener("keydown", e => { if (e.key === "Enter" && cfg.needs !== "hotkey") save(); });
+    argInput.addEventListener("change", save);
+    if (cfg.needs === "hotkey") argInput.addEventListener("keydown", captureHotkey);
+  }
+  ["#browser", "#app-action"].forEach(id => q(id) && (q(id).onchange = save));
+  if (q("#btn-text")) q("#btn-text").addEventListener("change", save);
+  if (q("#pick-app")) q("#pick-app").onclick = async () => { const p = await window.pywebview.api.pick_file(); if (p) { argInput.value = p; save(); } };
+}
+function captureHotkey(e) {
+  const mods = ["Control", "Shift", "Alt", "Meta"];
+  if (e.key === "Tab" && !e.ctrlKey && !e.altKey) return;
+  e.preventDefault();
+  if (mods.includes(e.key)) return;
+  const parts = [];
+  if (e.ctrlKey) parts.push("ctrl"); if (e.shiftKey) parts.push("shift"); if (e.altKey) parts.push("alt"); if (e.metaKey) parts.push("win");
+  const c = e.code; let k = "";
+  if (/^Key[A-Z]$/.test(c)) k = c.slice(3).toLowerCase();
+  else if (/^Digit\d$/.test(c)) k = c.slice(5);
+  else if (/^F\d{1,2}$/.test(c)) k = c.toLowerCase();
+  else k = { Space: "space", Enter: "enter", Escape: "esc", Backspace: "backspace", Tab: "tab", Delete: "delete", Insert: "insert", Home: "home", End: "end", PageUp: "pageup", PageDown: "pagedown", ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right", PrintScreen: "print screen", Backquote: "`" }[c] || "";
+  if (!k) return toast("Bu tuş desteklenmiyor", true);
+  parts.push(k); e.target.value = parts.join("+"); e.target.dispatchEvent(new Event("change"));
+}
+
+/* ---------- Telefon sayfası ---------- */
+async function renderWeb() {
+  const box = $("#web-panel");
+  let w; try { w = await api("web"); } catch (e) { box.innerHTML = `<p>${esc(e.message)}</p>`; return; }
+  box.innerHTML = `
+    <h2>Telefondan kontrol</h2>
+    ${w.running ? `<div class="web-hero">
+      <button class="qr blur" id="qr" title="Göstermek için tıkla">${w.qr ? `<img src="${w.qr}" alt="QR kod">` : "QR oluşturulamadı"}</button>
+      <div>
+        <p style="margin:0 0 8px">Telefonun kamerasıyla QR kodu okut, sonra bu PIN'i gir:</p>
+        <div class="pin" id="pin">••••••</div>
+        <p class="url" id="url" hidden>${esc(w.url)}</p>
+        <p class="muted" style="margin:10px 0 0">Sadece aynı Wi-Fi ağındaki cihazlar bağlanabilir. QR ve PIN, tıklayana kadar gizli kalır.</p>
+        <div class="row" style="margin-top:14px"><button class="btn primary" id="web-stop">Durdur</button><button class="btn" id="web-reset">Kodu yenile</button><button class="btn ghost" id="web-copy">Adresi kopyala</button></div>
+      </div></div>`
+    : `<p class="muted" style="margin:0">Web kontrolü kapalı. Açınca telefonundan NexStudio Web ile tuşlara basabilir ve atama yapabilirsin.</p><div class="row"><button class="btn primary" id="web-start">Web kontrolünü başlat</button></div>`}
+    <div class="set-group"><h3>Tanınan cihazlar</h3>
+      ${w.devices.length ? w.devices.map(d => `<div class="set-row"><div>${esc(d.name)}<div class="desc">Son giriş: ${esc(d.last_seen || "-")}</div></div><div class="row"><button class="btn ghost" data-ren="${esc(d.id)}">Adlandır</button><button class="btn ghost" data-forget="${esc(d.id)}">Unut</button></div></div>`).join("") : `<p class="muted" style="margin:0">Henüz tanınan cihaz yok. Telefondan girişte "Bu cihazı hatırla" seçilirse burada görünür.</p>`}
+    </div>`;
+  const q = id => box.querySelector(id);
+  if (q("#qr")) q("#qr").onclick = () => { const on = q("#qr").classList.toggle("blur"); q("#pin").textContent = on ? "••••••" : w.pin; q("#url").hidden = on; };
+  if (q("#web-start")) q("#web-start").onclick = async () => { await act("web", { op: "start" }, "Web kontrolü başladı"); renderWeb(); };
+  if (q("#web-stop")) q("#web-stop").onclick = async () => { await act("web", { op: "stop" }, "Web kontrolü durdu"); renderWeb(); };
+  if (q("#web-reset")) q("#web-reset").onclick = async () => { await act("web", { op: "reset" }, "Yeni QR ve PIN oluşturuldu; eski bağlantılar kapandı"); renderWeb(); };
+  if (q("#web-copy")) q("#web-copy").onclick = () => navigator.clipboard.writeText(w.url).then(() => toast("Adres kopyalandı"));
+  box.querySelectorAll("[data-forget]").forEach(b => b.onclick = async () => { await act("known_device", { op: "forget", id: b.dataset.forget }, "Cihaz unutuldu"); renderWeb(); });
+  box.querySelectorAll("[data-ren]").forEach(b => b.onclick = async () => { const n = prompt("Cihaz adı:"); if (n) { await act("known_device", { op: "rename", id: b.dataset.ren, name: n }, "Cihaz adı kaydedildi"); renderWeb(); } });
+}
+
+/* ---------- Ayarlar ---------- */
+function renderSettings() {
+  const box = $("#settings-panel");
+  if (box.contains(document.activeElement) && document.activeElement.type === "range") return;
+  let t = S.theme; if (REMOTE) { try { t = { ...t, ...JSON.parse(localStorage.getItem("nex-theme") || "{}") }; } catch (e) {} }
+  const st = S.settings || {};
+  const sw = (key, val) => `<button class="switch" role="switch" data-set="${key}" aria-checked="${!!val}"></button>`;
+  box.innerHTML = `
+    <h2>Ayarlar</h2>
+    <div class="set-group"><h3>Görünüm</h3>
+      ${REMOTE ? '<p class="small" style="margin:0">Telefondaki görünüm ayarları sadece bu cihaza kaydedilir.</p>' : ""}
+      <div class="set-row"><div>Tema</div><div class="seg"><button data-mode="dark" aria-pressed="${t.mode !== "light"}">Koyu</button><button data-mode="light" aria-pressed="${t.mode === "light"}">Açık</button></div></div>
+      <div class="set-row"><div>Vurgu rengi</div><div class="swatches">${ACCENTS.map(c => `<button class="swatch" data-accent="${c}" style="background:${c}" aria-pressed="${(t.accent || "").toUpperCase() === c}" title="${c}"></button>`).join("")}<input type="color" id="accent-custom" value="${esc(t.accent || "#F2601C")}" title="Özel renk"></div></div>
+      ${REMOTE ? "" : `<div class="set-row"><div>Arka plan<div class="desc">Düz renk ya da kendi fotoğrafın</div></div>
+        <div class="row"><input type="color" id="bg-color" value="${esc(t.bg_color || (t.mode === "light" ? "#E6E8EC" : "#171A21"))}" title="Arka plan rengi">
+        <button class="btn" id="bg-photo">Fotoğraf seç</button>${t.bg_image || t.bg_color ? '<button class="btn ghost" id="bg-clear">Varsayılana dön</button>' : ""}</div></div>
+      <div class="set-row"><div>Panel şeffaflığı<div class="desc">Fotoğraf arka planda daha çok görünsün</div></div><input type="range" id="glass" min="30" max="100" value="${Math.round((t.glass ?? .86) * 100)}" aria-label="Panel opaklığı"></div>`}
+    </div>
+    ${REMOTE ? "" : `
+    <div class="set-group"><h3>Cihaz</h3>
+      <div class="set-row"><div>Bağlı NexDeck<div class="desc">${S.device.connected ? `${esc(S.device.port)} · firmware ${esc(S.device.fw || "1.x")}${S.device.hid ? " · USB klavye modu hazır" : ""}` : "Bağlı değil"}</div></div>
+        <div class="row">${S.device.connected ? '<button class="btn" id="dev-off">Bağlantıyı kes</button>' : `<select class="inp" id="dev-port">${(S.device.ports || []).map(p => `<option value="${esc(p.port)}">${esc(p.label)}</option>`).join("") || "<option value=''>Cihaz bulunamadı</option>"}</select><button class="btn primary" id="dev-on">Bağlan</button>`}</div></div>
+      <div class="set-row"><div>Uygulama açılınca cihaza otomatik bağlan</div>${sw("auto_connect", st.auto_connect)}</div>
+    </div>
+    <div class="set-group"><h3>Profiller</h3>
+      ${S.profiles.map(p => `<div class="set-row"><div>${esc(p)}${p === S.active_profile ? ' <span class="small">· aktif</span>' : ""}</div><div class="row"><button class="btn ghost" data-pren="${esc(p)}">Adlandır</button><button class="btn ghost" data-pcopy="${esc(p)}">Kopyala</button>${S.profiles.length > 1 ? `<button class="btn ghost danger" data-pdel="${esc(p)}">Sil</button>` : ""}</div></div>`).join("")}
+    </div>
+    <div class="set-group"><h3>Genel</h3>
+      <div class="set-row"><div>Windows açılınca başlat</div>${sw("start_with_win", st.start_with_win)}</div>
+      <div class="set-row"><div>Pencereyi kapatınca arka planda çalış<div class="desc">Sağ alttaki simgeden tekrar açılır, tuşlar çalışmaya devam eder</div></div>${sw("run_in_bg", st.run_in_bg)}</div>
+    </div>
+    <details class="adv"><summary>Gelişmiş</summary>
+      <div class="set-group">
+        <div class="set-row"><div>Tuş gönderim yöntemi<div class="desc">Otomatik: cihaz destekliyorsa tuşlar gerçek USB klavye gibi basılır (oyunlar için)</div></div>
+          <select class="inp" id="key-mode"><option value="auto" ${st.key_send_mode !== "software" ? "selected" : ""}>Otomatik</option><option value="software" ${st.key_send_mode === "software" ? "selected" : ""}>Sadece yazılım</option></select></div>
+        <div class="set-row"><div>Yönetici olarak çalıştır<div class="desc">${st.elevated ? "Şu an yönetici olarak çalışıyor" : "Yönetici olarak açılan programlara tuş göndermek için gerekir"}</div></div><button class="btn" id="run-admin" ${st.elevated ? "disabled" : ""}>Yönetici olarak yeniden başlat</button></div>
+        <div class="set-row"><div>Eklentiler</div><button class="btn" id="open-plugins">Klasörü aç</button></div>
+        <div class="set-row"><div>Hata günlüğü</div><button class="btn" id="open-logs">Günlüğü aç</button></div>
+        <div class="set-row"><div>Klasik görünüm<div class="desc">Eski NexStudio arayüzü. Oradan Ayarlar &gt; "Yeni görünüme geç" ile geri dönebilirsin.</div></div><button class="btn" id="go-classic">Klasik görünüme geç</button></div>
+        <div class="set-row"><div>Sürüm</div><div class="small">NexStudio ${esc(S.version)}</div></div>
+      </div>
+    </details>`}`;
+  const q = id => box.querySelector(id);
+  box.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => setTheme({ mode: b.dataset.mode, ...(REMOTE ? {} : { bg_color: "" }) }));
+  box.querySelectorAll("[data-accent]").forEach(b => b.onclick = () => setTheme({ accent: b.dataset.accent }));
+  q("#accent-custom").onchange = e => setTheme({ accent: e.target.value });
+  if (REMOTE) return;
+  q("#bg-color").onchange = e => setTheme({ bg_color: e.target.value });
+  q("#bg-photo").onclick = () => $("#file-bg").click();
+  if (q("#bg-clear")) q("#bg-clear").onclick = async () => { await api("bg_image", {}).catch(() => {}); await setTheme({ bg_color: "" }); };
+  q("#glass").oninput = e => document.documentElement.style.setProperty("--glass", e.target.value / 100);
+  q("#glass").onchange = e => setTheme({ glass: e.target.value / 100 });
+  box.querySelectorAll("[data-set]").forEach(b => b.onclick = () => act("settings", { key: b.dataset.set, value: b.getAttribute("aria-checked") !== "true" }, "Kaydedildi"));
+  if (q("#dev-on")) q("#dev-on").onclick = () => act("device", { op: "connect", port: q("#dev-port").value }, "Bağlanılıyor…");
+  if (q("#dev-off")) q("#dev-off").onclick = () => act("device", { op: "disconnect" }, "Bağlantı kesildi");
+  box.querySelectorAll("[data-pren]").forEach(b => b.onclick = () => { const n = prompt("Yeni profil adı:", b.dataset.pren); if (n && n !== b.dataset.pren) act("profile", { op: "rename", name: b.dataset.pren, new_name: n }, "Profil adı değişti"); });
+  box.querySelectorAll("[data-pcopy]").forEach(b => b.onclick = async () => {
+    const n = prompt("Kopyanın adı:", b.dataset.pcopy + " kopya"); if (!n) return;
+    if (b.dataset.pcopy !== S.active_profile) await api("profile", { op: "switch", name: b.dataset.pcopy }).catch(() => {});
+    act("profile", { op: "copy", name: n }, `Profil kopyalandı: ${n}`);
+  });
+  box.querySelectorAll("[data-pdel]").forEach(b => b.onclick = () => confirm(`"${b.dataset.pdel}" profili silinsin mi? Bu profildeki tüm tuş atamaları silinir.`) && act("profile", { op: "delete", name: b.dataset.pdel }, "Profil silindi"));
+  q("#key-mode").onchange = e => act("settings", { key: "key_send_mode", value: e.target.value }, "Kaydedildi");
+  q("#run-admin").onclick = () => act("ui", { op: "admin" });
+  q("#open-plugins").onclick = () => act("ui", { op: "open_plugins" });
+  q("#open-logs").onclick = () => act("ui", { op: "open_logs" });
+  q("#go-classic").onclick = () => act("ui", { op: "classic" }, "Klasik görünüm açılıyor…");
+}
+function renderChangelog() {
+  $("#changelog").innerHTML = (S.changelog || []).map(([v, d, items]) => `<div class="rel">${esc(v)}${d ? `<small>${esc(d)}</small>` : ""}</div><ul>${items.map(i => `<li>${esc(i)}</li>`).join("")}</ul>`).join("");
+}
+
+/* ---------- dosya seçiciler ---------- */
+function readImage(file) {
+  return new Promise((ok, fail) => {
+    if (!file) return fail(new Error("Dosya seçilmedi"));
+    if (file.size > 25 * 1024 * 1024) return fail(new Error("Resim 25 MB'tan küçük olmalı"));
+    const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => fail(new Error("Dosya okunamadı")); r.readAsDataURL(file);
+  });
+}
+$("#file-icon").onchange = async e => {
+  try { const data = await readImage(e.target.files[0]); await act("icon", { sig: e.target.dataset.sig, data }, "Tuş resmi güncellendi"); }
+  catch (err) { toast(err.message, true); } finally { e.target.value = ""; }
+};
+$("#file-bg").onchange = async e => {
+  try { const data = await readImage(e.target.files[0]); toast("Fotoğraf yükleniyor…"); await act("bg_image", { data }, "Arka plan fotoğrafı ayarlandı"); if ((S.theme.glass ?? .86) > .8) setTheme({ glass: .7 }); }
+  catch (err) { toast(err.message, true); } finally { e.target.value = ""; }
+};
+
+/* ---------- gezinme ---------- */
+document.querySelectorAll(".rail [data-page]").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".rail [data-page]").forEach(x => x.removeAttribute("aria-current"));
+  b.setAttribute("aria-current", "page");
+  document.querySelectorAll(".page").forEach(p => p.classList.toggle("active", p.id === "page-" + b.dataset.page));
+  if (b.dataset.page === "web") renderWeb();
+  window.scrollTo(0, 0);
+});
+document.querySelectorAll(".modeswitch button").forEach(b => b.onclick = () => {
+  ui.mode = b.dataset.mode; document.querySelectorAll(".modeswitch button").forEach(x => x.setAttribute("aria-pressed", x === b));
+  if (ui.mode === "control") ui.selected = null; renderAll();
+});
+/* ---------- tekerlek ---------- */
+// Eski web arayüzüyle aynı his: her 14° bir adım; saat yönü = artır. Adımlar 70 ms'de bir toplu gönderilir.
+const KNOB_STEP_DEG = 14;
+const knob = { rot: 0, acc: 0, pending: 0, timer: null };
+function setKnobRot(deg) { knob.rot = deg; $("#knob-face").style.setProperty("--rot", deg + "deg"); }
+function knobStep(n) {
+  knob.pending += n;
+  if (!knob.timer) knob.timer = setTimeout(flushKnob, 70);
+}
+async function flushKnob() {
+  const n = Math.max(-20, Math.min(20, knob.pending)); knob.pending = 0; knob.timer = null;
+  if (n) { try { await api("volume", { steps: n }); } catch (e) { toast(e.message, true); } }
+}
+function turnKnob(steps) { setKnobRot(knob.rot + steps * KNOB_STEP_DEG); knobStep(steps); }
+(function initKnob() {
+  const el = $("#knob");
+  const angle = e => { const r = el.getBoundingClientRect(); return Math.atan2(e.clientY - (r.top + r.height / 2), e.clientX - (r.left + r.width / 2)) * 180 / Math.PI; };
+  const diff = (a, b) => { let d = a - b; while (d > 180) d -= 360; while (d < -180) d += 360; return d; };
+  let drag = null;
+  el.addEventListener("pointerdown", e => {
+    if (e.button !== 0) return;
+    drag = { last: angle(e), moved: 0 };
+    el.setPointerCapture(e.pointerId);
+  });
+  el.addEventListener("pointermove", e => {
+    if (!drag) return;
+    const a = angle(e), d = diff(a, drag.last);
+    drag.last = a; drag.moved += Math.abs(d);
+    if (drag.moved < 6) return;               // küçük kıpırdama tıklama sayılır
+    el.classList.add("dragging");
+    setKnobRot(knob.rot + d);
+    knob.acc += d;
+    while (Math.abs(knob.acc) >= KNOB_STEP_DEG) { const s = Math.sign(knob.acc); knob.acc -= s * KNOB_STEP_DEG; knobStep(s); }
+    e.preventDefault();
+  });
+  const end = () => {
+    if (!drag) return;
+    if (drag.moved >= 6) el._dragEnd = performance.now();
+    drag = null; knob.acc = 0; el.classList.remove("dragging");
+  };
+  el.addEventListener("pointerup", end);
+  el.addEventListener("pointercancel", end);
+  el.addEventListener("wheel", e => { e.preventDefault(); turnKnob(e.deltaY < 0 ? 1 : -1); }, { passive: false });
+  el.addEventListener("keydown", e => {
+    const map = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1 };
+    if (map[e.key]) { e.preventDefault(); turnKnob(map[e.key]); }
+  });
+})();
+document.querySelectorAll("[data-vol]").forEach(b => b.onclick = () => turnKnob(Number(b.dataset.vol)));
+
+/* ---------- canlı: cihazdaki tuş ve tekerlek ekranda görünsün ---------- */
+let liveSeq = -1;
+function flash(node) { if (!node) return; node.classList.remove("live"); void node.offsetWidth; node.classList.add("live"); }
+function showLive(sig) {
+  if (sig === "ENC:UP" || sig === "ENC:DOWN") return setKnobRot(knob.rot + (sig === "ENC:UP" ? KNOB_STEP_DEG : -KNOB_STEP_DEG));
+  if (sig === "ENC:BTN") return flash($("#knob"));
+  if (sig.startsWith("BTN:")) return flash(document.querySelector(`.key[data-sig="${baseSig(sig)}"]`));
+  if (sig.startsWith("NEX:") && S) {
+    // Ekran butonu başka sayfadaysa (ve düzenleme yapılmıyorsa) o sayfaya geç: uygulama cihaz ekranını takip eder
+    const page = Object.keys(S.slots).find(p => S.slots[p].includes(sig));
+    if (page && Number(page) !== ui.page && !ui.selected) { ui.page = Number(page); renderScreen(); }
+    flash(document.querySelector(`.slot[data-sig="${sig}"]`));
+  }
+}
+async function pollLive() {
+  if (document.hidden || !S) return;
+  try {
+    const r = await api(`live?since=${liveSeq}`);
+    if (liveSeq >= 0) r.events.forEach(showLive);
+    liveSeq = r.seq;
+    if (r.connected !== S.device.connected) { S.device.connected = r.connected; renderTop(); }
+  } catch (e) {}
+}
+setInterval(pollLive, REMOTE ? 600 : 300);
+$("#open-changelog").onclick = () => $("#drawer").classList.add("open");
+$("#close-changelog").onclick = () => $("#drawer").classList.remove("open");
+$("#search").oninput = () => { ui.libKey = ""; renderLibrary(); };
+$("#add-profile").onclick = () => { const n = prompt("Yeni profil adı:"); if (n) act("profile", { op: "create", name: n }, `Profil oluşturuldu: ${n}`); };
+document.addEventListener("keydown", e => { if (e.key === "Escape") $("#drawer").classList.remove("open"); });
+
+/* ---------- veri ---------- */
+async function refresh() {
+  S = await api("state");
+  renderAll();
+}
+async function poll() {
+  if (document.hidden) return;
+  try {
+    const next = await api("state");
+    const changed = JSON.stringify({ ...next, theme: 0 }) !== JSON.stringify({ ...S, theme: 0 });
+    S = next;
+    if (changed && !document.activeElement.matches("input, select")) renderAll(); else renderTop();
+  } catch (e) {}
+}
+refresh().catch(e => toast(e.message, true));
+setInterval(poll, 4000);
+</script>
+</body>
+</html>

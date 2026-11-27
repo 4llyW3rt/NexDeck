@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-# NexStudio 2.0 PyInstaller tanımı.  Kullanım:  build.bat   (veya: python -m PyInstaller --noconfirm --clean NexStudio.spec)
+# NexStudio 2.5 PyInstaller tanımı.  Kullanım:  build.bat   (veya: python -m PyInstaller --noconfirm --clean NexStudio.spec)
 from PyInstaller.utils.hooks import collect_submodules
 
 hiddenimports = [
@@ -10,10 +10,13 @@ hiddenimports = [
     # Eklentilerin kullandığı kütüphaneler (eklentiler exe içinde değil AppData'dan yüklenir,
     # bu yüzden ihtiyaç duydukları paketler burada açıkça paketlenmeli):
     'obsws_python', 'websocket',
+    # 2.5 yeni arayüz penceresi (WebView2)
+    'webview', 'webview.platforms.edgechromium', 'webview.platforms.winforms', 'clr_loader', 'pythonnet',
 ]
 hiddenimports += collect_submodules('pycaw')
 hiddenimports += collect_submodules('comtypes')
 hiddenimports += collect_submodules('obsws_python')
+hiddenimports += collect_submodules('webview')
 
 a = Analysis(
     ['src/nexstudio_ui.py'],
@@ -26,6 +29,7 @@ a = Analysis(
         ('src/nircmd.exe', '.'),
         ('src/locales', 'locales'),
         ('src/plugins', 'plugins'),
+        ('src/web_ui', 'web_ui'),
     ],
     hiddenimports=hiddenimports,
     hookspath=[],
