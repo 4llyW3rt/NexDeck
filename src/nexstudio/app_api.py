@@ -3,6 +3,7 @@
 """Yeni arayüzün yerel API'si (AppApi), yerel sunucu ve arayüz penceresi işlemi."""
 from . import state
 from .core import (  # noqa: F401
+    webbrowser,
     APP_DIR,
     APP_VERSION,
     BaseHTTPRequestHandler,
@@ -50,6 +51,8 @@ from .webserver import (  # noqa: F401
     NexStudioHTTPServer,
 )
 from .i18n import (  # noqa: F401
+    LANGUAGES_DIR,
+    load_language_packs,
     load_locales,
     tr,
 )
@@ -203,6 +206,13 @@ def make_qr_data_uri(text):
     return "data:image/png;base64," + base64.b64encode(out.getvalue()).decode("ascii")
 
 
+HARDWARE_GUIDE_URL = "https://github.com/4llyW3rt/NexDeck/blob/main/docs/DONANIM.md"
+
+
+def APP_CONFIG_LANG():
+    return state.APP_CONFIG.get("language", "tr")
+
+
 class AppApi:
     """Yeni arayüzün kullandığı JSON API. remote=True: telefondan (LAN) gelen istek, kısıtlı yetki."""
 
@@ -267,7 +277,11 @@ class AppApi:
             "encoder_turn": (cfg.get("encoder") or {}).get("turn", "general_volume"),
             "library": library,
             "theme": {**DEFAULT_UI_THEME, **(cfg.get("ui_theme") or {})},
-            "changelog": NEXSTUDIO_CHANGELOG.get(lang, NEXSTUDIO_CHANGELOG["tr"]),
+            "changelog": NEXSTUDIO_CHANGELOG.get(lang, NEXSTUDIO_CHANGELOG["en"]),
+            "app_mode": cfg.get("app_mode", "device"),
+            "first_run": bool(state.FIRST_RUN) and not cfg.get("welcome_done"),
+            "languages": [{"code": c, "name": p["name"]} for c, p in load_language_packs().items()],
+            "web_running": bool(win and win.mobile_thread and win.mobile_thread.is_running),
             "device": {
                 "connected": bool(win and win.is_device_connected()),
                 "port": getattr(getattr(win, "serial_thread", None), "port", "") if win else "",
@@ -299,6 +313,13 @@ class AppApi:
         seq = win._live_seq
         events = [] if since < 0 else [d for s, d in list(win._live_events) if s > since]
         return {"ok": True, "seq": seq, "events": events, "connected": win.is_device_connected()}
+
+    @classmethod
+    def get_lang(cls, body, remote):
+        """Yeni arayüzün çeviri tablosu (Türkçe metin -> çeviri)."""
+        code = body.get("code") or APP_CONFIG_LANG()
+        pack = load_language_packs().get(code, {"name": code, "ui": {}})
+        return {"ok": True, "code": code, "name": pack["name"], "ui": pack["ui"]}
 
     @classmethod
     def get_audio_apps(cls, body, remote):
@@ -476,8 +497,13 @@ class AppApi:
     def post_settings(cls, body, remote):
         key, value = body.get("key"), body.get("value")
         win = state.MAIN_WINDOW
-        if key not in ("start_with_win", "run_in_bg", "auto_connect", "key_send_mode", "language"):
+        if key not in ("start_with_win", "run_in_bg", "auto_connect", "key_send_mode", "language", "app_mode", "welcome_done"):
             raise ValueError("Bilinmeyen ayar")
+        if key == "app_mode":
+            call_on_ui_sync(lambda: win.set_app_mode(value))
+            return {"ok": True}
+        if key == "language" and value not in load_language_packs():
+            raise ValueError("Bu dil yüklü değil")
 
         def _apply():
             win.config[key] = value
@@ -572,6 +598,10 @@ class AppApi:
             run_on_ui(win.open_preferred_ui)
         elif op == "open_plugins":
             os.startfile(PLUGINS_DIR)
+        elif op == "open_languages":
+            os.startfile(LANGUAGES_DIR)
+        elif op == "open_guide":
+            webbrowser.open(HARDWARE_GUIDE_URL)
         elif op == "open_logs":
             run_on_ui(win.open_error_log)
         elif op == "admin":

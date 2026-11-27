@@ -381,6 +381,7 @@ def seed_bundled_plugins():
 state.LOADED_PLUGINS = {}
 def load_plugins():
     state.LOADED_PLUGINS = {}
+    state.PLUGIN_LANGUAGES = {}
     seed_bundled_plugins()
     for file_path in glob.glob(os.path.join(PLUGINS_DIR, "*.py")):
         module_name = os.path.basename(file_path)[:-3]
@@ -391,6 +392,11 @@ def load_plugins():
             spec.loader.exec_module(module)
             if hasattr(module, "PLUGIN_NAME"):
                 module.nex.plugin_name = module.PLUGIN_NAME
+            # 2.6: eklenti dil paketi ekleyebilir: LANGUAGES = {"de": {"name": ..., "ui": {...}, "core": {...}}}
+            if isinstance(getattr(module, "LANGUAGES", None), dict):
+                state.PLUGIN_LANGUAGES.update(module.LANGUAGES)
+                if not hasattr(module, "ACTIONS"):
+                    continue
             if hasattr(module, "PLUGIN_NAME") and hasattr(module, "ACTIONS"):
                 state.LOADED_PLUGINS[module.PLUGIN_NAME] = {"actions": module.ACTIONS, "module": module, "file": file_path}
             else:
@@ -462,6 +468,7 @@ def apply_active_profile(config_data):
     return config_data
 
 def load_config():
+    state.FIRST_RUN = not os.path.exists(CONFIG_FILE) and not os.path.exists(CONFIG_FILE + ".bak")
     default_cfg = {
         "language": "tr", "last_port": "", "accent_color": "#3B82F6", 
         "run_in_bg": False, "start_with_win": False, "auto_connect": True, "screen_bg": "", 
@@ -469,6 +476,7 @@ def load_config():
         "web_auto_start": False, "web_private_log": False, "web_known_only": False,
         "key_send_mode": "auto", "last_port_serial": "", "device_names": {},
         "ui_mode": "modern", "ui_theme": {},
+        "app_mode": "device",  # 2.6: "device" = NexDeck ile, "web" = cihazsız (telefon sanal NexDeck)
         "known_web_devices": {}, "web_access_history": [],
         "mobile_pin": "", "web_token": "", "logged_in_email": "",
         "encoder": {"turn": "general_volume"},

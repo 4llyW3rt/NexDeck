@@ -5,6 +5,34 @@ Uygulama içindeki "Güncelleme Rehberi" kartı da aynı bilgiyi kısaca göster
 
 ---
 
+## 2.6.0 — 27.11.2026 (Web modu + dil paketleri)
+
+### Web modu (cihazsız kullanım)
+- `config.json > app_mode`: `"device"` (NexDeck ile, varsayılan) ya da `"web"` (cihazsız; telefon sanal NexDeck).
+- Web modunda seri porta bağlanılmaz, yeniden bağlanma denenmez, telefondan kontrol otomatik başlar.
+  Arayüzde cihaz "Sanal" etiketli görünür; ayarlarda "NexDeck'i kendin yap" rehberi ve **Cihazlı sürüme geç** kartı var.
+- Geçiş iki yönde de Ayarlar'dan yapılır, yeniden kurulum gerekmez; tuş atamaları aynen kalır.
+- İlk kurulumda (config.json yoksa) karşılama ekranı: dil seçimi + "NexDeck'im var / telefonumla kullanacağım".
+- Donanım rehberi: [docs/DONANIM.md](docs/DONANIM.md) (parça listesi, pin bağlantıları, yükleme, sorun giderme).
+
+### Dil paketleri
+- Yeni arayüzün metinleri dil paketlerinden gelir. Dil paketi tek bir JSON dosyasıdır:
+  `{"name": "English", "ui": {"Türkçe metin": "çeviri", "Profil: {0}": "Profile: {0}"}, "core": {...}}`
+  - `ui`: yeni arayüz; anahtar Türkçe metnin kendisidir, `{0}` yer tutucuları desteklenir.
+  - `core`: klasik görünüm ve görev adları (locales anahtarları). Boşsa İngilizce'ye düşer.
+- Kaynaklar: `src/web_ui/lang/*.json` (uygulamayla gelen), `%APPDATA%\NexStudio\languages\*.json` (kullanıcı), eklentilerdeki `LANGUAGES = {...}`.
+- Arayüz, ekrana gelen her metni (yazı, placeholder, title, aria-label) otomatik çevirir; yeni dil için kod değişikliği gerekmez.
+- Hazır diller: Türkçe, English (`src/web_ui/lang/en.json`), Deutsch (dil eklentisi örneği: `src/plugins/dil_deutsch.py`).
+- Çevirmenler için: `python tools/extract_ui_strings.py <dil.json>` eksik metinleri listeler.
+- Klasik görünüm: Türkçe dışındaki dillerde eksik metin artık Türkçe yerine İngilizce'ye düşer.
+
+### Doğrulama
+- İlk kurulum (boş veri klasörü): karşılama ekranı açıldı, Almanca seçilince tüm arayüz Almanca'ya döndü,
+  "telefonumla kullanacağım" seçilince web modu + telefondan kontrol otomatik başladı, QR hazırdı.
+- Görünen metinlerde çevrilmemiş Türkçe kalmadı; 18 duman + 4 canlı olay testi geçti.
+
+---
+
 ## 2.5.1 — 27.11.2026 (Modüllere bölme + port düzeltmesi)
 
 ### Düzeltilen hata

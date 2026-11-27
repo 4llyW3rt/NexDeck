@@ -3,7 +3,10 @@
 """Dil sistemi: varsayılan çeviriler, dil dosyaları, tr()."""
 from . import state
 from .core import (  # noqa: F401
+    APP_DIR,
     LOCALES_DIR,
+    get_resource_path,
+    write_error_log,
     glob,
     json,
     os,
@@ -329,4 +332,58 @@ def tr(key):
     lang = state.APP_CONFIG.get("language", "tr")
     if lang in state.TRANSLATIONS and key in state.TRANSLATIONS[lang]:
         return state.TRANSLATIONS[lang][key]
+    # 2.6: Türkçe dışındaki dillerde eksik metin önce İngilizce'ye düşer
+    if lang != "tr" and key in state.TRANSLATIONS.get("en", {}):
+        return state.TRANSLATIONS["en"][key]
     return DEFAULT_TRANSLATIONS["tr"].get(key, key)
+
+
+# =========================================================
+# 2.6 DİL PAKETLERİ (yeni arayüz)
+# Bir dil paketi tek JSON dosyasıdır:
+#   {"name": "Deutsch", "ui": {"Görevler": "Aufgaben", ...}, "core": {"tab_settings": "Einstellungen", ...}}
+#   ui   : yeni arayüzün Türkçe metni -> çeviri ("{0}" gibi yer tutucular desteklenir)
+#   core : klasik görünüm / görev adları (locales/tr.json anahtarları)
+# Kaynaklar (sonraki öncekini ezer):
+#   1) uygulamayla gelen  web_ui/lang/*.json
+#   2) kullanıcının       %APPDATA%/NexStudio/languages/*.json
+#   3) eklentiler         LANGUAGES = {"de": {...aynı biçim...}}
+# =========================================================
+LANGUAGES_DIR = os.path.join(APP_DIR, "languages")
+os.makedirs(LANGUAGES_DIR, exist_ok=True)
+
+
+def _language_files():
+    for folder in (get_resource_path(os.path.join("web_ui", "lang")), LANGUAGES_DIR):
+        if os.path.isdir(folder):
+            for path in sorted(glob.glob(os.path.join(folder, "*.json"))):
+                yield os.path.splitext(os.path.basename(path))[0].lower(), path
+
+
+def load_language_packs():
+    """Tüm dil paketlerini okur: {kod: {"name", "ui", "core"}}"""
+    packs = {"tr": {"name": "Türkçe", "ui": {}, "core": {}}}
+    for code, path in _language_files():
+        try:
+            with open(path, "r", encoding="utf-8-sig") as f:
+                data = json.load(f)
+            pack = packs.setdefault(code, {"name": code, "ui": {}, "core": {}})
+            pack["name"] = data.get("name", pack["name"])
+            pack["ui"].update(data.get("ui", {}))
+            pack["core"].update(data.get("core", {}))
+        except Exception as e:
+            write_error_log(f"Dil paketi okunamadı ({path}): {e}")
+    for code, data in (state.PLUGIN_LANGUAGES or {}).items():
+        pack = packs.setdefault(code, {"name": code, "ui": {}, "core": {}})
+        pack["name"] = data.get("name", pack["name"])
+        pack["ui"].update(data.get("ui", {}))
+        pack["core"].update(data.get("core", {}))
+    return packs
+
+
+def apply_language_packs_to_core():
+    """Dil paketlerindeki 'core' metinlerini klasik görünümün çeviri tablosuna ekler."""
+    for code, pack in load_language_packs().items():
+        if pack["core"]:
+            state.TRANSLATIONS.setdefault(code, {}).update(pack["core"])
+            state.TRANSLATIONS[code].setdefault("lang_name", pack["name"])

@@ -5,7 +5,7 @@
 
 ![NexDeck](assets/main.jpg)
 
-## Öne çıkanlar (2.5)
+## Öne çıkanlar (2.6)
 
 - **Stream Deck tarzı arayüz:** cihaz ekranda birebir çizili; görevleri tuşlara sürükleyip bırak.
 - **Gerçek USB klavye modu:** NexDeck tuşları donanım klavyesi gibi basabilir; hile korumalı oyunlarda ve OBS'de güvenilir çalışır.
@@ -15,11 +15,14 @@
 - **Canlı gösterim:** cihazdaki tuşa basınca ekranda yanıp söner, tekerleği çevirince ekrandaki tekerlek döner.
 - **Eklentiler:** OBS, Spotify, Discord, Zoom, VS Code, Photoshop… ve kendi eklentini birkaç satırla yazabilirsin.
 - **Kararlılık:** kopunca otomatik yeniden bağlanma, bozulmaya dayanıklı ayar dosyası, hata günlüğü.
+- **Cihazın yok mu?** Web modunda telefonun sanal NexDeck olur. Cihazı [kendin yapınca](docs/DONANIM.md) tek tıkla cihazlı sürüme geç.
+- **Diller:** Türkçe, English, Deutsch — yeni dil tek bir dosyayla eklenir.
 
 ## Sürüm geçmişi
 
 | Sürüm | Tarih | Özet |
 |---|---|---|
+| [2.6](../../releases/tag/nexstudio-v2.6.0) | 27.11.2026 | Web modu (cihazsız kullanım), karşılama ekranı, dil paketleri (EN, DE), donanım rehberi |
 | [2.5.1](../../releases/tag/nexstudio-v2.5.1) | 27.11.2026 | Kod modüllere bölündü, telefon bağlantısı (web portu) düzeltmesi |
 | [2.5](../../releases/tag/nexstudio-v2.5.0) | 27.11.2026 | Yeni arayüz, NexStudio Web, döndürülebilir tekerlek, canlı gösterim |
 | [2.0](../../releases/tag/nexstudio-v2.0.0) | 25.11.2026 | Kararlılık sürümü, firmware 2.0 (USB HID), otomatik yeniden bağlanma |
@@ -95,6 +98,15 @@ def execute(func):
 ```
 
 `nex` nesnesini NexStudio ekler; ayarlar için `nex.get_setting("anahtar", varsayılan)`. Her eklenti kendi thread'inde çalışır.
+
+## Dil ekleme
+
+1. [src/web_ui/lang/en.json](src/web_ui/lang/en.json) dosyasını kopyala, adını dil koduyla değiştir (ör. `fr.json`).
+2. `"name"` alanına dilin adını yaz, `"ui"` içindeki değerleri çevir (anahtarlar Türkçe kalır).
+3. Dosyayı `%APPDATA%\NexStudio\languages\` klasörüne koy (Ayarlar > Gelişmiş > Diller > Klasörü aç) ve Ayarlar > Dil'den seç.
+
+Dili eklenti olarak da dağıtabilirsin: örnek [src/plugins/dil_deutsch.py](src/plugins/dil_deutsch.py). Eksik metinleri görmek için: `python tools/extract_ui_strings.py fr.json`.
+Pull Request ile gönderirsen bir sonraki sürümle herkese gelir.
 
 ## Nasıl geliştirildi
 

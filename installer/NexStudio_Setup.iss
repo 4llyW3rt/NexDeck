@@ -1,7 +1,7 @@
 ; NexStudio 2.5 Inno Setup betiği
 ; Önce build.bat çalıştırın, sonra bu dosyayı Inno Setup Compiler ile derleyin.
 #define MyAppName "NexStudio"
-#define MyAppVersion "2.5.1"
+#define MyAppVersion "2.6.0"
 #define MyAppPublisher "Ali Mert Taşcı / NexHub"
 #define MyAppExeName "NexStudio.exe"
 
@@ -14,7 +14,7 @@ AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 OutputDir=..\output
-OutputBaseFilename=NexStudio_Setup_2_5_1
+OutputBaseFilename=NexStudio_Setup_2_6_0
 SetupIconFile=..\src\app_icon.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma2

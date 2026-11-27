@@ -209,6 +209,29 @@ details.adv summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 .toast.err { border-left-color: #E5484D; }
 
+/* 2.6: sanal NexDeck (web modu), karşılama ekranı, mod kartları */
+.deck.virtual { box-shadow: 0 30px 60px -20px rgba(0,0,0,.45), 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); }
+.virtual-tag { font-family: var(--font-ui); font-weight: 600; font-size: 11px; letter-spacing: 0; color: var(--accent-ink); background: var(--accent); border-radius: 999px; padding: 2px 9px; margin-left: 8px; vertical-align: 2px; }
+.banner { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 14%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); margin: 8px auto 0; width: min(640px, 100%); }
+.banner .grow { flex: 1; }
+.mode-card { display: flex; gap: 16px; align-items: center; padding: 16px; border-radius: 14px; border: 1px solid var(--line); background: rgba(127,127,127,.06); }
+.mode-card .big { font-size: 34px; }
+.mode-card .grow { flex: 1; }
+.mode-card h4 { margin: 0 0 4px; font-size: 15px; }
+.mode-card p { margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+.welcome { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter: blur(10px); padding: 20px; }
+.welcome .box { width: min(640px, 100%); padding: 28px; display: flex; flex-direction: column; gap: 18px; }
+.welcome h1 { font-family: var(--font-hw); font-size: 26px; margin: 0; }
+.welcome .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.welcome .choice { text-align: left; padding: 18px; border-radius: 16px; border: 1px solid var(--line); background: rgba(127,127,127,.06); cursor: pointer; display: flex; flex-direction: column; gap: 8px; }
+.welcome .choice:hover { border-color: var(--accent); }
+.welcome .choice .big { font-size: 36px; }
+.welcome .choice strong { font-size: 16px; }
+.welcome .choice span { color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+.switching .deck { animation: plugin .9s ease; }
+@keyframes plugin { 0% { transform: scale(.96); opacity: .4; } 60% { transform: scale(1.02); opacity: 1; } 100% { transform: none; } }
+@media (max-width: 560px) { .welcome .choices { grid-template-columns: 1fr; } }
+
 .offline { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(0,0,0,.6); z-index: 60; color: #fff; text-align: center; padding: 24px; }
 
 @media (max-width: 1180px) {
@@ -287,10 +310,11 @@ details.adv summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
       </aside>
       <div class="stage">
         <div class="stage-hint" id="stage-hint">Ayarlamak istediğin tuşa, ekran butonuna ya da tekerleğe tıkla</div>
-        <div class="deck">
+        <div class="banner" id="web-banner" hidden><span>📱</span><span class="grow">Telefondan kontrol kapalı. Sanal NexDeck'i telefonda kullanmak için başlat.</span><button class="btn primary" id="banner-start">Başlat</button></div>
+        <div class="deck" id="deck">
           <div class="deck-top">
             <div>
-              <div class="brand">NEX<span>DECK</span></div>
+              <div class="brand">NEX<span>DECK</span><span class="virtual-tag" id="virtual-tag" hidden>Sanal</span></div>
               <div class="screen">
                 <div class="screen-tabs" role="tablist" aria-label="Ekran sayfası" id="screen-tabs"></div>
                 <div class="slots" id="slots"></div>
@@ -326,6 +350,19 @@ details.adv summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
   <div class="scroll" id="changelog"></div>
 </aside>
 <div class="toast" id="toast" role="status"></div>
+<div class="welcome" id="welcome" hidden>
+  <div class="box panel">
+    <div class="row" style="justify-content:space-between">
+      <h1>NexStudio'ya hoş geldin</h1>
+      <select class="inp" id="welcome-lang" aria-label="Dil"></select>
+    </div>
+    <p class="muted" style="margin:0">NexDeck cihazın var mı? Seçimini sonra Ayarlar'dan değiştirebilirsin.</p>
+    <div class="choices">
+      <button class="choice" data-choose="device"><span class="big">🎛️</span><strong>Evet, NexDeck'im var</strong><span>Cihazı USB ile tak. Tuşlar, ekran ve tekerlek bilgisayarına bağlanır.</span></button>
+      <button class="choice" data-choose="web"><span class="big">📱</span><strong>Hayır, telefonumla kullanacağım</strong><span>Telefonun sanal NexDeck olur: tuşlara dokun, görevler bilgisayarda çalışsın.</span></button>
+    </div>
+  </div>
+</div>
 <div class="offline" id="offline" hidden><div><h2>NexStudio'ya ulaşılamıyor</h2><p>Uygulama kapalı olabilir ya da web kontrolü durdurulmuş olabilir. Bağlantı gelince sayfa kendini yeniler.</p></div></div>
 <input type="file" id="file-icon" accept="image/*" hidden>
 <input type="file" id="file-bg" accept="image/*" hidden>
@@ -363,8 +400,60 @@ async function act(endpoint, body, okMsg) {
 function setOffline(v) { document.getElementById("offline").hidden = !v; }
 const iconUrl = name => `${ICON_BASE}/${encodeURIComponent(name)}${REMOTE && BOOT.auth ? "?" + BOOT.auth : ""}`;
 
+/* ---------- çeviri (2.6) ----------
+   Dil paketi: Türkçe metin -> çeviri. "{0}" gibi yer tutucular desteklenir ("Profil: {0}").
+   Ekrana eklenen her metin (text node, placeholder, title, aria-label) otomatik çevrilir;
+   bu yüzden arayüz kodunda metinler Türkçe yazılır ve dil eklemek için kod değiştirmek gerekmez. */
+let I18N = {}, I18N_PATTERNS = [];
+function setDictionary(dict) {
+  I18N = dict || {};
+  const esc_re = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  I18N_PATTERNS = Object.keys(I18N).filter(k => /\{\d\}/.test(k)).map(k => ({
+    re: new RegExp("^" + esc_re(k).replace(/\\\{(\d)\\\}/g, "(.+?)") + "$"), out: I18N[k],
+  }));
+}
+function L(text) {
+  if (text == null) return text;
+  const k = String(text);
+  if (Object.prototype.hasOwnProperty.call(I18N, k)) return I18N[k];
+  for (const p of I18N_PATTERNS) { const m = k.match(p.re); if (m) return p.out.replace(/\{(\d)\}/g, (_, i) => m[+i + 1]); }
+  return k;
+}
+const I18N_ATTRS = ["placeholder", "title", "aria-label"];
+function translateTree(root) {
+  if (!Object.keys(I18N).length || !root) return;
+  if (root.nodeType === 3) return translateText(root);
+  if (root.nodeType !== 1 || root.closest?.("script,style,textarea,[data-no-i18n]")) return;
+  I18N_ATTRS.forEach(a => { if (root.hasAttribute?.(a)) { const v = root.getAttribute(a), n = L(v); if (n !== v) root.setAttribute(a, n); } });
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+  let node;
+  while ((node = walker.nextNode())) {
+    if (node.nodeType === 3) translateText(node);
+    else if (node.matches("script,style,textarea,[data-no-i18n]")) continue;
+    else I18N_ATTRS.forEach(a => { if (node.hasAttribute(a)) { const v = node.getAttribute(a), n = L(v); if (n !== v) node.setAttribute(a, n); } });
+  }
+}
+function translateText(node) {
+  const raw = node.nodeValue, trimmed = raw.trim();
+  if (!trimmed || node.parentElement?.closest("script,style,textarea,[data-no-i18n]")) return;
+  const out = L(trimmed);
+  if (out !== trimmed) node.nodeValue = raw.replace(trimmed, out);
+}
+new MutationObserver(list => list.forEach(m => {
+  if (m.type === "characterData") translateText(m.target);
+  else if (m.type === "attributes") translateTree(m.target);
+  else m.addedNodes.forEach(translateTree);
+})).observe(document.documentElement, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: I18N_ATTRS });
+async function loadLanguage(code) {
+  document.documentElement.lang = code || "tr";
+  if (!code || code === "tr") { const had = Object.keys(I18N).length; setDictionary({}); if (had) location.reload(); return; }
+  try { const r = await api(`lang?code=${encodeURIComponent(code)}`); setDictionary(r.ui); translateTree(document.body); } catch (e) {}
+}
+
 /* ---------- yardımcılar ---------- */
 const $ = s => document.querySelector(s);
+const ask = (q, def) => prompt(L(q), def);
+const sure = q => confirm(L(q));
 const esc = t => String(t ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 function toast(msg, err) {
   const t = $("#toast"); t.textContent = msg; t.classList.toggle("err", !!err); t.classList.add("show");
@@ -410,7 +499,14 @@ function renderAll() {
   document.querySelectorAll(".remote-only").forEach(e => e.hidden = !REMOTE);
   document.querySelectorAll(".control-only").forEach(e => e.hidden = !REMOTE || ui.mode !== "control");
   document.body.classList.toggle("control", REMOTE && ui.mode === "control");
-  $("#stage-hint").textContent = ui.mode === "control" ? "Bir tuşa dokun, görevi bilgisayarında çalıştırsın" : "Ayarlamak istediğin tuşa, ekran butonuna ya da tekerleğe tıkla";
+  const web = S.app_mode === "web";
+  $("#deck").classList.toggle("virtual", web);
+  $("#virtual-tag").hidden = !web;
+  $("#web-banner").hidden = REMOTE || !web || S.web_running;
+  $("#stage-hint").textContent = ui.mode === "control" ? "Bir tuşa dokun, görevi bilgisayarında çalıştırsın"
+    : web ? "Bu, telefonundaki sanal NexDeck. Tuşlara görev ata; telefondan dokununca çalışır."
+    : "Ayarlamak istediğin tuşa, ekran butonuna ya da tekerleğe tıkla";
+  if (!REMOTE && S.first_run) showWelcome();
   $("#stage-hint").style.visibility = ui.selected && ui.mode === "edit" ? "hidden" : "visible";
   renderTop(); renderLibrary(); renderScreen(); renderKeys(); renderInspector(); renderChangelog();
   if (!REMOTE) { renderSettings(); if ($("#page-web").classList.contains("active")) renderWeb(); }
@@ -424,6 +520,11 @@ function renderTop() {
     box.append(b);
   });
   const d = S.device;
+  if (S.app_mode === "web") {
+    $("#dev-dot").classList.toggle("on", !!S.web_running || REMOTE);
+    $("#dev-text").innerHTML = `<strong>Web modu</strong> ${REMOTE ? "· telefon bağlı" : S.web_running ? "· telefon kontrolü açık" : "· telefon kontrolü kapalı"}`;
+    return;
+  }
   $("#dev-dot").classList.toggle("on", d.connected);
   $("#dev-text").innerHTML = d.connected ? `<strong>NexDeck</strong> bağlı · ${esc(d.port)}${d.fw ? " · firmware " + esc(d.fw) : ""}` : "<strong>NexDeck</strong> bağlı değil";
 }
@@ -455,7 +556,7 @@ function renderScreen() {
     const b = document.createElement("button"); b.textContent = pageName(n); b.setAttribute("role", "tab"); b.setAttribute("aria-selected", n === ui.page);
     b.title = REMOTE ? "" : "Adını değiştirmek için çift tıkla";
     b.onclick = () => { ui.page = n; renderScreen(); };
-    if (!REMOTE) b.ondblclick = async () => { const name = prompt("Sayfa adı:", pageName(n)); if (name !== null) act("page_name", { page: String(n), name }, "Sayfa adı kaydedildi"); };
+    if (!REMOTE) b.ondblclick = async () => { const name = ask("Sayfa adı:", pageName(n)); if (name !== null) act("page_name", { page: String(n), name }, "Sayfa adı kaydedildi"); };
     tabs.append(b);
   });
   const slots = $("#slots"); slots.innerHTML = "";
@@ -625,7 +726,7 @@ async function renderWeb() {
   if (q("#web-reset")) q("#web-reset").onclick = async () => { await act("web", { op: "reset" }, "Yeni QR ve PIN oluşturuldu; eski bağlantılar kapandı"); renderWeb(); };
   if (q("#web-copy")) q("#web-copy").onclick = () => navigator.clipboard.writeText(w.url).then(() => toast("Adres kopyalandı"));
   box.querySelectorAll("[data-forget]").forEach(b => b.onclick = async () => { await act("known_device", { op: "forget", id: b.dataset.forget }, "Cihaz unutuldu"); renderWeb(); });
-  box.querySelectorAll("[data-ren]").forEach(b => b.onclick = async () => { const n = prompt("Cihaz adı:"); if (n) { await act("known_device", { op: "rename", id: b.dataset.ren, name: n }, "Cihaz adı kaydedildi"); renderWeb(); } });
+  box.querySelectorAll("[data-ren]").forEach(b => b.onclick = async () => { const n = ask("Cihaz adı:"); if (n) { await act("known_device", { op: "rename", id: b.dataset.ren, name: n }, "Cihaz adı kaydedildi"); renderWeb(); } });
 }
 
 /* ---------- Ayarlar ---------- */
@@ -647,24 +748,34 @@ function renderSettings() {
       <div class="set-row"><div>Panel şeffaflığı<div class="desc">Fotoğraf arka planda daha çok görünsün</div></div><input type="range" id="glass" min="30" max="100" value="${Math.round((t.glass ?? .86) * 100)}" aria-label="Panel opaklığı"></div>`}
     </div>
     ${REMOTE ? "" : `
+    ${S.app_mode === "web" ? `
+    <div class="set-group"><h3>Cihaz</h3>
+      <div class="mode-card"><span class="big">📱</span><div class="grow"><h4>NexDeck olmadan kullanıyorsun</h4><p>Telefonun sanal NexDeck gibi çalışır: Telefon sayfasındaki QR'ı okut, tuşlara dokun, görevler bu bilgisayarda çalışsın.</p></div></div>
+      <div class="mode-card"><span class="big">🛠️</span><div class="grow"><h4>NexDeck'i kendin yap</h4><p>Devre, kasa ve yazılım açık kaynak. Parça listesi, bağlantılar ve firmware GitHub'da; yaklaşık maliyet Stream Deck'in yarısı.</p></div><button class="btn" id="open-guide">Rehberi aç</button></div>
+      <div class="mode-card"><span class="big">🔌</span><div class="grow"><h4>NexDeck'in hazır mı?</h4><p>Cihazı USB ile tak ve cihazlı sürüme geç. Tuş atamaların aynen kalır.</p></div><button class="btn primary" id="to-device">Cihazlı sürüme geç</button></div>
+    </div>` : `
     <div class="set-group"><h3>Cihaz</h3>
       <div class="set-row"><div>Bağlı NexDeck<div class="desc">${S.device.connected ? `${esc(S.device.port)} · firmware ${esc(S.device.fw || "1.x")}${S.device.hid ? " · USB klavye modu hazır" : ""}` : "Bağlı değil"}</div></div>
         <div class="row">${S.device.connected ? '<button class="btn" id="dev-off">Bağlantıyı kes</button>' : `<select class="inp" id="dev-port">${(S.device.ports || []).map(p => `<option value="${esc(p.port)}">${esc(p.label)}</option>`).join("") || "<option value=''>Cihaz bulunamadı</option>"}</select><button class="btn primary" id="dev-on">Bağlan</button>`}</div></div>
       <div class="set-row"><div>Uygulama açılınca cihaza otomatik bağlan</div>${sw("auto_connect", st.auto_connect)}</div>
-    </div>
+      <div class="set-row"><div>Cihazsız kullan<div class="desc">Telefonun sanal NexDeck olur; NexDeck'e bağlanılmaz.</div></div><button class="btn" id="to-web">Web moduna geç</button></div>
+    </div>`}
     <div class="set-group"><h3>Profiller</h3>
       ${S.profiles.map(p => `<div class="set-row"><div>${esc(p)}${p === S.active_profile ? ' <span class="small">· aktif</span>' : ""}</div><div class="row"><button class="btn ghost" data-pren="${esc(p)}">Adlandır</button><button class="btn ghost" data-pcopy="${esc(p)}">Kopyala</button>${S.profiles.length > 1 ? `<button class="btn ghost danger" data-pdel="${esc(p)}">Sil</button>` : ""}</div></div>`).join("")}
     </div>
     <div class="set-group"><h3>Genel</h3>
+      <div class="set-row"><div>Dil<div class="desc">Yeni dil eklemek için dil dosyasını Gelişmiş &gt; Diller klasörüne koy.</div></div>
+        <select class="inp" id="lang-select" data-no-i18n>${(S.languages || []).map(l => `<option value="${esc(l.code)}" ${l.code === S.lang ? "selected" : ""}>${esc(l.name)}</option>`).join("")}</select></div>
       <div class="set-row"><div>Windows açılınca başlat</div>${sw("start_with_win", st.start_with_win)}</div>
       <div class="set-row"><div>Pencereyi kapatınca arka planda çalış<div class="desc">Sağ alttaki simgeden tekrar açılır, tuşlar çalışmaya devam eder</div></div>${sw("run_in_bg", st.run_in_bg)}</div>
     </div>
     <details class="adv"><summary>Gelişmiş</summary>
       <div class="set-group">
-        <div class="set-row"><div>Tuş gönderim yöntemi<div class="desc">Otomatik: cihaz destekliyorsa tuşlar gerçek USB klavye gibi basılır (oyunlar için)</div></div>
-          <select class="inp" id="key-mode"><option value="auto" ${st.key_send_mode !== "software" ? "selected" : ""}>Otomatik</option><option value="software" ${st.key_send_mode === "software" ? "selected" : ""}>Sadece yazılım</option></select></div>
+        ${S.app_mode === "web" ? "" : `<div class="set-row"><div>Tuş gönderim yöntemi<div class="desc">Otomatik: cihaz destekliyorsa tuşlar gerçek USB klavye gibi basılır (oyunlar için)</div></div>
+          <select class="inp" id="key-mode"><option value="auto" ${st.key_send_mode !== "software" ? "selected" : ""}>Otomatik</option><option value="software" ${st.key_send_mode === "software" ? "selected" : ""}>Sadece yazılım</option></select></div>`}
         <div class="set-row"><div>Yönetici olarak çalıştır<div class="desc">${st.elevated ? "Şu an yönetici olarak çalışıyor" : "Yönetici olarak açılan programlara tuş göndermek için gerekir"}</div></div><button class="btn" id="run-admin" ${st.elevated ? "disabled" : ""}>Yönetici olarak yeniden başlat</button></div>
         <div class="set-row"><div>Eklentiler</div><button class="btn" id="open-plugins">Klasörü aç</button></div>
+        <div class="set-row"><div>Diller<div class="desc">Dil dosyaları (.json). Örnek dosya: en.json</div></div><button class="btn" id="open-langs">Klasörü aç</button></div>
         <div class="set-row"><div>Hata günlüğü</div><button class="btn" id="open-logs">Günlüğü aç</button></div>
         <div class="set-row"><div>Klasik görünüm<div class="desc">Eski NexStudio arayüzü. Oradan Ayarlar &gt; "Yeni görünüme geç" ile geri dönebilirsin.</div></div><button class="btn" id="go-classic">Klasik görünüme geç</button></div>
         <div class="set-row"><div>Sürüm</div><div class="small">NexStudio ${esc(S.version)}</div></div>
@@ -683,22 +794,50 @@ function renderSettings() {
   box.querySelectorAll("[data-set]").forEach(b => b.onclick = () => act("settings", { key: b.dataset.set, value: b.getAttribute("aria-checked") !== "true" }, "Kaydedildi"));
   if (q("#dev-on")) q("#dev-on").onclick = () => act("device", { op: "connect", port: q("#dev-port").value }, "Bağlanılıyor…");
   if (q("#dev-off")) q("#dev-off").onclick = () => act("device", { op: "disconnect" }, "Bağlantı kesildi");
-  box.querySelectorAll("[data-pren]").forEach(b => b.onclick = () => { const n = prompt("Yeni profil adı:", b.dataset.pren); if (n && n !== b.dataset.pren) act("profile", { op: "rename", name: b.dataset.pren, new_name: n }, "Profil adı değişti"); });
+  box.querySelectorAll("[data-pren]").forEach(b => b.onclick = () => { const n = ask("Yeni profil adı:", b.dataset.pren); if (n && n !== b.dataset.pren) act("profile", { op: "rename", name: b.dataset.pren, new_name: n }, "Profil adı değişti"); });
   box.querySelectorAll("[data-pcopy]").forEach(b => b.onclick = async () => {
-    const n = prompt("Kopyanın adı:", b.dataset.pcopy + " kopya"); if (!n) return;
+    const n = ask("Kopyanın adı:", b.dataset.pcopy + " kopya"); if (!n) return;
     if (b.dataset.pcopy !== S.active_profile) await api("profile", { op: "switch", name: b.dataset.pcopy }).catch(() => {});
     act("profile", { op: "copy", name: n }, `Profil kopyalandı: ${n}`);
   });
-  box.querySelectorAll("[data-pdel]").forEach(b => b.onclick = () => confirm(`"${b.dataset.pdel}" profili silinsin mi? Bu profildeki tüm tuş atamaları silinir.`) && act("profile", { op: "delete", name: b.dataset.pdel }, "Profil silindi"));
-  q("#key-mode").onchange = e => act("settings", { key: "key_send_mode", value: e.target.value }, "Kaydedildi");
+  box.querySelectorAll("[data-pdel]").forEach(b => b.onclick = () => sure(`"${b.dataset.pdel}" profili silinsin mi? Bu profildeki tüm tuş atamaları silinir.`) && act("profile", { op: "delete", name: b.dataset.pdel }, "Profil silindi"));
+  if (q("#key-mode")) q("#key-mode").onchange = e => act("settings", { key: "key_send_mode", value: e.target.value }, "Kaydedildi");
   q("#run-admin").onclick = () => act("ui", { op: "admin" });
   q("#open-plugins").onclick = () => act("ui", { op: "open_plugins" });
   q("#open-logs").onclick = () => act("ui", { op: "open_logs" });
   q("#go-classic").onclick = () => act("ui", { op: "classic" }, "Klasik görünüm açılıyor…");
+  q("#open-langs").onclick = () => act("ui", { op: "open_languages" });
+  q("#lang-select").onchange = async e => { await act("settings", { key: "language", value: e.target.value }); await loadLanguage(e.target.value); renderAll(); };
+  if (q("#to-device")) q("#to-device").onclick = () => switchMode("device");
+  if (q("#to-web")) q("#to-web").onclick = () => switchMode("web");
+  if (q("#open-guide")) q("#open-guide").onclick = () => act("ui", { op: "open_guide" });
 }
 function renderChangelog() {
   $("#changelog").innerHTML = (S.changelog || []).map(([v, d, items]) => `<div class="rel">${esc(v)}${d ? `<small>${esc(d)}</small>` : ""}</div><ul>${items.map(i => `<li>${esc(i)}</li>`).join("")}</ul>`).join("");
 }
+
+/* ---------- mod geçişi ve karşılama (2.6) ---------- */
+async function switchMode(mode) {
+  document.body.classList.add("switching");
+  await act("settings", { key: "app_mode", value: mode }, mode === "device" ? "Cihazlı sürüme geçildi. NexDeck aranıyor…" : "Web moduna geçildi. Telefonun sanal NexDeck oldu.");
+  document.querySelector('.rail [data-page="device"]').click();
+  setTimeout(() => document.body.classList.remove("switching"), 1000);
+}
+function showWelcome() {
+  const box = $("#welcome");
+  if (!box.hidden) return;
+  const sel = $("#welcome-lang");
+  sel.innerHTML = (S.languages || []).map(l => `<option value="${esc(l.code)}" ${l.code === S.lang ? "selected" : ""}>${esc(l.name)}</option>`).join("");
+  sel.onchange = async () => { await api("settings", { key: "language", value: sel.value }).catch(() => {}); await loadLanguage(sel.value); };
+  box.querySelectorAll("[data-choose]").forEach(b => b.onclick = async () => {
+    box.hidden = true;
+    await api("settings", { key: "welcome_done", value: true }).catch(() => {});
+    await switchMode(b.dataset.choose);
+    if (b.dataset.choose === "web") document.querySelector('.rail [data-page="web"]').click();
+  });
+  box.hidden = false;
+}
+$("#banner-start").onclick = async () => { await act("web", { op: "start" }, "Telefondan kontrol başladı"); document.querySelector('.rail [data-page="web"]').click(); };
 
 /* ---------- dosya seçiciler ---------- */
 function readImage(file) {
@@ -806,12 +945,14 @@ setInterval(pollLive, REMOTE ? 600 : 300);
 $("#open-changelog").onclick = () => $("#drawer").classList.add("open");
 $("#close-changelog").onclick = () => $("#drawer").classList.remove("open");
 $("#search").oninput = () => { ui.libKey = ""; renderLibrary(); };
-$("#add-profile").onclick = () => { const n = prompt("Yeni profil adı:"); if (n) act("profile", { op: "create", name: n }, `Profil oluşturuldu: ${n}`); };
+$("#add-profile").onclick = () => { const n = ask("Yeni profil adı:"); if (n) act("profile", { op: "create", name: n }, `Profil oluşturuldu: ${n}`); };
 document.addEventListener("keydown", e => { if (e.key === "Escape") $("#drawer").classList.remove("open"); });
 
 /* ---------- veri ---------- */
 async function refresh() {
+  const first = !S;
   S = await api("state");
+  if (first && S.lang && S.lang !== "tr") await loadLanguage(S.lang);
   renderAll();
 }
 async function poll() {

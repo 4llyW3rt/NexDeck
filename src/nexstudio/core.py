@@ -133,8 +133,8 @@ NEXSTUDIO_PROVENANCE_MARKERS = [
     "NEXHUB:PROJECT_BRAND",
     "NEXSTUDIO:COMMUNITY_FREE_ONLY",
 ]
-NEXSTUDIO_BUILD_CHANNEL = "Public 2.5"
-NEXSTUDIO_BUILD_ID = "NEX-251-AMT"
+NEXSTUDIO_BUILD_CHANNEL = "Public 2.6"
+NEXSTUDIO_BUILD_ID = "NEX-26-AMT"
 # Zero-width provenance watermark; kişisel e-posta/handle içermez, çalışma akışını etkilemez.
 NEXSTUDIO_ZERO_WIDTH_WATERMARK = "​‌​‌‍​​‌‌‍‌​‌​‍​‌‌​‍‌‌​​"
 
@@ -148,6 +148,12 @@ NEXSTUDIO_ZERO_WIDTH_WATERMARK = "​‌​‌‍​​‌‌‍‌​‌​‍�
 # =========================================================
 NEXSTUDIO_CHANGELOG = {
     "tr": [
+        ("2.6", "27.11.2026", [
+            "Web modu: NexDeck'in yoksa telefonun sanal NexDeck olur. Ayarlar'dan tek tıkla cihazlı sürüme geçebilirsin; tuş atamaların aynen kalır.",
+            "İlk açılışta karşılama ekranı: cihazın var mı, yok mu seç; dili seç.",
+            "Dil paketleri: arayüz İngilizce ve Almanca da kullanılabilir. Yeni dil eklemek için tek bir dil dosyası ya da dil eklentisi yeterli.",
+            "NexDeck'i kendin yap rehberi: parça listesi, bağlantılar ve yükleme adımları (docs/DONANIM.md).",
+        ]),
         ("2.5.1", "27.11.2026", [
             "Telefondan kontrol bazen 'Yetkisiz' hatası veriyordu: iki program aynı web portunu paylaşabiliyordu. Port artık özel kullanımda.",
             "Kod tek dosyadan modüllere bölündü (geliştirme altyapısı; görünüşte değişiklik yok).",
@@ -216,6 +222,12 @@ NEXSTUDIO_CHANGELOG = {
         ]),
     ],
     "en": [
+        ("2.6", "2026-11-27", [
+            "Web mode: without a NexDeck your phone becomes a virtual NexDeck. Switch to device mode from Settings at any time; your key assignments stay.",
+            "Welcome screen on first launch: choose whether you have a NexDeck and pick a language.",
+            "Language packs: the interface is available in English and German. Adding a language needs just one language file or a language plugin.",
+            "Build-your-own NexDeck guide: parts list, wiring and upload steps (docs/DONANIM.md).",
+        ]),
         ("2.5.1", "2026-11-27", [
             "Fixed occasional 'Unauthorized' errors on phone control: two apps could share the same web port.",
             "Code split into modules (no visible change).",
@@ -278,7 +290,7 @@ import traceback
 import shutil
 from PyQt5.QtCore import QObject
 
-APP_VERSION = "2.5.1"
+APP_VERSION = "2.6.0"
 ERROR_LOG_FILE = os.path.join(LOGS_DIR, "error.log")
 CONFIG_BACKUP_FILE = CONFIG_FILE + ".bak"
 WEB_HISTORY_LIMIT = 100

@@ -11,6 +11,8 @@ TRANSLATIONS = {}         # dil -> {anahtar: metin}
 UI_BRIDGE = None          # arka thread -> arayüz köprüsü
 LOADED_PLUGINS = {}       # eklenti adı -> {"actions", "module", "file"}
 _SINGLE_INSTANCE_HANDLE = None
+FIRST_RUN = False         # 2.6: config.json yoktu (ilk kurulum) -> karşılama ekranı
+PLUGIN_LANGUAGES = {}     # 2.6: eklentilerin eklediği diller: kod -> {name, ui, core}
 
 
 def lazy(module, name):

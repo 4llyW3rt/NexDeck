@@ -126,6 +126,7 @@ from .serial_link import (  # noqa: F401
     SerialThread,
 )
 from .i18n import (  # noqa: F401
+    apply_language_packs_to_core,
     load_locales,
     tr,
 )
@@ -139,6 +140,7 @@ class NexHubApp(QMainWindow):
         cleanup_old_log_files(7)
         load_locales()
         load_plugins()
+        apply_language_packs_to_core()
         self.serial_thread = None
         self.mobile_thread = None
         self.current_signal = None
@@ -187,7 +189,7 @@ class NexHubApp(QMainWindow):
         ui_log(f"NexStudio {APP_VERSION} başlatıldı" + (" (yönetici)" if is_process_elevated() else ""))
         self.apply_startup_setting()
         QTimer.singleShot(900, self.auto_connect_device)
-        if self.config.get("web_auto_start", False):
+        if self.config.get("web_auto_start", False) or self.config.get("app_mode", "device") == "web":
             QTimer.singleShot(1300, self.auto_start_web_control)
 
 
@@ -2270,6 +2272,8 @@ class NexHubApp(QMainWindow):
 
     def auto_connect_device(self):
         """Uygulama açılınca NexDeck portu bulunursa otomatik bağlanır."""
+        if self.config.get("app_mode", "device") == "web":
+            return  # 2.6: cihazsız kullanım
         if not self.config.get("auto_connect", True):
             return
         if self.serial_thread and self.serial_thread.is_running:
@@ -2611,7 +2615,31 @@ class NexHubApp(QMainWindow):
         else:
             self.set_device_status("waiting")
 
+    def set_app_mode(self, mode):
+        """2.6: 'device' (NexDeck ile) ya da 'web' (cihazsız, telefon sanal NexDeck)."""
+        if mode not in ("device", "web"):
+            raise ValueError("Bilinmeyen mod")
+        self.config["app_mode"] = mode
+        save_config(self.config)
+        if mode == "web":
+            self.disconnect_device(user_requested=True)
+            self.auto_start_web_control()
+            ui_log("📱 Web moduna geçildi: telefon sanal NexDeck olarak kullanılıyor")
+        else:
+            self._user_disconnected = False
+            self.refresh_ports()
+            port = self.find_preferred_port()
+            if port:
+                self.connect_device(port)
+            else:
+                self.set_device_status("searching")
+                self.reconnect_timer.start(3000)
+            ui_log("🔌 Cihazlı moda geçildi")
+
     def try_reconnect(self):
+        if self.config.get("app_mode", "device") == "web":
+            self.reconnect_timer.stop()
+            return
         if self.is_device_connected() or getattr(self, "_user_disconnected", False):
             self.reconnect_timer.stop()
             return
