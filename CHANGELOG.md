@@ -5,6 +5,29 @@ Uygulama içindeki "Güncelleme Rehberi" kartı da aynı bilgiyi kısaca göster
 
 ---
 
+## 2.6.3 — 28.11.2026 (Bağlanan cihazlar, engelleme, onay)
+
+### Düzeltilen eksik
+Bağlanan cihazlar listede görünmüyordu: cihazı kaydeden `ensure_known_web_device` hiçbir yerden çağrılmıyordu ve
+yeni arayüzde "Bu cihazı hatırla" adımı yoktu. Artık bağlanan ya da bağlanmaya çalışan her cihaz kaydedilir.
+
+### Yeni
+- **Oturum çerezi:** PIN ya da onaydan sonra cihaza `HttpOnly` oturum çerezi verilir, PIN adres çubuğundan temizlenir
+  (302 yönlendirme). Yeni arayüzün API çağrıları artık bu çerezle yetkilenir.
+- **Bağlanan cihazlar** (Web sayfası): çevrimiçi olanlar en üstte; Bağlantıyı kes, Engelle / Engeli kaldır, İzin ver / İzni kaldır, Adlandır, Unut.
+  "Bağlantıyı kes" oturumu kapatır ve PIN'siz giriş hakkını (tanınma) kaldırır; telefon giriş ekranına düşer.
+- **Engelleme:** engellenen cihaz PIN'i bilse de hiçbir sayfaya/API'ye erişemez.
+- **Erişim modu** (kullanıcının seçimi): `pin` / `approve` (PIN yok, bilgisayardan onay) / `pin_approve`.
+  Onay isteği bilgisayarda geri sayımlı pencerede ve tray bildiriminde görünür; 60 sn içinde cevap yoksa reddedilir.
+  "Bu cihazı hatırla" seçilirse cihaza kalıcı tanınma çerezi yazılır.
+- **Sadece izin verdiğim cihazlar:** izinsiz cihazların denemeleri listede "İzinsiz" olarak görünür, tek tıkla izin verilir.
+
+### Test
+`tests/web_access_test.py`: 24 senaryo (PIN, oturum, kesme, engelleme, onay/ret/hatırla, PIN + onay, izin listesi,
+telefondan yasak işlem). Her "telefon" ayrı çerez kavanozu ve tarayıcı kimliğiyle davranır. 24/24 geçti; yayın betiğine eklendi.
+
+---
+
 ## 2.6.2 — 28.11.2026 (Odak modu, bütünleşik başlık çubuğu)
 
 - **Odak modu (F11):** sol menü, üst çubuk, görev listesi ve tuş ayarları gizlenir; ekranda sadece cihaz kalır.

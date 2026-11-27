@@ -274,6 +274,20 @@ body.hide-lib.hide-insp #page-device { grid-template-columns: 1fr; }
 .iconbtn:hover { color: var(--text); border-color: var(--accent); }
 @media (max-width: 760px) { body.hide-rail .rail { transform: none; position: fixed; } .viewwrap { display: none; } }
 
+/* 2.6.3: cihaz listesi ve onay penceresi */
+.dev-row .name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.badge.on { color: #2FBF71; border-color: rgba(47,191,113,.45); }
+.badge.bad { color: #E5484D; border-color: rgba(229,72,77,.45); }
+.badge.ok { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.approve { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; background: rgba(0,0,0,.5); backdrop-filter: blur(6px); padding: 20px; }
+.approve .box { width: min(440px, 100%); padding: 22px; display: flex; flex-direction: column; gap: 12px; animation: pop .16s ease-out; }
+.approve h3 { margin: 0; font-family: var(--font-hw); font-size: 19px; }
+.approve .who { font-size: 16px; font-weight: 600; }
+.approve .row { justify-content: space-between; }
+.countdown { height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.countdown i { display: block; height: 100%; background: var(--accent); transition: width 1s linear; }
+
 .offline { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(0,0,0,.6); z-index: 60; color: #fff; text-align: center; padding: 24px; }
 
 @media (max-width: 1180px) {
@@ -427,6 +441,17 @@ body.hide-lib.hide-insp #page-device { grid-template-columns: 1fr; }
 </div>
 <div class="edge left" id="edge-left" hidden></div>
 <button class="restore" id="restore" hidden title="Gizlenen menüleri göster (F11)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>Menüleri göster</button>
+<div class="approve" id="approve" hidden>
+  <div class="box panel">
+    <h3>Bağlantı isteği</h3>
+    <div class="who" id="approve-name" data-no-i18n></div>
+    <div class="small" id="approve-info" data-no-i18n></div>
+    <p class="muted" style="margin:0">Bu cihaz NexStudio'ya bağlanmak istiyor. İzin verirsen tuşlara basabilir ve atama yapabilir.</p>
+    <div class="countdown"><i id="approve-bar"></i></div>
+    <label class="row" style="justify-content:flex-start;gap:8px;cursor:pointer"><input type="checkbox" id="approve-remember"> Bu cihazı hatırla (bir daha onay ve PIN sorulmaz)</label>
+    <div class="row"><button class="btn danger" id="approve-deny">Reddet</button><button class="btn primary" id="approve-allow">İzin ver</button></div>
+  </div>
+</div>
 <div class="modal" id="modal" hidden><form class="box panel" id="modal-form"><h3 id="modal-title"></h3><p id="modal-text" hidden></p><input id="modal-input" hidden autocomplete="off"><div class="row"><button type="button" class="btn ghost" id="modal-cancel">Vazgeç</button><button type="submit" class="btn primary" id="modal-ok">Tamam</button></div></form></div>
 <div class="offline" id="offline" hidden><div><h2>NexStudio'ya ulaşılamıyor</h2><p>Uygulama kapalı olabilir ya da web kontrolü durdurulmuş olabilir. Bağlantı gelince sayfa kendini yeniler.</p></div></div>
 <input type="file" id="file-icon" accept="image/*" hidden>
@@ -454,6 +479,10 @@ async function api(endpoint, body) {
   let res;
   try { res = await fetch(url, opt); } catch (e) { setOffline(true); throw new Error("Bağlantı yok"); }
   setOffline(false);
+  if (REMOTE && res.status === 401) {
+    // 2.6.3: oturum kesildi: sayfayı yenile, sunucu giriş ekranını gösterir (403 = yasak işlem, yenilenmez)
+    setTimeout(() => location.reload(), 1200);
+  }
   const data = await res.json().catch(() => ({ ok: false, error: `Sunucu hatası (${res.status})` }));
   if (!res.ok || data.ok === false) throw new Error(data.error || `Hata (${res.status})`);
   return data;
@@ -811,8 +840,17 @@ async function renderWeb() {
         <div class="row" style="margin-top:14px"><button class="btn primary" id="web-stop">Durdur</button><button class="btn" id="web-reset">Kodu yenile</button><button class="btn ghost" id="web-copy">Adresi kopyala</button></div>
       </div></div>`
     : `<p class="muted" style="margin:0">Web kontrolü kapalı. Açınca telefon, tablet ya da başka bir bilgisayardan NexStudio Web ile tuşlara basabilir ve atama yapabilirsin.</p><div class="row"><button class="btn primary" id="web-start">Web kontrolünü başlat</button></div>`}
-    <div class="set-group"><h3>Tanınan cihazlar</h3>
-      ${w.devices.length ? w.devices.map(d => `<div class="set-row"><div>${esc(d.name)}<div class="desc">Son giriş: ${esc(d.last_seen || "-")}</div></div><div class="row"><button class="btn ghost" data-ren="${esc(d.id)}">Adlandır</button><button class="btn ghost" data-forget="${esc(d.id)}">Unut</button></div></div>`).join("") : `<p class="muted" style="margin:0">Henüz tanınan cihaz yok.</p>`}
+    <div class="set-group"><h3>Erişim</h3>
+      <div class="set-row"><div>Bağlanırken ne istensin<div class="desc">${{ pin: "Sadece PIN: kodu bilen bağlanır.", approve: "Sadece onay: PIN sorulmaz, her yeni bağlantıyı bu bilgisayardan onaylarsın.", pin_approve: "PIN + onay: önce PIN, sonra bu bilgisayardan onay." }[w.access_mode]}</div></div>
+        <div class="seg">${[["pin", "PIN"], ["approve", "Onay"], ["pin_approve", "PIN + onay"]].map(([v, l]) => `<button data-amode="${v}" aria-pressed="${w.access_mode === v}">${l}</button>`).join("")}</div></div>
+      <div class="set-row"><div>Sadece izin verdiğim cihazlar<div class="desc">Açıkken listede izni olmayan cihazlar PIN'i bilse de bağlanamaz.</div></div><button class="switch" role="switch" id="known-only" aria-checked="${w.known_only}"></button></div>
+    </div>
+    <div class="set-group"><h3>Bağlanan cihazlar</h3>
+      ${w.devices.length ? w.devices.map(d => `<div class="set-row dev-row"><div><div class="name"><span data-no-i18n>${esc(d.name)}</span>${d.online ? '<span class="badge on">Şu an bağlı</span>' : ""}${d.trusted ? '<span class="badge ok">Hatırlanıyor</span>' : ""}${d.blocked ? '<span class="badge bad">Engelli</span>' : ""}${w.known_only && !d.allowed && !d.blocked ? '<span class="badge bad">İzinsiz</span>' : ""}</div><div class="desc"><span data-no-i18n>${esc(d.kind)}</span> · Son görülme: ${esc(d.last_seen || "-")}</div></div>
+        <div class="row">${d.online && !d.blocked ? `<button class="btn ghost" data-dev="kick" data-id="${esc(d.id)}">Bağlantıyı kes</button>` : ""}
+          ${w.known_only && !d.blocked ? `<button class="btn ghost" data-dev="${d.allowed ? "disallow" : "allow"}" data-id="${esc(d.id)}">${d.allowed ? "İzni kaldır" : "İzin ver"}</button>` : ""}
+          <button class="btn ghost ${d.blocked ? "" : "danger"}" data-dev="${d.blocked ? "unblock" : "block"}" data-id="${esc(d.id)}">${d.blocked ? "Engeli kaldır" : "Engelle"}</button>
+          <button class="btn ghost" data-ren="${esc(d.id)}">Adlandır</button><button class="btn ghost" data-forget="${esc(d.id)}">Unut</button></div></div>`).join("") : `<p class="muted" style="margin:0">Henüz bağlanan cihaz yok.</p>`}
     </div>`;
   const q = id => box.querySelector(id);
   if (q("#qr")) q("#qr").onclick = () => { const on = q("#qr").classList.toggle("blur"); q("#pin").textContent = on ? "••••••" : w.pin; q("#url").hidden = on; };
@@ -821,6 +859,15 @@ async function renderWeb() {
   if (q("#web-reset")) q("#web-reset").onclick = async () => { await act("web", { op: "reset" }, "Yeni QR ve PIN oluşturuldu; eski bağlantılar kapandı"); renderWeb(); };
   if (q("#web-copy")) q("#web-copy").onclick = () => navigator.clipboard.writeText(w.url).then(() => toast("Adres kopyalandı"));
   box.querySelectorAll("[data-forget]").forEach(b => b.onclick = async () => { await act("known_device", { op: "forget", id: b.dataset.forget }, "Cihaz unutuldu"); renderWeb(); });
+  const devMsg = { kick: "Bağlantı kesildi", block: "Cihaz engellendi", unblock: "Engel kaldırıldı", allow: "İzin verildi", disallow: "İzin kaldırıldı" };
+  box.querySelectorAll("[data-dev]").forEach(b => b.onclick = async () => {
+    if (b.dataset.dev === "block" && !(await sure("Bu cihaz engellensin mi?", "Engellenen cihaz, PIN'i bilse de NexStudio'ya bağlanamaz. Engeli istediğin zaman kaldırabilirsin.", "Engelle"))) return;
+    await act("known_device", { op: b.dataset.dev, id: b.dataset.id }, devMsg[b.dataset.dev]); renderWeb();
+  });
+  box.querySelectorAll("[data-amode]").forEach(b => b.onclick = async () => { await act("settings", { key: "web_access_mode", value: b.dataset.amode }, "Kaydedildi"); renderWeb(); });
+  q("#known-only").onclick = async () => { await act("settings", { key: "web_known_only", value: !w.known_only }, "Kaydedildi"); renderWeb(); };
+  clearTimeout(renderWeb._t);
+  renderWeb._t = setTimeout(() => { if ($("#page-web").classList.contains("active") && !box.contains(document.activeElement)) renderWeb(); }, 5000);
   box.querySelectorAll("[data-ren]").forEach(b => b.onclick = async () => { const n = await ask("Cihaz adı"); if (n) { await act("known_device", { op: "rename", id: b.dataset.ren, name: n }, "Cihaz adı kaydedildi"); renderWeb(); } });
 }
 
@@ -974,6 +1021,28 @@ $("#log-clear").onclick = () => { $("#log-live").textContent = ""; };
 $("#err-refresh").onclick = () => pollLogs(true);
 $("#err-open").onclick = () => act("ui", { op: "open_logs" });
 
+/* ---------- bağlantı onayı (2.6.3) ---------- */
+let approving = null;
+function showApproval(list) {
+  const box = $("#approve");
+  if (approving && !list.some(a => a.id === approving)) { box.hidden = true; approving = null; }   // süresi doldu
+  if (!list.length) return;
+  const req = list.find(a => a.id === approving) || list[0];
+  approving = req.id;
+  $("#approve-name").textContent = req.name;
+  $("#approve-info").textContent = req.info;
+  $("#approve-bar").style.width = Math.max(0, req.remaining / 60 * 100) + "%";
+  if (box.hidden) { $("#approve-remember").checked = false; box.hidden = false; }
+}
+async function decideApproval(allow) {
+  const id = approving; if (!id) return;
+  $("#approve").hidden = true; approving = null;
+  await act("approval", { id, allow, remember: $("#approve-remember").checked }, allow ? "Bağlantıya izin verildi" : "Bağlantı reddedildi");
+  if ($("#page-web").classList.contains("active")) renderWeb();
+}
+$("#approve-allow").onclick = () => decideApproval(true);
+$("#approve-deny").onclick = () => decideApproval(false);
+
 /* ---------- mod geçişi ve karşılama (2.6) ---------- */
 async function switchMode(mode) {
   document.body.classList.add("switching");
@@ -1098,6 +1167,7 @@ async function pollLive() {
     if (liveSeq >= 0) r.events.forEach(showLive);
     liveSeq = r.seq;
     if (r.connected !== S.device.connected) { S.device.connected = r.connected; renderTop(); }
+    if (r.approvals) showApproval(r.approvals);
   } catch (e) {}
 }
 setInterval(pollLive, REMOTE ? 600 : 300);

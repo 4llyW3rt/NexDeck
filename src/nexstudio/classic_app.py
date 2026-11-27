@@ -114,6 +114,7 @@ from .app_api import (  # noqa: F401
     LocalAppServer,
 )
 from .webserver import (  # noqa: F401
+    clear_all_web_sessions,
     MobileServerThread,
     WEB_ACCESS_SESSIONS,
     WEB_BLOCKED_CLIENTS,
@@ -710,6 +711,7 @@ class NexHubApp(QMainWindow):
             self.config["mobile_pin"] = ''.join(secrets.choice(alphabet) for _ in range(6))
             self.config["web_token"] = secrets.token_urlsafe(8)
             WEB_ACCESS_SESSIONS.clear()
+            clear_all_web_sessions()
             WEB_PIN_FAILURES.clear()
             WEB_BLOCKED_CLIENTS.clear()
             save_config(self.config)

@@ -53,6 +53,11 @@ from .engine import (  # noqa: F401
     snapshot_profile_data,
 )
 from .webserver import (  # noqa: F401
+    decide_web_approval,
+    end_web_sessions,
+    online_web_devices,
+    pending_web_approvals,
+    web_access_mode,
     NexStudioHTTPServer,
 )
 from .i18n import (  # noqa: F401
@@ -221,7 +226,7 @@ def APP_CONFIG_LANG():
 class AppApi:
     """Yeni arayüzün kullandığı JSON API. remote=True: telefondan (LAN) gelen istek, kısıtlı yetki."""
 
-    LOCAL_ONLY = {"device", "web", "known_device", "ui", "settings", "bg_image", "theme", "logs"}
+    LOCAL_ONLY = {"device", "web", "known_device", "ui", "settings", "bg_image", "theme", "logs", "approval"}
 
     @classmethod
     def dispatch(cls, method, endpoint, body, remote=False):
@@ -318,7 +323,17 @@ class AppApi:
             since = -1
         seq = win._live_seq
         events = [] if since < 0 else [d for s, d in list(win._live_events) if s > since]
-        return {"ok": True, "seq": seq, "events": events, "connected": win.is_device_connected()}
+        result = {"ok": True, "seq": seq, "events": events, "connected": win.is_device_connected()}
+        if not remote:
+            result["approvals"] = pending_web_approvals()   # 2.6.3: bilgisayarda onay penceresi
+        return result
+
+    @classmethod
+    def post_approval(cls, body, remote):
+        ok = decide_web_approval(str(body.get("id", "")), bool(body.get("allow")), bool(body.get("remember")))
+        if not ok:
+            raise ValueError("Bu istek artık geçerli değil (süresi dolmuş olabilir)")
+        return {"ok": True}
 
     @classmethod
     def get_logs(cls, body, remote):
@@ -360,13 +375,22 @@ class AppApi:
         running = bool(win and win.mobile_thread and win.mobile_thread.is_running)
         url = getattr(win, "current_web_url", "") if running else ""
         pin = state.APP_CONFIG.get("mobile_pin", "") if running else ""
+        # 2.6.3: bağlanan / bağlanmaya çalışan tüm cihazlar (çevrimiçi olanlar üstte)
+        online = online_web_devices()
         devices = []
         for dev_id, d in (state.APP_CONFIG.get("known_web_devices") or {}).items():
-            if isinstance(d, dict) and d.get("trusted"):
-                devices.append({"id": dev_id, "name": d.get("name") or d.get("device_label") or "Cihaz",
-                                "last_seen": d.get("last_seen", "")})
+            if not isinstance(d, dict):
+                continue
+            kind = " · ".join(x for x in (d.get("device_type"), d.get("os_name"), d.get("browser")) if x)
+            devices.append({"id": dev_id, "name": d.get("name") or d.get("device_label") or "Cihaz", "kind": kind,
+                            "last_seen": d.get("last_seen", ""), "online": dev_id in online,
+                            "trusted": bool(d.get("trusted") or d.get("auto_approve")),
+                            "blocked": bool(d.get("blocked")), "allowed": bool(d.get("allowed", True))})
+        devices.sort(key=lambda x: x["last_seen"], reverse=True)   # en son görülen üstte
+        devices.sort(key=lambda x: not x["online"])                 # çevrimiçi olanlar en üstte (sıralama kararlı)
         return {"ok": True, "running": running, "url": url, "pin": pin,
-                "qr": make_qr_data_uri(url) if url else "", "devices": devices}
+                "qr": make_qr_data_uri(url) if url else "", "devices": devices,
+                "access_mode": web_access_mode(), "known_only": bool(state.APP_CONFIG.get("web_known_only"))}
 
     # ----- tuş atama -----
     @classmethod
@@ -520,11 +544,13 @@ class AppApi:
     def post_settings(cls, body, remote):
         key, value = body.get("key"), body.get("value")
         win = state.MAIN_WINDOW
-        if key not in ("start_with_win", "run_in_bg", "auto_connect", "key_send_mode", "language", "app_mode", "welcome_done", "dev_mode"):
+        if key not in ("start_with_win", "run_in_bg", "auto_connect", "key_send_mode", "language", "app_mode", "welcome_done", "dev_mode", "web_access_mode", "web_known_only"):
             raise ValueError("Bilinmeyen ayar")
         if key == "app_mode":
             call_on_ui_sync(lambda: win.set_app_mode(value))
             return {"ok": True}
+        if key == "web_access_mode" and value not in ("pin", "approve", "pin_approve"):
+            raise ValueError("Bilinmeyen erişim modu")
         if key == "language" and value not in load_language_packs():
             raise ValueError("Bu dil yüklü değil")
 
@@ -603,11 +629,31 @@ class AppApi:
             devices = state.APP_CONFIG.get("known_web_devices") or {}
             if dev_id not in devices:
                 raise ValueError("Cihaz bulunamadı")
-            if body.get("op") == "forget":
+            op = body.get("op")
+            rec = devices[dev_id]
+            if op == "forget":
                 devices.pop(dev_id, None)
-            elif body.get("op") == "rename":
-                devices[dev_id]["name"] = str(body.get("name", "")).strip()[:40]
+            elif op == "rename":
+                rec["name"] = str(body.get("name", "")).strip()[:40]
+            elif op == "block":
+                rec["blocked"] = True
+            elif op == "unblock":
+                rec["blocked"] = False
+            elif op == "allow":          # izin listesinde izinli
+                rec["allowed"] = True
+            elif op == "disallow":
+                rec["allowed"] = False
+            elif op == "kick":
+                pass
+            else:
+                raise ValueError("Bilinmeyen işlem")
+            if op in ("block", "kick", "disallow"):
+                # Tanınan cihazsa PIN'siz giriş hakkı da kalkar; tekrar bağlanmak için PIN/onay gerekir
+                for key in ("trusted", "trust_hash", "auto_approve"):
+                    rec.pop(key, None)
             save_config(state.APP_CONFIG)
+        if body.get("op") in ("block", "kick", "forget", "disallow"):
+            end_web_sessions(dev_id)
         run_on_ui(lambda: state.MAIN_WINDOW.refresh_web_security_panel())
         return {"ok": True}
 

@@ -158,7 +158,7 @@ NEXSTUDIO_PROVENANCE_MARKERS = [
     "NEXSTUDIO:COMMUNITY_FREE_ONLY",
 ]
 NEXSTUDIO_BUILD_CHANNEL = "Public 2.6"
-NEXSTUDIO_BUILD_ID = "NEX-262-AMT"
+NEXSTUDIO_BUILD_ID = "NEX-263-AMT"
 # Zero-width provenance watermark; kişisel e-posta/handle içermez, çalışma akışını etkilemez.
 NEXSTUDIO_ZERO_WIDTH_WATERMARK = "​‌​‌‍​​‌‌‍‌​‌​‍​‌‌​‍‌‌​​"
 
@@ -172,6 +172,13 @@ NEXSTUDIO_ZERO_WIDTH_WATERMARK = "​‌​‌‍​​‌‌‍‌​‌​‍�
 # =========================================================
 NEXSTUDIO_CHANGELOG = {
     "tr": [
+        ("2.6.3", "28.11.2026", [
+            "Web sayfasında bağlanan tüm cihazlar: şu an bağlı olanlar, son görülme, hatırlananlar.",
+            "Her cihaz için Bağlantıyı kes, Engelle / Engeli kaldır, İzin ver, Adlandır, Unut.",
+            "Erişim modu senin seçimin: sadece PIN, sadece bilgisayardan onay ya da PIN + onay. Onay penceresinde 'Bu cihazı hatırla' seçilebilir; 60 sn içinde cevap gelmezse bağlantı reddedilir.",
+            "'Sadece izin verdiğim cihazlar' açıkken izinsiz cihazlar PIN'i bilse de bağlanamaz; denemeleri listede görünür, tek tıkla izin verilir.",
+            "Telefonda PIN artık adres çubuğunda kalmıyor; giriş güvenli bir oturum çereziyle sürüyor.",
+        ]),
         ("2.6.2", "28.11.2026", [
             "Odak modu (F11): menüler gizlenir, ekranda sadece cihaz kalır; köşedeki butonla ya da F11 ile geri açılır.",
             "Üst çubuktaki Düzen menüsünden sol menü, üst çubuk, görev listesi ve tuş ayarları ayrı ayrı gizlenebilir. Gizli sol menü fare sol kenara gelince açılır.",
@@ -259,6 +266,13 @@ NEXSTUDIO_CHANGELOG = {
         ]),
     ],
     "en": [
+        ("2.6.3", "2026-11-28", [
+            "The Web page lists every device that connected: online now, last seen, remembered.",
+            "Per device: Disconnect, Block / Unblock, Allow, Rename, Forget.",
+            "You choose the access mode: PIN only, approval on this computer only, or PIN + approval. The approval dialog can remember the device; requests are denied after 60 seconds.",
+            "With 'Only devices I allow', devices without permission can't connect even with the PIN; their attempts appear in the list and can be allowed with one click.",
+            "The PIN no longer stays in the phone's address bar; the session continues with a secure cookie.",
+        ]),
         ("2.6.2", "2026-11-28", [
             "Focus mode (F11): menus hide and only the device stays on screen; bring them back with the corner button or F11.",
             "The Layout menu in the top bar hides the side menu, top bar, action list and key settings separately. A hidden side menu opens when the mouse reaches the left edge.",
@@ -340,7 +354,7 @@ import traceback
 import shutil
 from PyQt5.QtCore import QObject
 
-APP_VERSION = "2.6.2"
+APP_VERSION = "2.6.3"
 ERROR_LOG_FILE = os.path.join(LOGS_DIR, "error.log")
 CONFIG_BACKUP_FILE = CONFIG_FILE + ".bak"
 WEB_HISTORY_LIMIT = 100
