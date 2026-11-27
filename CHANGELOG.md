@@ -5,6 +5,20 @@ Uygulama içindeki "Güncelleme Rehberi" kartı da aynı bilgiyi kısaca göster
 
 ---
 
+## 2.6.2 — 28.11.2026 (Odak modu, bütünleşik başlık çubuğu)
+
+- **Odak modu (F11):** sol menü, üst çubuk, görev listesi ve tuş ayarları gizlenir; ekranda sadece cihaz kalır.
+  Sağ alttaki yarı saydam "Menüleri göster" butonu ya da F11 ile geri açılır.
+- **Düzen menüsü** (üst çubuk): her parça ayrı ayrı gizlenebilir; seçim bu bilgisayarda hatırlanır (localStorage).
+  Gizli sol menü fare sol kenara gelince geçici olarak açılır.
+- **Başlık çubuğu:** Windows'un çerçevesi korunur (kenara yaslama ve boyutlandırma çalışsın diye); Windows 11'in
+  `DWMWA_CAPTION_COLOR` özelliğiyle başlık çubuğu uygulamanın arka plan rengine boyanır, tema değişince güncellenir.
+  Doğrulama: gerçek pencerede başlık çubuğu pikseli `#171A21` (uygulama arka planı) okundu.
+- Üst çubuk daha saydam (cam görünümü).
+- Düzeltilen hata (yayın öncesi): sol menü gizlenince ana içerik 0 genişlikteki ızgara sütununa kayıyordu.
+
+---
+
 ## 2.6.1 — 28.11.2026 (Arayüz düzenlemeleri, geliştirici modu)
 
 - Sol üstte "N" yerine NexStudio logosu (96 px'e küçültülüp sayfaya gömülür).

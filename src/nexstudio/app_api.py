@@ -3,6 +3,8 @@
 """Yeni arayüzün yerel API'si (AppApi), yerel sunucu ve arayüz penceresi işlemi."""
 from . import state
 from .core import (  # noqa: F401
+    ctypes,
+    wintypes,
     webbrowser,
     ERROR_LOG_FILE,
     LOG_BUFFER,
@@ -786,7 +788,45 @@ def run_ui_window_process(url):
     except Exception:
         sys.exit(3)
 
+    def _find_own_hwnd():
+        user32 = ctypes.windll.user32
+        pid, found = os.getpid(), []
+
+        @ctypes.WINFUNCTYPE(ctypes.c_bool, wintypes.HWND, wintypes.LPARAM)
+        def _enum(hwnd, _):
+            owner = wintypes.DWORD()
+            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(owner))
+            if owner.value == pid and user32.IsWindowVisible(hwnd) and user32.GetWindowTextLengthW(hwnd) > 0:
+                found.append(hwnd)
+                return False
+            return True
+
+        user32.EnumWindows(_enum, 0)
+        return found[0] if found else None
+
+    def _apply_titlebar(color_hex, dark):
+        """2.6.2: Windows 11 başlık çubuğunu uygulamanın arka plan rengine boyar (yaslama/boyutlandırma korunur)."""
+        hwnd = _find_own_hwnd()
+        if not hwnd:
+            return False
+        dwm = ctypes.windll.dwmapi
+        try:
+            r, g, b = int(color_hex[1:3], 16), int(color_hex[3:5], 16), int(color_hex[5:7], 16)
+        except (ValueError, TypeError, IndexError):
+            return False
+        caption = ctypes.c_int(r | (g << 8) | (b << 16))  # COLORREF 0x00BBGGRR
+        text_rgb = (0xEC, 0xEE, 0xF3) if dark else (0x1C, 0x21, 0x30)
+        text = ctypes.c_int(text_rgb[0] | (text_rgb[1] << 8) | (text_rgb[2] << 16))
+        dark_flag = ctypes.c_int(1 if dark else 0)
+        dwm.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(dark_flag), 4)   # DWMWA_USE_IMMERSIVE_DARK_MODE
+        dwm.DwmSetWindowAttribute(hwnd, 35, ctypes.byref(caption), 4)     # DWMWA_CAPTION_COLOR (Windows 11)
+        dwm.DwmSetWindowAttribute(hwnd, 36, ctypes.byref(text), 4)        # DWMWA_TEXT_COLOR
+        return True
+
     class Bridge:
+        def set_titlebar(self, color_hex, dark=True):
+            return _apply_titlebar(str(color_hex), bool(dark))
+
         def pick_file(self):
             win = webview.windows[0]
             result = win.create_file_dialog(webview.OPEN_DIALOG, allow_multiple=False,

@@ -158,7 +158,7 @@ NEXSTUDIO_PROVENANCE_MARKERS = [
     "NEXSTUDIO:COMMUNITY_FREE_ONLY",
 ]
 NEXSTUDIO_BUILD_CHANNEL = "Public 2.6"
-NEXSTUDIO_BUILD_ID = "NEX-261-AMT"
+NEXSTUDIO_BUILD_ID = "NEX-262-AMT"
 # Zero-width provenance watermark; kişisel e-posta/handle içermez, çalışma akışını etkilemez.
 NEXSTUDIO_ZERO_WIDTH_WATERMARK = "​‌​‌‍​​‌‌‍‌​‌​‍​‌‌​‍‌‌​​"
 
@@ -172,6 +172,11 @@ NEXSTUDIO_ZERO_WIDTH_WATERMARK = "​‌​‌‍​​‌‌‍‌​‌​‍�
 # =========================================================
 NEXSTUDIO_CHANGELOG = {
     "tr": [
+        ("2.6.2", "28.11.2026", [
+            "Odak modu (F11): menüler gizlenir, ekranda sadece cihaz kalır; köşedeki butonla ya da F11 ile geri açılır.",
+            "Üst çubuktaki Düzen menüsünden sol menü, üst çubuk, görev listesi ve tuş ayarları ayrı ayrı gizlenebilir. Gizli sol menü fare sol kenara gelince açılır.",
+            "Pencerenin başlık çubuğu uygulamanın arka plan rengini alır (Windows 11); üst çubuk daha saydam.",
+        ]),
         ("2.6.1", "28.11.2026", [
             "Sol üstte NexStudio logosu.",
             "\"Telefon\" sekmesi artık \"Web\": telefon, tablet ya da başka bir bilgisayardan kontrol.",
@@ -254,6 +259,11 @@ NEXSTUDIO_CHANGELOG = {
         ]),
     ],
     "en": [
+        ("2.6.2", "2026-11-28", [
+            "Focus mode (F11): menus hide and only the device stays on screen; bring them back with the corner button or F11.",
+            "The Layout menu in the top bar hides the side menu, top bar, action list and key settings separately. A hidden side menu opens when the mouse reaches the left edge.",
+            "The window title bar takes the app's background color (Windows 11); the top bar is more transparent.",
+        ]),
         ("2.6.1", "2026-11-28", [
             "NexStudio logo in the top-left corner.",
             "The \"Phone\" tab is now \"Web\": control from a phone, tablet or another computer.",
@@ -330,7 +340,7 @@ import traceback
 import shutil
 from PyQt5.QtCore import QObject
 
-APP_VERSION = "2.6.1"
+APP_VERSION = "2.6.2"
 ERROR_LOG_FILE = os.path.join(LOGS_DIR, "error.log")
 CONFIG_BACKUP_FILE = CONFIG_FILE + ".bak"
 WEB_HISTORY_LIMIT = 100

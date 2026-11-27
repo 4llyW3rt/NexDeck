@@ -240,7 +240,16 @@
     "Yenile": "Refresh",
     "Vazgeç": "Cancel",
     "Tamam": "OK",
-    "Telefonun ya da tabletin sanal NexDeck gibi çalışır: Web sayfasındaki QR'ı okut, tuşlara dokun, görevler bu bilgisayarda çalışsın.": "Your phone or tablet works as a virtual NexDeck: scan the QR code on the Web page, tap the keys, and actions run on this computer."
+    "Telefonun ya da tabletin sanal NexDeck gibi çalışır: Web sayfasındaki QR'ı okut, tuşlara dokun, görevler bu bilgisayarda çalışsın.": "Your phone or tablet works as a virtual NexDeck: scan the QR code on the Web page, tap the keys, and actions run on this computer.",
+    "Düzen": "Layout",
+    "Düzen (F11: odak modu)": "Layout (F11: focus mode)",
+    "Odak modu (F11)": "Focus mode (F11)",
+    "Ayrı ayrı gizle": "Hide separately",
+    "Sol menü": "Side menu",
+    "Üst çubuk": "Top bar",
+    "Görev listesi": "Action list",
+    "Menüleri göster": "Show menus",
+    "Gizlenen menüleri göster (F11)": "Show hidden menus (F11)"
   },
   "core": {}
 }

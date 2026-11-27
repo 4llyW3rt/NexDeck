@@ -248,7 +248,16 @@ LANGUAGES = {
         "Yenile": "Aktualisieren",
         "Vazgeç": "Abbrechen",
         "Tamam": "OK",
-        "Telefonun ya da tabletin sanal NexDeck gibi çalışır: Web sayfasındaki QR'ı okut, tuşlara dokun, görevler bu bilgisayarda çalışsın.": "Dein Handy oder Tablet wird zum virtuellen NexDeck: Scanne den QR-Code auf der Web-Seite, tippe auf Tasten und die Aktionen laufen auf diesem Computer."
+        "Telefonun ya da tabletin sanal NexDeck gibi çalışır: Web sayfasındaki QR'ı okut, tuşlara dokun, görevler bu bilgisayarda çalışsın.": "Dein Handy oder Tablet wird zum virtuellen NexDeck: Scanne den QR-Code auf der Web-Seite, tippe auf Tasten und die Aktionen laufen auf diesem Computer.",
+        "Düzen": "Layout",
+        "Düzen (F11: odak modu)": "Layout (F11: Fokusmodus)",
+        "Odak modu (F11)": "Fokusmodus (F11)",
+        "Ayrı ayrı gizle": "Einzeln ausblenden",
+        "Sol menü": "Seitenmenü",
+        "Üst çubuk": "Obere Leiste",
+        "Görev listesi": "Aktionsliste",
+        "Menüleri göster": "Menüs anzeigen",
+        "Gizlenen menüleri göster (F11)": "Ausgeblendete Menüs anzeigen (F11)"
 },
         "core": {},
     }

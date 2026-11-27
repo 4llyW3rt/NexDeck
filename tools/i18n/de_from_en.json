@@ -254,5 +254,14 @@
  "Refresh": "Aktualisieren",
  "Cancel": "Abbrechen",
  "OK": "OK",
- "Your phone or tablet works as a virtual NexDeck: scan the QR code on the Web page, tap the keys, and actions run on this computer.": "Dein Handy oder Tablet wird zum virtuellen NexDeck: Scanne den QR-Code auf der Web-Seite, tippe auf Tasten und die Aktionen laufen auf diesem Computer."
+ "Your phone or tablet works as a virtual NexDeck: scan the QR code on the Web page, tap the keys, and actions run on this computer.": "Dein Handy oder Tablet wird zum virtuellen NexDeck: Scanne den QR-Code auf der Web-Seite, tippe auf Tasten und die Aktionen laufen auf diesem Computer.",
+ "Layout": "Layout",
+ "Layout (F11: focus mode)": "Layout (F11: Fokusmodus)",
+ "Focus mode (F11)": "Fokusmodus (F11)",
+ "Hide separately": "Einzeln ausblenden",
+ "Side menu": "Seitenmenü",
+ "Top bar": "Obere Leiste",
+ "Action list": "Aktionsliste",
+ "Show menus": "Menüs anzeigen",
+ "Show hidden menus (F11)": "Ausgeblendete Menüs anzeigen (F11)"
 }
