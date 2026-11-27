@@ -232,6 +232,23 @@ details.adv summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
 @keyframes plugin { 0% { transform: scale(.96); opacity: .4; } 60% { transform: scale(1.02); opacity: 1; } 100% { transform: none; } }
 @media (max-width: 560px) { .welcome .choices { grid-template-columns: 1fr; } }
 
+/* 2.6.1 */
+.logo img { width: 100%; height: 100%; object-fit: cover; border-radius: 12px; display: block; }
+.logo.has-img { background: transparent; }
+.modal { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; background: rgba(0,0,0,.45); backdrop-filter: blur(6px); padding: 20px; }
+.modal .box { width: min(420px, 100%); padding: 22px; display: flex; flex-direction: column; gap: 14px; animation: pop .16s ease-out; }
+.modal h3 { margin: 0; font-family: var(--font-hw); font-size: 18px; }
+.modal p { margin: 0; color: var(--muted); line-height: 1.5; }
+.modal input { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: rgba(127,127,127,.08); font-size: 15px; }
+.modal .row { justify-content: flex-end; }
+@keyframes pop { from { transform: scale(.96); opacity: 0; } }
+.slot.nav.active { cursor: pointer; color: #DDE2EC; border-color: #3A4354; }
+.slot.nav.active:hover { border-color: var(--accent); color: var(--accent); }
+#page-logs { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.logbox { padding: 16px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.logbox pre { margin: 0; flex: 1; min-height: 0; overflow: auto; font: 12px/1.5 "Cascadia Mono", Consolas, monospace; white-space: pre-wrap; word-break: break-word; background: rgba(0,0,0,.25); border-radius: 10px; padding: 10px; color: var(--text); }
+@media (max-width: 900px) { #page-logs { grid-template-columns: 1fr; } }
+
 .offline { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(0,0,0,.6); z-index: 60; color: #fff; text-align: center; padding: 24px; }
 
 @media (max-width: 1180px) {
@@ -266,18 +283,22 @@ details.adv summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
 <body>
 <div class="app">
   <nav class="rail panel" aria-label="Ana menü">
-    <div class="logo" aria-hidden="true">N</div>
+    <div class="logo" id="logo" aria-hidden="true">N</div>
     <button data-page="device" aria-current="page">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="3"/><rect x="6" y="7" width="8" height="6" rx="1"/><circle cx="17" cy="10" r="2"/><path d="M6 16h2M10 16h2M14 16h2"/></svg>
       Cihaz
     </button>
     <button data-page="web" class="local-only">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18h2"/></svg>
-      Telefon
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg>
+      Web
     </button>
     <button data-page="settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
       Ayarlar
+    </button>
+    <button data-page="logs" id="nav-logs" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 4h11l3 3v13H5z"/><path d="M8 10h8M8 14h8M8 18h5"/></svg>
+      Günlük
     </button>
     <div class="spacer"></div>
     <button id="open-changelog">
@@ -310,7 +331,7 @@ details.adv summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
       </aside>
       <div class="stage">
         <div class="stage-hint" id="stage-hint">Ayarlamak istediğin tuşa, ekran butonuna ya da tekerleğe tıkla</div>
-        <div class="banner" id="web-banner" hidden><span>📱</span><span class="grow">Telefondan kontrol kapalı. Sanal NexDeck'i telefonda kullanmak için başlat.</span><button class="btn primary" id="banner-start">Başlat</button></div>
+        <div class="banner" id="web-banner" hidden><span>📱</span><span class="grow">Web kontrolü kapalı. Sanal NexDeck'i telefon, tablet ya da başka bir bilgisayardan kullanmak için başlat.</span><button class="btn primary" id="banner-start">Başlat</button></div>
         <div class="deck" id="deck">
           <div class="deck-top">
             <div>
@@ -332,8 +353,13 @@ details.adv summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
       <aside class="inspector panel" id="inspector" aria-live="polite"></aside>
     </section>
 
-    <section class="page" id="page-web" aria-label="Telefondan kontrol">
+    <section class="page" id="page-web" aria-label="Web ile kontrol">
       <div class="settings panel" id="web-panel"></div>
+    </section>
+
+    <section class="page" id="page-logs" aria-label="Günlük">
+      <div class="logbox panel"><div class="row" style="justify-content:space-between"><h2>Canlı günlük</h2><button class="btn ghost" id="log-clear">Temizle</button></div><pre id="log-live" data-no-i18n></pre></div>
+      <div class="logbox panel"><div class="row" style="justify-content:space-between"><h2>Hata günlüğü</h2><div class="row"><button class="btn ghost" id="err-refresh">Yenile</button><button class="btn ghost" id="err-open">Dosyayı aç</button></div></div><pre id="log-errors" data-no-i18n></pre></div>
     </section>
 
     <section class="page" id="page-settings" aria-label="Ayarlar">
@@ -363,6 +389,7 @@ details.adv summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
     </div>
   </div>
 </div>
+<div class="modal" id="modal" hidden><form class="box panel" id="modal-form"><h3 id="modal-title"></h3><p id="modal-text" hidden></p><input id="modal-input" hidden autocomplete="off"><div class="row"><button type="button" class="btn ghost" id="modal-cancel">Vazgeç</button><button type="submit" class="btn primary" id="modal-ok">Tamam</button></div></form></div>
 <div class="offline" id="offline" hidden><div><h2>NexStudio'ya ulaşılamıyor</h2><p>Uygulama kapalı olabilir ya da web kontrolü durdurulmuş olabilir. Bağlantı gelince sayfa kendini yeniler.</p></div></div>
 <input type="file" id="file-icon" accept="image/*" hidden>
 <input type="file" id="file-bg" accept="image/*" hidden>
@@ -452,8 +479,28 @@ async function loadLanguage(code) {
 
 /* ---------- yardımcılar ---------- */
 const $ = s => document.querySelector(s);
-const ask = (q, def) => prompt(L(q), def);
-const sure = q => confirm(L(q));
+// 2.6.1: Tarayıcının hazır soru kutuları ("127.0.0.1:xxxx diyor ki") yerine uygulamanın kendi penceresi
+function dialog({ title, text = "", input = null, ok = "Tamam", danger = false }) {
+  return new Promise(resolve => {
+    const m = $("#modal"), inp = $("#modal-input"), okBtn = $("#modal-ok");
+    $("#modal-title").textContent = title;
+    $("#modal-text").textContent = text; $("#modal-text").hidden = !text;
+    inp.hidden = input === null; inp.value = input ?? "";
+    okBtn.textContent = ok; okBtn.classList.toggle("danger-bg", danger);
+    okBtn.style.background = danger ? "#E5484D" : ""; okBtn.style.borderColor = danger ? "#E5484D" : "";
+    const done = v => { m.hidden = true; $("#modal-form").onsubmit = null; $("#modal-cancel").onclick = null; m.onclick = null; document.removeEventListener("keydown", esc); resolve(v); };
+    const esc = e => { if (e.key === "Escape") done(input === null ? false : null); };
+    $("#modal-form").onsubmit = e => { e.preventDefault(); done(input === null ? true : inp.value.trim() || null); };
+    $("#modal-cancel").onclick = () => done(input === null ? false : null);
+    m.onclick = e => { if (e.target === m) done(input === null ? false : null); };
+    document.addEventListener("keydown", esc);
+    m.hidden = false;
+    setTimeout(() => (input === null ? okBtn : inp).focus(), 30);
+    if (input !== null) inp.select();
+  });
+}
+const ask = (title, def = "") => dialog({ title, input: def });
+const sure = (title, text, ok = "Sil") => dialog({ title, text, ok, danger: true });
 const esc = t => String(t ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 function toast(msg, err) {
   const t = $("#toast"); t.textContent = msg; t.classList.toggle("err", !!err); t.classList.add("show");
@@ -496,6 +543,8 @@ async function setTheme(patch) {
 function renderAll() {
   applyTheme(S.theme);
   document.querySelectorAll(".local-only").forEach(e => e.hidden = REMOTE);
+  $("#nav-logs").hidden = REMOTE || !(S.settings && S.settings.dev_mode);
+  if ($("#nav-logs").hidden && $("#page-logs").classList.contains("active")) document.querySelector('.rail [data-page="device"]').click();
   document.querySelectorAll(".remote-only").forEach(e => e.hidden = !REMOTE);
   document.querySelectorAll(".control-only").forEach(e => e.hidden = !REMOTE || ui.mode !== "control");
   document.body.classList.toggle("control", REMOTE && ui.mode === "control");
@@ -504,7 +553,7 @@ function renderAll() {
   $("#virtual-tag").hidden = !web;
   $("#web-banner").hidden = REMOTE || !web || S.web_running;
   $("#stage-hint").textContent = ui.mode === "control" ? "Bir tuşa dokun, görevi bilgisayarında çalıştırsın"
-    : web ? "Bu, telefonundaki sanal NexDeck. Tuşlara görev ata; telefondan dokununca çalışır."
+    : web ? "Bu sanal NexDeck. Tuşlara görev ata; telefon, tablet ya da başka bir bilgisayardan dokununca çalışır."
     : "Ayarlamak istediğin tuşa, ekran butonuna ya da tekerleğe tıkla";
   if (!REMOTE && S.first_run) showWelcome();
   $("#stage-hint").style.visibility = ui.selected && ui.mode === "edit" ? "hidden" : "visible";
@@ -522,11 +571,12 @@ function renderTop() {
   const d = S.device;
   if (S.app_mode === "web") {
     $("#dev-dot").classList.toggle("on", !!S.web_running || REMOTE);
-    $("#dev-text").innerHTML = `<strong>Web modu</strong> ${REMOTE ? "· telefon bağlı" : S.web_running ? "· telefon kontrolü açık" : "· telefon kontrolü kapalı"}`;
+    $("#dev-text").innerHTML = `<strong>Web modu</strong> ${REMOTE ? "· uzaktan bağlı" : S.web_running ? "· web kontrolü açık" : "· web kontrolü kapalı"}`;
     return;
   }
   $("#dev-dot").classList.toggle("on", d.connected);
-  $("#dev-text").innerHTML = d.connected ? `<strong>NexDeck</strong> bağlı · ${esc(d.port)}${d.fw ? " · firmware " + esc(d.fw) : ""}` : "<strong>NexDeck</strong> bağlı değil";
+  const dev = !!(S.settings && S.settings.dev_mode);
+  $("#dev-text").innerHTML = d.connected ? (dev ? `<strong>NexDeck</strong> bağlı · ${esc(d.port)}${d.fw ? " · firmware " + esc(d.fw) : ""}` : "<strong>NexDeck</strong> bağlı") : "<strong>NexDeck</strong> bağlı değil";
 }
 function renderLibrary() {
   const q = $("#search").value.trim().toLocaleLowerCase("tr");
@@ -556,12 +606,18 @@ function renderScreen() {
     const b = document.createElement("button"); b.textContent = pageName(n); b.setAttribute("role", "tab"); b.setAttribute("aria-selected", n === ui.page);
     b.title = REMOTE ? "" : "Adını değiştirmek için çift tıkla";
     b.onclick = () => { ui.page = n; renderScreen(); };
-    if (!REMOTE) b.ondblclick = async () => { const name = ask("Sayfa adı:", pageName(n)); if (name !== null) act("page_name", { page: String(n), name }, "Sayfa adı kaydedildi"); };
+    if (!REMOTE) b.ondblclick = async () => { const name = await ask("Sayfa adı", pageName(n)); if (name !== null) act("page_name", { page: String(n), name }, "Sayfa adı kaydedildi"); };
     tabs.append(b);
   });
   const slots = $("#slots"); slots.innerHTML = "";
   (S.slots[String(ui.page)] || []).forEach((sig, i) => {
-    if (!sig) { const nav = document.createElement("div"); nav.className = "slot nav"; nav.textContent = i === 7 ? "▶" : "◀"; nav.title = "Sayfa değiştirme tuşu (görev almaz)"; return slots.append(nav); }
+    if (!sig) {
+      const next = i === 7, target = ui.page + (next ? 1 : -1), usable = target >= 1 && target <= 4;
+      const nav = document.createElement("button"); nav.className = "slot nav" + (usable ? " active" : "");
+      nav.textContent = next ? "▶" : "◀"; nav.title = usable ? (next ? "Sonraki sayfa" : "Önceki sayfa") : "Sayfa değiştirme tuşu";
+      if (usable) nav.onclick = () => { ui.page = target; renderScreen(); };
+      return slots.append(nav);
+    }
     const cfg = S.buttons[sig];
     const s = document.createElement("button"); s.className = "slot dropzone" + (cfg ? "" : " empty"); s.dataset.sig = sig;
     s.innerHTML = cfg ? `${glyph(cfg)}<span class="lbl">${esc(cfg.btn_text || cfg.name)}</span>` : `<span class="em">＋</span><span class="lbl">Boş</span>`;
@@ -705,19 +761,19 @@ async function renderWeb() {
   const box = $("#web-panel");
   let w; try { w = await api("web"); } catch (e) { box.innerHTML = `<p>${esc(e.message)}</p>`; return; }
   box.innerHTML = `
-    <h2>Telefondan kontrol</h2>
+    <h2>Web ile kontrol</h2>
     ${w.running ? `<div class="web-hero">
       <button class="qr blur" id="qr" title="Göstermek için tıkla">${w.qr ? `<img src="${w.qr}" alt="QR kod">` : "QR oluşturulamadı"}</button>
       <div>
-        <p style="margin:0 0 8px">Telefonun kamerasıyla QR kodu okut, sonra bu PIN'i gir:</p>
+        <p style="margin:0 0 8px">Telefon, tablet ya da başka bir bilgisayarla QR kodu okut (veya adresi aç), sonra bu PIN'i gir:</p>
         <div class="pin" id="pin">••••••</div>
         <p class="url" id="url" hidden>${esc(w.url)}</p>
         <p class="muted" style="margin:10px 0 0">Sadece aynı Wi-Fi ağındaki cihazlar bağlanabilir. QR ve PIN, tıklayana kadar gizli kalır.</p>
         <div class="row" style="margin-top:14px"><button class="btn primary" id="web-stop">Durdur</button><button class="btn" id="web-reset">Kodu yenile</button><button class="btn ghost" id="web-copy">Adresi kopyala</button></div>
       </div></div>`
-    : `<p class="muted" style="margin:0">Web kontrolü kapalı. Açınca telefonundan NexStudio Web ile tuşlara basabilir ve atama yapabilirsin.</p><div class="row"><button class="btn primary" id="web-start">Web kontrolünü başlat</button></div>`}
+    : `<p class="muted" style="margin:0">Web kontrolü kapalı. Açınca telefon, tablet ya da başka bir bilgisayardan NexStudio Web ile tuşlara basabilir ve atama yapabilirsin.</p><div class="row"><button class="btn primary" id="web-start">Web kontrolünü başlat</button></div>`}
     <div class="set-group"><h3>Tanınan cihazlar</h3>
-      ${w.devices.length ? w.devices.map(d => `<div class="set-row"><div>${esc(d.name)}<div class="desc">Son giriş: ${esc(d.last_seen || "-")}</div></div><div class="row"><button class="btn ghost" data-ren="${esc(d.id)}">Adlandır</button><button class="btn ghost" data-forget="${esc(d.id)}">Unut</button></div></div>`).join("") : `<p class="muted" style="margin:0">Henüz tanınan cihaz yok. Telefondan girişte "Bu cihazı hatırla" seçilirse burada görünür.</p>`}
+      ${w.devices.length ? w.devices.map(d => `<div class="set-row"><div>${esc(d.name)}<div class="desc">Son giriş: ${esc(d.last_seen || "-")}</div></div><div class="row"><button class="btn ghost" data-ren="${esc(d.id)}">Adlandır</button><button class="btn ghost" data-forget="${esc(d.id)}">Unut</button></div></div>`).join("") : `<p class="muted" style="margin:0">Henüz tanınan cihaz yok.</p>`}
     </div>`;
   const q = id => box.querySelector(id);
   if (q("#qr")) q("#qr").onclick = () => { const on = q("#qr").classList.toggle("blur"); q("#pin").textContent = on ? "••••••" : w.pin; q("#url").hidden = on; };
@@ -726,7 +782,7 @@ async function renderWeb() {
   if (q("#web-reset")) q("#web-reset").onclick = async () => { await act("web", { op: "reset" }, "Yeni QR ve PIN oluşturuldu; eski bağlantılar kapandı"); renderWeb(); };
   if (q("#web-copy")) q("#web-copy").onclick = () => navigator.clipboard.writeText(w.url).then(() => toast("Adres kopyalandı"));
   box.querySelectorAll("[data-forget]").forEach(b => b.onclick = async () => { await act("known_device", { op: "forget", id: b.dataset.forget }, "Cihaz unutuldu"); renderWeb(); });
-  box.querySelectorAll("[data-ren]").forEach(b => b.onclick = async () => { const n = ask("Cihaz adı:"); if (n) { await act("known_device", { op: "rename", id: b.dataset.ren, name: n }, "Cihaz adı kaydedildi"); renderWeb(); } });
+  box.querySelectorAll("[data-ren]").forEach(b => b.onclick = async () => { const n = await ask("Cihaz adı"); if (n) { await act("known_device", { op: "rename", id: b.dataset.ren, name: n }, "Cihaz adı kaydedildi"); renderWeb(); } });
 }
 
 /* ---------- Ayarlar ---------- */
@@ -739,7 +795,7 @@ function renderSettings() {
   box.innerHTML = `
     <h2>Ayarlar</h2>
     <div class="set-group"><h3>Görünüm</h3>
-      ${REMOTE ? '<p class="small" style="margin:0">Telefondaki görünüm ayarları sadece bu cihaza kaydedilir.</p>' : ""}
+      ${REMOTE ? '<p class="small" style="margin:0">Bu cihazdaki görünüm ayarları sadece bu cihaza kaydedilir.</p>' : ""}
       <div class="set-row"><div>Tema</div><div class="seg"><button data-mode="dark" aria-pressed="${t.mode !== "light"}">Koyu</button><button data-mode="light" aria-pressed="${t.mode === "light"}">Açık</button></div></div>
       <div class="set-row"><div>Vurgu rengi</div><div class="swatches">${ACCENTS.map(c => `<button class="swatch" data-accent="${c}" style="background:${c}" aria-pressed="${(t.accent || "").toUpperCase() === c}" title="${c}"></button>`).join("")}<input type="color" id="accent-custom" value="${esc(t.accent || "#F2601C")}" title="Özel renk"></div></div>
       ${REMOTE ? "" : `<div class="set-row"><div>Arka plan<div class="desc">Düz renk ya da kendi fotoğrafın</div></div>
@@ -750,13 +806,13 @@ function renderSettings() {
     ${REMOTE ? "" : `
     ${S.app_mode === "web" ? `
     <div class="set-group"><h3>Cihaz</h3>
-      <div class="mode-card"><span class="big">📱</span><div class="grow"><h4>NexDeck olmadan kullanıyorsun</h4><p>Telefonun sanal NexDeck gibi çalışır: Telefon sayfasındaki QR'ı okut, tuşlara dokun, görevler bu bilgisayarda çalışsın.</p></div></div>
+      <div class="mode-card"><span class="big">📱</span><div class="grow"><h4>NexDeck olmadan kullanıyorsun</h4><p>Telefonun ya da tabletin sanal NexDeck gibi çalışır: Web sayfasındaki QR'ı okut, tuşlara dokun, görevler bu bilgisayarda çalışsın.</p></div></div>
       <div class="mode-card"><span class="big">🛠️</span><div class="grow"><h4>NexDeck'i kendin yap</h4><p>Devre, kasa ve yazılım açık kaynak. Parça listesi, bağlantılar ve firmware GitHub'da; yaklaşık maliyet Stream Deck'in yarısı.</p></div><button class="btn" id="open-guide">Rehberi aç</button></div>
       <div class="mode-card"><span class="big">🔌</span><div class="grow"><h4>NexDeck'in hazır mı?</h4><p>Cihazı USB ile tak ve cihazlı sürüme geç. Tuş atamaların aynen kalır.</p></div><button class="btn primary" id="to-device">Cihazlı sürüme geç</button></div>
     </div>` : `
     <div class="set-group"><h3>Cihaz</h3>
-      <div class="set-row"><div>Bağlı NexDeck<div class="desc">${S.device.connected ? `${esc(S.device.port)} · firmware ${esc(S.device.fw || "1.x")}${S.device.hid ? " · USB klavye modu hazır" : ""}` : "Bağlı değil"}</div></div>
-        <div class="row">${S.device.connected ? '<button class="btn" id="dev-off">Bağlantıyı kes</button>' : `<select class="inp" id="dev-port">${(S.device.ports || []).map(p => `<option value="${esc(p.port)}">${esc(p.label)}</option>`).join("") || "<option value=''>Cihaz bulunamadı</option>"}</select><button class="btn primary" id="dev-on">Bağlan</button>`}</div></div>
+      <div class="set-row"><div>NexDeck<div class="desc">${S.device.connected ? (st.dev_mode ? `Bağlı · ${esc(S.device.port)} · firmware ${esc(S.device.fw || "1.x")}${S.device.hid ? " · USB klavye modu hazır" : ""}` : "Bağlı") : (S.device.ports || []).length ? "Bağlı değil" : "Cihaz bulunamadı"}</div></div>
+        <div class="row">${S.device.connected ? '<button class="btn" id="dev-off">Bağlantıyı kes</button>' : `${st.dev_mode ? `<select class="inp" id="dev-port" data-no-i18n>${(S.device.ports || []).map(p => `<option value="${esc(p.port)}">${esc(p.label)}</option>`).join("")}</select>` : ""}<button class="btn primary" id="dev-on">Bağlan</button>`}</div></div>
       <div class="set-row"><div>Uygulama açılınca cihaza otomatik bağlan</div>${sw("auto_connect", st.auto_connect)}</div>
       <div class="set-row"><div>Cihazsız kullan<div class="desc">Telefonun sanal NexDeck olur; NexDeck'e bağlanılmaz.</div></div><button class="btn" id="to-web">Web moduna geç</button></div>
     </div>`}
@@ -778,6 +834,7 @@ function renderSettings() {
         <div class="set-row"><div>Diller<div class="desc">Dil dosyaları (.json). Örnek dosya: en.json</div></div><button class="btn" id="open-langs">Klasörü aç</button></div>
         <div class="set-row"><div>Hata günlüğü</div><button class="btn" id="open-logs">Günlüğü aç</button></div>
         <div class="set-row"><div>Klasik görünüm<div class="desc">Eski NexStudio arayüzü. Oradan Ayarlar &gt; "Yeni görünüme geç" ile geri dönebilirsin.</div></div><button class="btn" id="go-classic">Klasik görünüme geç</button></div>
+        <div class="set-row"><div>Geliştirici modu<div class="desc">COM portu, firmware bilgisi ve Günlük sekmesini gösterir.</div></div>${sw("dev_mode", st.dev_mode)}</div>
         <div class="set-row"><div>Sürüm</div><div class="small">NexStudio ${esc(S.version)}</div></div>
       </div>
     </details>`}`;
@@ -792,15 +849,15 @@ function renderSettings() {
   q("#glass").oninput = e => document.documentElement.style.setProperty("--glass", e.target.value / 100);
   q("#glass").onchange = e => setTheme({ glass: e.target.value / 100 });
   box.querySelectorAll("[data-set]").forEach(b => b.onclick = () => act("settings", { key: b.dataset.set, value: b.getAttribute("aria-checked") !== "true" }, "Kaydedildi"));
-  if (q("#dev-on")) q("#dev-on").onclick = () => act("device", { op: "connect", port: q("#dev-port").value }, "Bağlanılıyor…");
+  if (q("#dev-on")) q("#dev-on").onclick = () => act("device", { op: "connect", port: q("#dev-port")?.value || "" }, "Bağlanılıyor…");
   if (q("#dev-off")) q("#dev-off").onclick = () => act("device", { op: "disconnect" }, "Bağlantı kesildi");
-  box.querySelectorAll("[data-pren]").forEach(b => b.onclick = () => { const n = ask("Yeni profil adı:", b.dataset.pren); if (n && n !== b.dataset.pren) act("profile", { op: "rename", name: b.dataset.pren, new_name: n }, "Profil adı değişti"); });
+  box.querySelectorAll("[data-pren]").forEach(b => b.onclick = async () => { const n = await ask("Yeni profil adı", b.dataset.pren); if (n && n !== b.dataset.pren) act("profile", { op: "rename", name: b.dataset.pren, new_name: n }, "Profil adı değişti"); });
   box.querySelectorAll("[data-pcopy]").forEach(b => b.onclick = async () => {
-    const n = ask("Kopyanın adı:", b.dataset.pcopy + " kopya"); if (!n) return;
+    const n = await ask("Kopyanın adı", b.dataset.pcopy + " kopya"); if (!n) return;
     if (b.dataset.pcopy !== S.active_profile) await api("profile", { op: "switch", name: b.dataset.pcopy }).catch(() => {});
     act("profile", { op: "copy", name: n }, `Profil kopyalandı: ${n}`);
   });
-  box.querySelectorAll("[data-pdel]").forEach(b => b.onclick = () => sure(`"${b.dataset.pdel}" profili silinsin mi? Bu profildeki tüm tuş atamaları silinir.`) && act("profile", { op: "delete", name: b.dataset.pdel }, "Profil silindi"));
+  box.querySelectorAll("[data-pdel]").forEach(b => b.onclick = async () => (await sure(`"${b.dataset.pdel}" profili silinsin mi?`, "Bu profildeki tüm tuş atamaları silinir.")) && act("profile", { op: "delete", name: b.dataset.pdel }, "Profil silindi"));
   if (q("#key-mode")) q("#key-mode").onchange = e => act("settings", { key: "key_send_mode", value: e.target.value }, "Kaydedildi");
   q("#run-admin").onclick = () => act("ui", { op: "admin" });
   q("#open-plugins").onclick = () => act("ui", { op: "open_plugins" });
@@ -815,6 +872,30 @@ function renderSettings() {
 function renderChangelog() {
   $("#changelog").innerHTML = (S.changelog || []).map(([v, d, items]) => `<div class="rel">${esc(v)}${d ? `<small>${esc(d)}</small>` : ""}</div><ul>${items.map(i => `<li>${esc(i)}</li>`).join("")}</ul>`).join("");
 }
+
+/* ---------- logo ---------- */
+if (BOOT.logo) { const lg = $("#logo"); lg.textContent = ""; lg.classList.add("has-img"); const im = new Image(); im.src = BOOT.logo; im.alt = ""; lg.append(im); }
+
+/* ---------- geliştirici modu: Günlük sayfası (2.6.1) ---------- */
+const logs = { seq: 0, timer: null };
+async function pollLogs(withErrors) {
+  try {
+    const r = await api(`logs?since=${logs.seq}${withErrors ? "&errors=1" : ""}`);
+    const pre = $("#log-live");
+    if (r.lines.length) {
+      const atBottom = pre.scrollHeight - pre.scrollTop - pre.clientHeight < 30;
+      pre.textContent += r.lines.map(l => `[${l.time}] ${l.text}`).join("\n") + "\n";
+      if (pre.textContent.length > 200000) pre.textContent = pre.textContent.slice(-150000);
+      if (atBottom) pre.scrollTop = pre.scrollHeight;
+    }
+    logs.seq = r.seq;
+    if (withErrors) $("#log-errors").textContent = r.errors || L("Hata kaydı yok.");
+  } catch (e) {}
+}
+function startLogs() { pollLogs(true); clearInterval(logs.timer); logs.timer = setInterval(() => $("#page-logs").classList.contains("active") ? pollLogs(false) : clearInterval(logs.timer), 1000); }
+$("#log-clear").onclick = () => { $("#log-live").textContent = ""; };
+$("#err-refresh").onclick = () => pollLogs(true);
+$("#err-open").onclick = () => act("ui", { op: "open_logs" });
 
 /* ---------- mod geçişi ve karşılama (2.6) ---------- */
 async function switchMode(mode) {
@@ -837,7 +918,7 @@ function showWelcome() {
   });
   box.hidden = false;
 }
-$("#banner-start").onclick = async () => { await act("web", { op: "start" }, "Telefondan kontrol başladı"); document.querySelector('.rail [data-page="web"]').click(); };
+$("#banner-start").onclick = async () => { await act("web", { op: "start" }, "Web kontrolü başladı"); document.querySelector('.rail [data-page="web"]').click(); };
 
 /* ---------- dosya seçiciler ---------- */
 function readImage(file) {
@@ -862,6 +943,7 @@ document.querySelectorAll(".rail [data-page]").forEach(b => b.onclick = () => {
   b.setAttribute("aria-current", "page");
   document.querySelectorAll(".page").forEach(p => p.classList.toggle("active", p.id === "page-" + b.dataset.page));
   if (b.dataset.page === "web") renderWeb();
+  if (b.dataset.page === "logs") startLogs();
   window.scrollTo(0, 0);
 });
 document.querySelectorAll(".modeswitch button").forEach(b => b.onclick = () => {
@@ -942,10 +1024,11 @@ async function pollLive() {
   } catch (e) {}
 }
 setInterval(pollLive, REMOTE ? 600 : 300);
-$("#open-changelog").onclick = () => $("#drawer").classList.add("open");
+$("#open-changelog").onclick = e => { e.stopPropagation(); $("#drawer").classList.toggle("open"); };
+document.addEventListener("click", e => { const d = $("#drawer"); if (d.classList.contains("open") && !d.contains(e.target)) d.classList.remove("open"); });
 $("#close-changelog").onclick = () => $("#drawer").classList.remove("open");
 $("#search").oninput = () => { ui.libKey = ""; renderLibrary(); };
-$("#add-profile").onclick = () => { const n = ask("Yeni profil adı:"); if (n) act("profile", { op: "create", name: n }, `Profil oluşturuldu: ${n}`); };
+$("#add-profile").onclick = async () => { const n = await ask("Yeni profil adı"); if (n) act("profile", { op: "create", name: n }, `Profil oluşturuldu: ${n}`); };
 document.addEventListener("keydown", e => { if (e.key === "Escape") $("#drawer").classList.remove("open"); });
 
 /* ---------- veri ---------- */

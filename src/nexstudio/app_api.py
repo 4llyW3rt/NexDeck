@@ -4,6 +4,9 @@
 from . import state
 from .core import (  # noqa: F401
     webbrowser,
+    ERROR_LOG_FILE,
+    LOG_BUFFER,
+    get_small_logo_data_uri,
     APP_DIR,
     APP_VERSION,
     BaseHTTPRequestHandler,
@@ -216,7 +219,7 @@ def APP_CONFIG_LANG():
 class AppApi:
     """Yeni arayüzün kullandığı JSON API. remote=True: telefondan (LAN) gelen istek, kısıtlı yetki."""
 
-    LOCAL_ONLY = {"device", "web", "known_device", "ui", "settings", "bg_image", "theme"}
+    LOCAL_ONLY = {"device", "web", "known_device", "ui", "settings", "bg_image", "theme", "logs"}
 
     @classmethod
     def dispatch(cls, method, endpoint, body, remote=False):
@@ -296,6 +299,7 @@ class AppApi:
                 "auto_connect": bool(cfg.get("auto_connect", True)),
                 "key_send_mode": cfg.get("key_send_mode", "auto"),
                 "elevated": is_process_elevated(),
+                "dev_mode": bool(cfg.get("dev_mode")),
             }
             result["device"]["ports"] = [{"label": label, "port": port} for label, port, _ in (win.scan_device_ports() if win else [])]
         return result
@@ -313,6 +317,23 @@ class AppApi:
         seq = win._live_seq
         events = [] if since < 0 else [d for s, d in list(win._live_events) if s > since]
         return {"ok": True, "seq": seq, "events": events, "connected": win.is_device_connected()}
+
+    @classmethod
+    def get_logs(cls, body, remote):
+        """Geliştirici modu: canlı günlük (since'ten sonraki satırlar) + hata günlüğünün sonu."""
+        try:
+            since = int(body.get("since", 0))
+        except (TypeError, ValueError):
+            since = 0
+        lines = [{"seq": s, "time": t, "text": m} for s, t, m in list(LOG_BUFFER) if s > since]
+        result = {"ok": True, "lines": lines, "seq": lines[-1]["seq"] if lines else since}
+        if body.get("errors"):
+            try:
+                with open(ERROR_LOG_FILE, "r", encoding="utf-8", errors="replace") as f:
+                    result["errors"] = f.read()[-20000:]
+            except FileNotFoundError:
+                result["errors"] = ""
+        return result
 
     @classmethod
     def get_lang(cls, body, remote):
@@ -497,7 +518,7 @@ class AppApi:
     def post_settings(cls, body, remote):
         key, value = body.get("key"), body.get("value")
         win = state.MAIN_WINDOW
-        if key not in ("start_with_win", "run_in_bg", "auto_connect", "key_send_mode", "language", "app_mode", "welcome_done"):
+        if key not in ("start_with_win", "run_in_bg", "auto_connect", "key_send_mode", "language", "app_mode", "welcome_done", "dev_mode"):
             raise ValueError("Bilinmeyen ayar")
         if key == "app_mode":
             call_on_ui_sync(lambda: win.set_app_mode(value))
@@ -636,7 +657,7 @@ def read_app_html(api_base, remote, auth_query=""):
     """web_ui/app.html dosyasını okuyup başlangıç ayarlarını ekler."""
     with open(os.path.join(WEB_UI_DIR, "app.html"), "r", encoding="utf-8") as f:
         html = f.read()
-    boot = json.dumps({"apiBase": api_base, "remote": remote, "auth": auth_query})
+    boot = json.dumps({"apiBase": api_base, "remote": remote, "auth": auth_query, "logo": get_small_logo_data_uri()})
     return html.replace("/*__NEX_BOOT__*/", f"window.NEX_BOOT = {boot};")
 
 

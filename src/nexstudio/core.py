@@ -97,6 +97,30 @@ def find_nexstudio_logo_path():
             pass
     return ""
 
+_SMALL_LOGO_CACHE = []
+
+
+def get_small_logo_data_uri(size=96):
+    """Yeni arayüzün sol üstündeki logo: küçültülmüş PNG (sayfaya gömülür, ~10 KB)."""
+    if _SMALL_LOGO_CACHE:
+        return _SMALL_LOGO_CACHE[0]
+    uri = ""
+    try:
+        from PIL import Image
+        import io
+        path = find_nexstudio_logo_path()
+        if path:
+            img = Image.open(path).convert("RGBA")
+            img.thumbnail((size, size))
+            buf = io.BytesIO()
+            img.save(buf, "PNG", optimize=True)
+            uri = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+    except Exception:
+        uri = ""
+    _SMALL_LOGO_CACHE.append(uri)
+    return uri
+
+
 def get_nexstudio_logo_data_uri():
     """Logoyu web HTML içine gömülebilecek data URI olarak döndürür; paketlemede dosya yolu kaybolsa bile çalışır."""
     try:
@@ -134,7 +158,7 @@ NEXSTUDIO_PROVENANCE_MARKERS = [
     "NEXSTUDIO:COMMUNITY_FREE_ONLY",
 ]
 NEXSTUDIO_BUILD_CHANNEL = "Public 2.6"
-NEXSTUDIO_BUILD_ID = "NEX-26-AMT"
+NEXSTUDIO_BUILD_ID = "NEX-261-AMT"
 # Zero-width provenance watermark; kişisel e-posta/handle içermez, çalışma akışını etkilemez.
 NEXSTUDIO_ZERO_WIDTH_WATERMARK = "​‌​‌‍​​‌‌‍‌​‌​‍​‌‌​‍‌‌​​"
 
@@ -148,6 +172,14 @@ NEXSTUDIO_ZERO_WIDTH_WATERMARK = "​‌​‌‍​​‌‌‍‌​‌​‍�
 # =========================================================
 NEXSTUDIO_CHANGELOG = {
     "tr": [
+        ("2.6.1", "28.11.2026", [
+            "Sol üstte NexStudio logosu.",
+            "\"Telefon\" sekmesi artık \"Web\": telefon, tablet ya da başka bir bilgisayardan kontrol.",
+            "Profil oluşturma, silme ve adlandırma artık uygulamanın kendi pencerelerinde (tarayıcının \"127.0.0.1 diyor ki\" kutusu yok).",
+            "Ekran önizlemesinde ◀ ▶ butonları gerçek cihazdaki gibi sayfa değiştirir.",
+            "Yenilikler paneli butona tekrar basınca ya da dışarı tıklayınca kapanır.",
+            "Geliştirici modu (Ayarlar > Gelişmiş): COM portu, firmware bilgisi ve canlı Günlük sekmesi sadece açıkken görünür.",
+        ]),
         ("2.6", "27.11.2026", [
             "Web modu: NexDeck'in yoksa telefonun sanal NexDeck olur. Ayarlar'dan tek tıkla cihazlı sürüme geçebilirsin; tuş atamaların aynen kalır.",
             "İlk açılışta karşılama ekranı: cihazın var mı, yok mu seç; dili seç.",
@@ -222,6 +254,14 @@ NEXSTUDIO_CHANGELOG = {
         ]),
     ],
     "en": [
+        ("2.6.1", "2026-11-28", [
+            "NexStudio logo in the top-left corner.",
+            "The \"Phone\" tab is now \"Web\": control from a phone, tablet or another computer.",
+            "Creating, deleting and renaming profiles now uses the app's own dialogs.",
+            "The ◀ ▶ buttons in the screen preview switch pages like on the real device.",
+            "The What's new panel closes when you press its button again or click outside.",
+            "Developer mode (Settings > Advanced): COM port, firmware details and a live Log tab only show when it is on.",
+        ]),
         ("2.6", "2026-11-27", [
             "Web mode: without a NexDeck your phone becomes a virtual NexDeck. Switch to device mode from Settings at any time; your key assignments stay.",
             "Welcome screen on first launch: choose whether you have a NexDeck and pick a language.",
@@ -290,7 +330,7 @@ import traceback
 import shutil
 from PyQt5.QtCore import QObject
 
-APP_VERSION = "2.6.0"
+APP_VERSION = "2.6.1"
 ERROR_LOG_FILE = os.path.join(LOGS_DIR, "error.log")
 CONFIG_BACKUP_FILE = CONFIG_FILE + ".bak"
 WEB_HISTORY_LIMIT = 100
@@ -348,9 +388,19 @@ def _is_gui_thread():
     return threading.current_thread() is threading.main_thread()
 
 
+# 2.6.1: Yeni arayüzün geliştirici modundaki "Günlük" sayfası için son mesajlar (thread-güvenli deque)
+import collections as _collections
+LOG_BUFFER = _collections.deque(maxlen=600)
+_LOG_SEQ = [0]
+_LOG_LOCK = threading.Lock()
+
+
 def ui_log(message):
     """Her thread'den güvenle çağrılabilir; mesaj GUI thread'inde log alanına eklenir."""
     text = str(message)
+    with _LOG_LOCK:
+        _LOG_SEQ[0] += 1
+        LOG_BUFFER.append((_LOG_SEQ[0], datetime.now().strftime("%H:%M:%S"), text))
     if state.UI_BRIDGE is None:
         _PENDING_UI_LOGS.append(text)
         return

@@ -5,6 +5,21 @@ Uygulama içindeki "Güncelleme Rehberi" kartı da aynı bilgiyi kısaca göster
 
 ---
 
+## 2.6.1 — 28.11.2026 (Arayüz düzenlemeleri, geliştirici modu)
+
+- Sol üstte "N" yerine NexStudio logosu (96 px'e küçültülüp sayfaya gömülür).
+- "Telefon" sekmesi **Web** oldu; metinler telefon, tablet ve başka bilgisayarı kapsayacak şekilde genelleştirildi.
+- Tarayıcının hazır `prompt()` / `confirm()` kutuları ("127.0.0.1:xxxx diyor ki") yerine uygulamanın kendi pencereleri.
+- Ekran önizlemesinde ◀ ▶ gerçek cihazdaki gibi sayfa değiştirir.
+- Yenilikler paneli butona tekrar basınca, dışarı tıklayınca ya da Esc ile kapanır.
+- **Geliştirici modu** (Ayarlar > Gelişmiş): kapalıyken üst çubukta sadece "NexDeck bağlı" yazar, port seçimi gizlenir.
+  Açıkken COM portu, firmware ve HID bilgisi görünür; sol menüde **Günlük** sekmesi (canlı günlük + hata günlüğü) açılır.
+  Canlı günlük için `core.LOG_BUFFER` (son 600 satır) ve `/api2/logs` eklendi.
+- Geliştirici araçları: `tools/bump_version.py` (sürüm + uygulama içi yenilikler), `tools/i18n_update.py`,
+  `tools/build_lang_plugin.py` + `tools/i18n/de_from_en.json` (Almanca eklentisi artık otomatik üretiliyor).
+
+---
+
 ## 2.6.0 — 27.11.2026 (Web modu + dil paketleri)
 
 ### Web modu (cihazsız kullanım)
