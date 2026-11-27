@@ -93,6 +93,12 @@ def execute(func):
 
 `nex` nesnesini NexStudio ekler; ayarlar için `nex.get_setting("anahtar", varsayılan)`. Her eklenti kendi thread'inde çalışır.
 
+## Nasıl geliştirildi
+
+NexDeck'in fikri, donanım tasarımı, devresi, kasası ve testleri Ali Mert Taşcı'ya aittir. Yazılım tarafında (NexStudio ve firmware) **yapay zekâ destekli geliştirme araçlarından** yararlanıldı: ChatGPT ve Claude (Anthropic) kod yazımında, hata ayıklamada, arayüz tasarımında ve dokümantasyonda kullanıldı.
+
+Yapay zekâ ile üretilen her değişiklik gerçek cihaz üzerinde denendi. Hangi sorunun neden çıktığı ve nasıl çözüldüğü [CHANGELOG.md](CHANGELOG.md) dosyasında açıkça yazıyor. Kodda gözünüze çarpan bir hata ya da daha iyi bir yöntem olursa Issue açmanız çok değerli.
+
 ## Katkı
 
 Hata bildirimi ve öneriler için Issues açabilir, Pull Request gönderebilirsiniz. Büyük değişikliklerden önce bir Issue ile konuşalım.
