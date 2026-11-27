@@ -2633,6 +2633,11 @@ class NexHubApp(QMainWindow):
         else:
             self._user_disconnected = False
             self.refresh_ports()
+            if not self.config.get("auto_connect", True):
+                # 2.7.3: "otomatik bağlan" kapalıysa cihaz aranmaz; kullanıcı Ayarlar'dan bağlanır
+                self.set_device_status("waiting")
+                ui_log("🔌 Cihazlı moda geçildi")
+                return
             port = self.find_preferred_port()
             if port:
                 self.connect_device(port)

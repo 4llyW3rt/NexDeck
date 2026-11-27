@@ -265,7 +265,7 @@ def APP_CONFIG_LANG():
 class AppApi:
     """Yeni arayüzün kullandığı JSON API. remote=True: telefondan (LAN) gelen istek, kısıtlı yetki."""
 
-    LOCAL_ONLY = {"device", "web", "known_device", "ui", "settings", "bg_image", "theme", "logs", "approval", "update"}
+    LOCAL_ONLY = {"device", "web", "known_device", "ui", "bg_image", "theme", "logs", "approval", "update"}
 
     @classmethod
     def dispatch(cls, method, endpoint, body, remote=False):
@@ -492,7 +492,7 @@ class AppApi:
             raise PermissionError("Bu görev sadece bilgisayardan atanabilir.")
         if atype in ("custom_web", "custom_app", "custom_hotkey", "type_text"):
             action["custom_arg"] = str(body.get("arg", "")).strip()
-        if remote and atype == "custom_web" and not _REMOTE_URL_RE.fullmatch(action["custom_arg"]):
+        if remote and atype == "custom_web" and not is_safe_web_url(action["custom_arg"]):
             # 2.7.1: adres tarayıcı komutuna tırnak içinde eklenir; tırnak/boşluk/% ile komut eklenemesin
             raise ValueError("Geçersiz web adresi")
         if atype in ("custom_web", "web"):
@@ -679,6 +679,9 @@ class AppApi:
     @classmethod
     def post_settings(cls, body, remote):
         key, value = body.get("key"), body.get("value")
+        # 2.7.3: telefon yalnızca web modu tuş düzenini ve ekstra tekerlekleri değiştirebilir; diğer ayarlar bilgisayardan
+        if remote and key not in ("web_layout", "web_grid", "extra_wheels"):
+            raise PermissionError("Bu işlem sadece bilgisayardan yapılabilir.")
         win = state.MAIN_WINDOW
         if key not in ("start_with_win", "run_in_bg", "auto_connect", "key_send_mode", "language", "app_mode", "welcome_done", "dev_mode", "web_access_mode", "web_known_only", "update_check",
                        "web_layout", "web_grid", "extra_wheels"):
@@ -896,12 +899,38 @@ def send_icon_file(handler, name):
                extra_headers={"Cache-Control": "max-age=31536000, immutable"})
 
 
+def is_safe_web_url(url):
+    """2.7.3: telefondan atanan web adresi. Sadece http(s), yalnızca ASCII, kabuk/komut karakteri yok, alan adı zorunlu.
+    (javascript:, file:, tek tırnak, ^ & | ; < > ` ve Unicode benzeri karakterler reddedilir.)"""
+    url = str(url or "").strip()
+    if not url or len(url) > 2000 or not url.isascii():
+        return False
+    # tarayıcı kabuksuz açıldığı için sorgu dizgesindeki & ; = serbest; tırnak, % < > ` ^ | \ ve boşluk yasak
+    if any(c in url for c in ' \t"\'%<>`^|\\') or any(ord(c) < 0x21 or ord(c) == 0x7f for c in url):
+        return False
+    full = url if "://" in url else "https://" + url
+    try:
+        parts = urllib.parse.urlsplit(full)
+    except ValueError:
+        return False
+    host = parts.hostname or ""
+    return parts.scheme.lower() in ("http", "https") and (bool(re.fullmatch(r"[A-Za-z0-9.-]{1,253}", host)) and "." in host or host == "localhost")
+
+
 def read_json_body(handler, limit=30 * 1024 * 1024):
-    length = int(handler.headers.get("Content-Length", "0") or 0)
+    try:
+        length = int(handler.headers.get("Content-Length", "0") or 0)
+    except ValueError:
+        raise ValueError("Geçersiz istek")
+    if length < 0:
+        raise ValueError("Geçersiz istek")
     if length > limit:
         raise ValueError("İstek çok büyük")
     raw = handler.rfile.read(length) if length else b"{}"
-    return json.loads(raw.decode("utf-8") or "{}")
+    try:
+        return json.loads(raw.decode("utf-8") or "{}")
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        raise ValueError("Geçersiz istek")
 
 
 class LocalAppHandler(BaseHTTPRequestHandler):
@@ -915,14 +944,32 @@ class LocalAppHandler(BaseHTTPRequestHandler):
         return f"nex_app_{self.server.server_address[1]}"
 
     def _authorized(self):
-        cookie = self.headers.get("Cookie", "") or ""
-        header = self.headers.get("X-Nex-Token", "")
-        return header == APP_API_TOKEN or f"{self._cookie_name()}={APP_API_TOKEN}" in cookie
+        # 2.7.3: çerez adı/değeri tam eşleşmeli (alt dize değil), sabit sürede karşılaştırılır
+        header = self.headers.get("X-Nex-Token", "") or ""
+        if header and secrets.compare_digest(header, APP_API_TOKEN):
+            return True
+        for part in (self.headers.get("Cookie", "") or "").split(";"):
+            name, _, value = part.strip().partition("=")
+            if name == self._cookie_name() and secrets.compare_digest(value, APP_API_TOKEN):
+                return True
+        return False
+
+    def _same_origin(self):
+        """2.7.3: DNS yeniden bağlama ve başka siteden istek (CSRF) koruması: Host yalnızca 127.0.0.1/localhost:<port>,
+        Origin varsa aynı adres olmalı."""
+        port = self.server.server_address[1]
+        allowed = {f"127.0.0.1:{port}", f"localhost:{port}"}
+        if (self.headers.get("Host", "") or "").lower() not in allowed:
+            return False
+        origin = (self.headers.get("Origin", "") or "").lower()
+        return not origin or origin in {f"http://{h}" for h in allowed}
 
     def do_GET(self):
+        if not self._same_origin():
+            return send_bytes(self, "Yetkisiz".encode("utf-8"), "text/plain; charset=utf-8", 403)
         parsed = urllib.parse.urlparse(self.path)
         params = urllib.parse.parse_qs(parsed.query)
-        if parsed.path == "/app" and params.get("t", [""])[0] == APP_API_TOKEN:
+        if parsed.path == "/app" and secrets.compare_digest(params.get("t", [""])[0], APP_API_TOKEN):
             # Anahtarı çereze yazıp adres çubuğundan temizle
             self.send_response(302)
             self.send_header("Set-Cookie", f"{self._cookie_name()}={APP_API_TOKEN}; Path=/; HttpOnly; SameSite=Strict")
@@ -943,7 +990,7 @@ class LocalAppHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         parsed = urllib.parse.urlparse(self.path)
-        if not self._authorized() or not parsed.path.startswith("/api2/"):
+        if not self._same_origin() or not self._authorized() or not parsed.path.startswith("/api2/"):
             return send_bytes(self, "Yetkisiz".encode("utf-8"), "text/plain; charset=utf-8", 403)
         try:
             body = read_json_body(self)

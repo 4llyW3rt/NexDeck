@@ -172,6 +172,12 @@ NEXSTUDIO_ZERO_WIDTH_WATERMARK = "​‌​‌‍​​‌‌‍‌​‌​‍�
 # =========================================================
 NEXSTUDIO_CHANGELOG = {
     "tr": [
+        ("2.7.3", "27.11.2026", [
+            "Telefonda 'Düzenle' modunda ekstra tekerlek eklenip değiştirilebilir; telefonun Ayarlar'ında web modu tuş düzeni (serbest ızgara) seçilebilir.",
+            "Güvenlik: telefondan atanan web adresleri sıkı denetlenir ve tarayıcı komut satırı olmadan açılır; telefon kendini 'hatırlanan cihaz' yapamaz; masaüstü arayüzü başka sitelerden gelen isteklere kapalı.",
+            "Çeviriler: kütüphane araması İngilizce/Almanca adlarla da çalışır, tekerlek hedefleri ve 56 eksik metin çevrildi.",
+            "'Otomatik bağlan' kapalıyken cihazlı moda geçince cihaz aranmaz; ızgara boyutu seçimleri 'Sütun: 4' biçiminde.",
+        ]),
         ("2.7.2", "27.11.2026", [
             "Güvenlik: telefondan 'Özel kısayol' ve 'Metin yazdırma' görevleri de atanamaz (yalnızca bilgisayardan); atanmış tuşa telefondan basmak çalışır.",
             "Telefondaki giriş, onay bekleniyor, engellendi ve 'kod değişti' sayfaları artık seçili dilde.",
@@ -291,6 +297,12 @@ NEXSTUDIO_CHANGELOG = {
         ]),
     ],
     "en": [
+        ("2.7.3", "2026-11-27", [
+            "In 'Edit' mode the phone can add and change extra wheels; the phone's Settings can switch the web-mode key layout (free grid).",
+            "Security: web addresses assigned from the phone are strictly validated and the browser opens without a command shell; a phone can't make itself a 'remembered device'; the desktop UI rejects requests from other sites.",
+            "Translations: library search works with English/German names; wheel targets and 56 missing texts translated.",
+            "With 'Auto connect' off, switching to device mode no longer searches for the device; grid size options read 'Columns: 4'.",
+        ]),
         ("2.7.2", "2026-11-27", [
             "Security: 'Custom shortcut' and 'Type text' tasks can no longer be assigned from the phone either (computer only); pressing an assigned key from the phone still works.",
             "The phone's sign-in, waiting-for-approval, blocked and 'code changed' pages now use the selected language.",
@@ -404,7 +416,7 @@ import traceback
 import shutil
 from PyQt5.QtCore import QObject
 
-APP_VERSION = "2.7.2"
+APP_VERSION = "2.7.3"
 ERROR_LOG_FILE = os.path.join(LOGS_DIR, "error.log")
 CONFIG_BACKUP_FILE = CONFIG_FILE + ".bak"
 WEB_HISTORY_LIMIT = 100

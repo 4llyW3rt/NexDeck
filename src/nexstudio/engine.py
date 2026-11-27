@@ -684,6 +684,25 @@ def _send_hotkey_via_device(vk_list):
     return True
 
 
+def _browser_exe(name):
+    """2.7.3: Windows 'App Paths' kaydından tarayıcının tam yolu (chrome.exe, msedge.exe, firefox.exe)."""
+    if not name:
+        return ""
+    try:
+        import winreg
+        for hive in (winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE):
+            try:
+                with winreg.OpenKey(hive, r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths" + "\\" + name) as k:
+                    path = winreg.QueryValue(k, None)
+                    if path and os.path.exists(path.strip('"')):
+                        return path.strip('"')
+            except OSError:
+                pass
+    except ImportError:
+        pass
+    return ""
+
+
 def _execute_macro_now(action):
     try:
         if action["type"] == "native":
@@ -702,9 +721,9 @@ def _execute_macro_now(action):
             url = action.get("cmd", "") if action["type"] == "web" else action.get("custom_arg", "")
             if not url.startswith("http"): url = "https://" + url
             
-            if browser == "chrome": subprocess.Popen(f'start "" chrome "{url}"', shell=True, creationflags=0x08000000)
-            elif browser == "edge": subprocess.Popen(f'start "" msedge "{url}"', shell=True, creationflags=0x08000000)
-            elif browser == "firefox": subprocess.Popen(f'start "" firefox "{url}"', shell=True, creationflags=0x08000000)
+            # 2.7.3: adres kabuğa (cmd) verilmez; tarayıcı App Paths kaydından bulunup argüman listesiyle açılır
+            exe = _browser_exe({"chrome": "chrome.exe", "edge": "msedge.exe", "firefox": "firefox.exe"}.get(browser, ""))
+            if exe: subprocess.Popen([exe, url], creationflags=0x08000000)
             else: webbrowser.open(url)
             
         elif action["type"] == "custom_app":

@@ -5,6 +5,36 @@ Uygulama içindeki "Güncelleme Rehberi" kartı da aynı bilgiyi kısaca göster
 
 ---
 
+## 2.7.3 — 27.11.2026 (Telefonda tekerlek/ızgara, güvenlik sertleştirme)
+
+### Nasıl test edildi
+Testler Antigravity CLI (Gemini) kopyalarına verildi (Claude yönetici). agy üç paralel görev yürüttü: erişim kontrolü
+testleri (`security_regression_test.py`, 95 kontrol), çeviri denetimi ve gerçek tarayıcıyla arayüz testi.
+Arayüz testi projeye alındı: `tests/ui_regression_test.py` (yalnızca standart kütüphane + kurulu Edge, CDP; 4 ekran boyutu, 118 kontrol)
+ve yayın betiğinde her sürümde çalışır.
+
+### Telefon
+- "Düzenle" modunda ekstra tekerlek eklenir/değiştirilir; telefonun Ayarlar sayfasında "Tuş düzeni" (cihazla aynı / serbest ızgara, boyut).
+  `post_settings` telefondan yalnızca `web_layout`, `web_grid`, `extra_wheels` anahtarlarını kabul eder.
+
+### Güvenlik
+- `is_safe_web_url`: telefondan atanan adres yalnızca http(s), ASCII, geçerli alan adı; `javascript:`, `file:`, tırnak, `% < > ` ^ | \` ve
+  Unicode benzeri karakterler reddedilir. Tarayıcı artık `cmd /c start` (shell=True) yerine App Paths kaydındaki exe ile argüman listesiyle açılır.
+- Eski `/api/trust_device` kapatıldı: telefon kendine kalıcı "tanınan cihaz" çerezi veremiyordu → artık yalnızca bilgisayardaki onayla.
+- Onay modunda IP+tarayıcı eşleşmesi tek başına yeni oturum açtırmaz; onay 15 sn geçerli, sonra çerez gerekir.
+- Ham istek yolunda `//`, `..`, `%2e/%2f/%5c` reddedilir; bilinmeyen `/<kod>/...` alt yolları 404.
+- Telefon POST: bozuk JSON/UTF-8 400, çok büyük gövde 413 (önceden 500 + hata günlüğü).
+- Masaüstü API: `Host` yalnızca `127.0.0.1/localhost:<port>`, `Origin` aynı adres (DNS rebinding / CSRF); çerez tam ad=değer eşleşmesi,
+  `secrets.compare_digest`.
+
+### Diğer
+- Çeviri: kütüphane araması `L()` ile çevrilmiş adlarda da arar ve aktif dilin küçük harf kuralını kullanır; tekerlek hedefleri,
+  "Buraya bırak" (CSS) ve 56 eksik metin çevrildi.
+- `set_app_mode("device")` "otomatik bağlan" kapalıyken cihaz aramaz. Dar ekranda Düzen menüsünde "Sol menü" anahtarı gizli (alt çubuk gizlenmez).
+  Izgara boyutu seçenekleri "Sütun: 4" biçiminde (tekil/çoğul hatası yok).
+
+---
+
 ## 2.7.2 — 27.11.2026 (Telefon güvenliği ve çeviriler)
 
 - **Güvenlik:** `custom_hotkey` ve `type_text` de `_LOCAL_ONLY_TASK_TYPES`'a eklendi. PIN'i bilen biri telefondan

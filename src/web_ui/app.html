@@ -143,7 +143,7 @@ img.em { width: 26px; height: 26px; object-fit: cover; border-radius: 6px; }
 .selected { outline: 3px solid var(--accent); outline-offset: 3px; }
 body.dragging .dropzone { outline: 2px dashed color-mix(in srgb, var(--accent) 60%, transparent); outline-offset: 2px; }
 .dropzone.over { outline: 3px solid var(--accent) !important; transform: scale(1.04); }
-.dropzone.over::before { content: "Buraya bırak"; position: absolute; inset: 0; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 85%, black); color: #fff; font-size: 12px; border-radius: inherit; z-index: 2; }
+.dropzone.over::before { content: var(--drop-label, "Buraya bırak"); position: absolute; inset: 0; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 85%, black); color: #fff; font-size: 12px; border-radius: inherit; z-index: 2; }
 
 /* Sağ panel */
 .inspector { padding: 16px; display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow: auto; }
@@ -277,7 +277,7 @@ body.hide-lib.hide-insp #page-device { grid-template-columns: 1fr; }
 .viewwrap { position: relative; }
 .iconbtn { border: 1px solid var(--line); background: transparent; border-radius: 10px; padding: 6px 10px; cursor: pointer; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
 .iconbtn:hover { color: var(--text); border-color: var(--accent); }
-@media (max-width: 760px) { body.hide-rail .rail { transform: none; position: fixed; } .viewwrap { display: none; } }
+@media (max-width: 760px) { body.hide-rail .rail { transform: none; position: fixed; } .viewwrap { display: none; } .viewmenu label:has([data-part=rail]) { display: none; } }  /* 2.7.3: dar ekranda sol menü alt çubuktur, gizlenmez */
 
 /* 2.6.3: cihaz listesi ve onay penceresi */
 .dev-row .name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -557,6 +557,8 @@ const iconUrl = name => `${ICON_BASE}/${encodeURIComponent(name)}${REMOTE && BOO
    Ekrana eklenen her metin (text node, placeholder, title, aria-label) otomatik çevrilir;
    bu yüzden arayüz kodunda metinler Türkçe yazılır ve dil eklemek için kod değiştirmek gerekmez. */
 let I18N = {}, I18N_PATTERNS = [];
+// 2.7.3: CSS içindeki "Buraya bırak" etiketi de çevrilir
+function setDropLabel() { document.documentElement.style.setProperty("--drop-label", JSON.stringify(L("Buraya bırak"))); }
 function setDictionary(dict) {
   I18N = dict || {};
   const esc_re = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -565,6 +567,7 @@ function setDictionary(dict) {
     re: new RegExp("^" + esc_re(k).replace(/\\\{(\d)\\\}/g, "(.+?)") + "$"), out: I18N[k],
     lit: k.replace(/\{\d\}/g, "").length,
   })).sort((a, b) => b.lit - a.lit);
+  setDropLabel();
 }
 function L(text) {
   if (text == null) return text;
@@ -718,13 +721,14 @@ function renderTop() {
   $("#dev-text").innerHTML = d.connected ? (dev ? `<strong>NexDeck</strong> bağlı · ${esc(d.port)}${d.fw ? " · firmware " + esc(d.fw) : ""}` : "<strong>NexDeck</strong> bağlı") : "<strong>NexDeck</strong> bağlı değil";
 }
 function renderLibrary() {
-  const q = $("#search").value.trim().toLocaleLowerCase("tr");
+  const lc = t => String(t).toLocaleLowerCase(S.lang || "tr");   // 2.7.3: aktif dilde küçük harf
+  const q = lc($("#search").value.trim());
   const key = q + "|" + JSON.stringify(S.library);
   if (key === ui.libKey) return; ui.libKey = key;
   const box = $("#library"); box.innerHTML = "";
   S.library.forEach(({ cat, items }) => {
     // 2.7.1/2.7.2: özel uygulama, özel kısayol ve metin yazdırma yalnızca bilgisayardan atanır; telefonda listede gösterilmez
-    const hits = items.filter(i => !(REMOTE && ["app", "hotkey", "text"].includes(i.needs))).filter(i => !q || i.name.toLocaleLowerCase("tr").includes(q) || cat.toLocaleLowerCase("tr").includes(q));
+    const hits = items.filter(i => !(REMOTE && ["app", "hotkey", "text"].includes(i.needs))).filter(i => !q || [i.name, L(i.name), cat, L(cat)].some(t => lc(t).includes(q)));   // 2.7.3: çevrilmiş adla da aranır
     if (!hits.length) return;
     const h = document.createElement("div"); h.className = "cat"; h.textContent = cat; box.append(h);
     hits.forEach(it => {
@@ -819,13 +823,24 @@ function wheelLabel(target) {
 }
 async function chooseWheelTarget(current) {
   if (!ui.audio) await loadAudio();
-  return dialog({ title: "Bu tekerlek neyi kontrol etsin?", choices: ui.audio && ui.audio.length ? ui.audio : [{ value: "general_volume", label: L("Genel ses") }], value: current, ok: "Kaydet" });
+  return dialog({ title: "Bu tekerlek neyi kontrol etsin?", choices: ui.audio && ui.audio.length ? ui.audio.map(o => ({ ...o, label: L(o.label) })) : [{ value: "general_volume", label: L("Genel ses") }], value: current, ok: "Kaydet" });
 }
 async function saveWheels(list, msg) { await act("settings", { key: "extra_wheels", value: list }, msg); }
+// 2.7.3: web modu tuş düzeni satırları; bilgisayar ve telefon ayarlarında ortak
+function webLayoutRows() {
+  return `
+      <div class="set-row"><div>Tuş düzeni<div class="desc">${S.web_layout === "grid" ? "Serbest ızgara: istediğin kadar tuş ve sayfa; telefonda kullanması rahat." : "Cihazla aynı: 4 sayfa; ileride NexDeck alınca atamalar birebir cihaza geçer."}</div></div>
+        <div class="seg"><button data-wl="device" aria-pressed="${S.web_layout !== "grid"}">Cihazla aynı</button><button data-wl="grid" aria-pressed="${S.web_layout === "grid"}">Serbest ızgara</button></div></div>
+      ${S.web_layout === "grid" ? `<div class="set-row"><div>Izgara boyutu</div><div class="row">
+        <select class="inp" data-wg="cols" data-no-i18n>${[2, 3, 4, 5, 6].map(v => `<option value="${v}" ${S.web_grid.cols === v ? "selected" : ""}>${L("Sütun")}: ${v}</option>`).join("")}</select>
+        <select class="inp" data-wg="rows" data-no-i18n>${[1, 2, 3, 4].map(v => `<option value="${v}" ${S.web_grid.rows === v ? "selected" : ""}>${L("Satır")}: ${v}</option>`).join("")}</select>
+        <select class="inp" data-wg="pages" data-no-i18n>${[1, 2, 3, 4, 5, 6, 7, 8].map(v => `<option value="${v}" ${S.web_grid.pages === v ? "selected" : ""}>${L("Sayfa")}: ${v}</option>`).join("")}</select></div></div>` : ""}
+`;
+}
 function renderWheels() {
   const box = $("#wheels"); box.innerHTML = "";
   const list = S.extra_wheels || [];
-  const editable = !REMOTE && ui.mode === "edit";
+  const editable = ui.mode === "edit";   // 2.7.3: telefonda da Düzenle modunda tekerlek eklenir
   list.forEach((w, idx) => {
     const d = document.createElement("div"); d.className = "wheel";
     d.innerHTML = `<button class="knob" aria-label="${esc(wheelLabel(w.target))}"><span class="knob-face"></span></button><div class="knob-label" title="${esc(wheelLabel(w.target))}" data-no-i18n>${esc(wheelLabel(w.target))}</div>${editable ? `<button class="wedit" title="Düzenle">⋯</button>` : ""}`;
@@ -1030,16 +1045,11 @@ function renderSettings() {
         <button class="btn" id="bg-photo">Fotoğraf seç</button>${t.bg_image || t.bg_color ? '<button class="btn ghost" id="bg-clear">Varsayılana dön</button>' : ""}</div></div>
       <div class="set-row"><div>Panel şeffaflığı<div class="desc">Fotoğraf arka planda daha çok görünsün</div></div><input type="range" id="glass" min="30" max="100" value="${Math.round((t.glass ?? .86) * 100)}" aria-label="Panel opaklığı"></div>`}
     </div>
-    ${REMOTE ? "" : `
+    ${REMOTE ? (S.app_mode === "web" ? `<div class="set-group"><h3>Tuş düzeni</h3>${webLayoutRows()}</div>` : "") : `
     ${S.app_mode === "web" ? `
     <div class="set-group"><h3>Cihaz</h3>
       <div class="mode-card"><span class="big">📱</span><div class="grow"><h4>NexDeck olmadan kullanıyorsun</h4><p>Telefonun ya da tabletin sanal NexDeck gibi çalışır: Web sayfasındaki QR'ı okut, tuşlara dokun, görevler bu bilgisayarda çalışsın.</p></div></div>
-      <div class="set-row"><div>Tuş düzeni<div class="desc">${S.web_layout === "grid" ? "Serbest ızgara: istediğin kadar tuş ve sayfa; telefonda kullanması rahat." : "Cihazla aynı: 4 sayfa; ileride NexDeck alınca atamalar birebir cihaza geçer."}</div></div>
-        <div class="seg"><button data-wl="device" aria-pressed="${S.web_layout !== "grid"}">Cihazla aynı</button><button data-wl="grid" aria-pressed="${S.web_layout === "grid"}">Serbest ızgara</button></div></div>
-      ${S.web_layout === "grid" ? `<div class="set-row"><div>Izgara boyutu</div><div class="row">
-        <select class="inp" data-wg="cols" data-no-i18n>${[2, 3, 4, 5, 6].map(v => `<option value="${v}" ${S.web_grid.cols === v ? "selected" : ""}>${v} ${L("sütun")}</option>`).join("")}</select>
-        <select class="inp" data-wg="rows" data-no-i18n>${[1, 2, 3, 4].map(v => `<option value="${v}" ${S.web_grid.rows === v ? "selected" : ""}>${v} ${L("satır")}</option>`).join("")}</select>
-        <select class="inp" data-wg="pages" data-no-i18n>${[1, 2, 3, 4, 5, 6, 7, 8].map(v => `<option value="${v}" ${S.web_grid.pages === v ? "selected" : ""}>${v} ${L("sayfa")}</option>`).join("")}</select></div></div>` : ""}
+      ${webLayoutRows()}
       <div class="mode-card"><span class="big">🛠️</span><div class="grow"><h4>NexDeck'i kendin yap</h4><p>Devre, kasa ve yazılım açık kaynak. Parça listesi, bağlantılar ve firmware GitHub'da; yaklaşık maliyet Stream Deck'in yarısı.</p></div><button class="btn" id="open-guide">Rehberi aç</button></div>
       <div class="mode-card"><span class="big">🔌</span><div class="grow"><h4>NexDeck'in hazır mı?</h4><p>Cihazı USB ile tak ve cihazlı sürüme geç. Tuş atamaların aynen kalır.</p></div><button class="btn primary" id="to-device">Cihazlı sürüme geç</button></div>
     </div>` : `
@@ -1079,6 +1089,9 @@ function renderSettings() {
   box.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => setTheme({ mode: b.dataset.mode, ...(REMOTE ? {} : { bg_color: "" }) }));
   box.querySelectorAll("[data-accent]").forEach(b => b.onclick = () => setTheme({ accent: b.dataset.accent }));
   q("#accent-custom").onchange = e => setTheme({ accent: e.target.value });
+  // 2.7.3: tuş düzeni telefondan da değişir
+  box.querySelectorAll("[data-wl]").forEach(b => b.onclick = () => { ui.page = 1; act("settings", { key: "web_layout", value: b.dataset.wl }, "Tuş düzeni değişti"); });
+  box.querySelectorAll("[data-wg]").forEach(sel => sel.onchange = () => act("settings", { key: "web_grid", value: { ...S.web_grid, [sel.dataset.wg]: Number(sel.value) } }, "Izgara güncellendi"));
   if (REMOTE) return;
   q("#bg-color").onchange = e => setTheme({ bg_color: e.target.value });
   q("#bg-photo").onclick = () => $("#file-bg").click();
@@ -1108,8 +1121,6 @@ function renderSettings() {
   if (q("#remove-legacy")) q("#remove-legacy").onclick = async () => { const r = await api("update", { op: "remove_legacy" }).catch(e => toast(e.message, true)); if (r) toast(r.started ? "Kaldırma başladı; Windows'un izin penceresini onayla" : "Kaldırma başlatılamadı (izin verilmedi)"); };
   q("#lang-select").onchange = async e => { await act("settings", { key: "language", value: e.target.value }); await loadLanguage(e.target.value); renderAll(); };
   if (q("#to-device")) q("#to-device").onclick = () => switchMode("device");
-  box.querySelectorAll("[data-wl]").forEach(b => b.onclick = () => { ui.page = 1; act("settings", { key: "web_layout", value: b.dataset.wl }, "Tuş düzeni değişti"); });
-  box.querySelectorAll("[data-wg]").forEach(sel => sel.onchange = () => act("settings", { key: "web_grid", value: { ...S.web_grid, [sel.dataset.wg]: Number(sel.value) } }, "Izgara güncellendi"));
   if (q("#to-web")) q("#to-web").onclick = () => switchMode("web");
   if (q("#open-guide")) q("#open-guide").onclick = () => act("ui", { op: "open_guide" });
 }

@@ -1052,9 +1052,21 @@ class MobileHandler(BaseHTTPRequestHandler):
                     pass
             return self._send_error_page(e)
 
+    def _raw_path_ok(self):
+        """2.7.3: ham istek hedefi (requestline) denetlenir: çift eğik çizgi, .. ve kodlanmış nokta/eğik çizgi geçmez."""
+        try:
+            target = self.requestline.split()[1]
+        except (AttributeError, IndexError):
+            return False
+        path = target.split("?", 1)[0]
+        low = path.lower()
+        return path.startswith("/") and "//" not in path and ".." not in path and not any(x in low for x in ("%2e", "%2f", "%5c", "\\"))
+
     def do_POST(self):
         """2.5: NexStudio Web yazma istekleri. PIN 'X-Nex-Pin' başlığında ya da tanınan cihaz çerezi ile."""
         ip, ua = self._client_ip(), self._client_user_agent()
+        if not self._raw_path_ok():
+            return self._send_json({"ok": False, "error": "Geçersiz istek"}, status=400)
         try:
             token = state.APP_CONFIG.get("web_token", "")
             path = urllib.parse.urlparse(self.path).path
@@ -1080,7 +1092,10 @@ class MobileHandler(BaseHTTPRequestHandler):
                     return self._send_json({"ok": False, "error": "PIN hatalı"}, status=401)
             if not is_known_web_device_allowed(ip, ua, trusted):
                 return self._send_json({"ok": False, "error": "Bu cihaz tanınan cihazlar listesinde değil."}, status=403)
-            body = _lazy('app_api', 'read_json_body')(self, limit=8 * 1024 * 1024)
+            try:
+                body = _lazy('app_api', 'read_json_body')(self, limit=8 * 1024 * 1024)
+            except ValueError as e:
+                return self._send_json({"ok": False, "error": str(e)}, status=413 if "büyük" in str(e) else 400)
             status, payload = _lazy('app_api', 'AppApi').dispatch("POST", path[len(prefix):], body, remote=True)
             return self._send_json(payload, status=status)
         except Exception as e:
@@ -1093,6 +1108,8 @@ class MobileHandler(BaseHTTPRequestHandler):
             self.send_response(204)
             self.end_headers()
             return
+        if not self._raw_path_ok():
+            return self._send_json({"ok": False, "error": "Geçersiz istek"}, status=400)
         parsed_path = urllib.parse.urlparse(self.path).path
         # 2.7.1: kod tam eşleşmeli ("/<kod>xyz" geçmez)
         if not token or not (parsed_path == f"/{token}" or parsed_path.startswith(f"/{token}/")):
@@ -1164,7 +1181,7 @@ class MobileHandler(BaseHTTPRequestHandler):
             if access_mode in ("approve", "pin_approve"):
                 if is_api_path:
                     return self._send_json({"ok": False, "error": "Oturum yok. Sayfayı yenile."}, status=401)
-                if raw_device not in WEB_APPROVED and not web_device_record(raw_device).get("auto_approve"):
+                if raw_device not in WEB_APPROVED:
                     touch_web_device(raw_device, client_ip, client_ua, allowed_default=not state.APP_CONFIG.get("web_known_only", False))
                     decision = web_approval_status(raw_device, client_ip, client_ua)
                     if decision is None:
@@ -1186,6 +1203,9 @@ class MobileHandler(BaseHTTPRequestHandler):
                 touch_web_device(raw_device, client_ip, client_ua, allowed_default=not state.APP_CONFIG.get("web_known_only", False))
                 new_session = create_web_session(raw_device, client_ip, client_ua)
                 extra_cookies.append(f"{SESSION_COOKIE}={new_session}; Path=/; HttpOnly; SameSite=Lax")
+                # 2.7.3: onay kısa süreli; sonrasında çerezler geçerli (çerezsiz/bozuk çerezle gelen yeniden onay ister).
+                # 15 sn pay: telefon sayfayı aynı anda iki kez isterse ikinci onay penceresi çıkmasın.
+                _t = threading.Timer(15, WEB_APPROVED.discard, [raw_device]); _t.daemon = True; _t.start()
         else:
             touch_web_device(trusted_device_id or session_device, client_ip, client_ua)
             if trusted_device_id and not session_device and not is_api_path:
@@ -1198,6 +1218,9 @@ class MobileHandler(BaseHTTPRequestHandler):
             return self._send_json({"ok": False, "error": "Bu cihaz tanınan cihazlar listesinde değil."}, status=403)
 
         if self.path.startswith(f'/{token}/api/trust_device'):
+            # 2.7.3: eski uç kapatıldı: cihazı hatırlamak yalnızca bilgisayardaki onay penceresinden ("Bu cihazı hatırla")
+            return self._send_json({"ok": False, "error": "Cihazı hatırlamak için bilgisayardaki onay penceresinde 'Bu cihazı hatırla'yı seç."}, status=403)
+        if False:
             raw_name = params.get('name', [''])[0]
             name = urllib.parse.unquote_plus(raw_name).strip()
             trust_token, device_id, data = create_trusted_web_device(self._client_ip(), self._client_user_agent(), name)
@@ -1333,6 +1356,8 @@ class MobileHandler(BaseHTTPRequestHandler):
             # 2.7.2: izin listesinde olmayan cihaza aktif dilde bilgi sayfası
             return self._send_notice_page("İzin gerekli", "Bu cihaz tanınan cihazlar listesinde olmadığı için Web Kontrolü kullanılamaz.", status=403)
 
+        if parsed_path not in (f"/{token}", f"/{token}/"):
+            return self._send_json({"ok": False, "error": "Bulunamadı"}, status=404)   # 2.7.3
         # 2.7.1: giriş türü doğru yazılsın (onay modunda "Başarılı PIN girişi" değil)
         if trusted_auth:
             login_method = "Tanınan cihaz" if trusted_device_id else "Oturum çerezi ile giriş"

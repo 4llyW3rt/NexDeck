@@ -160,7 +160,11 @@ try:
         local("known_device", {"op": "allow", "id": x["id"]})
     st, url, body = e.get(f"?pin={pin}")
     check("izin verilince girebilir", "NEX_BOOT" in body)
-    check("telefondan yasak işlem 403 (ayar değiştirme)", e.post("settings", {"key": "run_in_bg", "value": True})[0] == 403)
+    check("telefondan yasak ayar reddedilir (run_in_bg)", e.post("settings", {"key": "run_in_bg", "value": True})[0] in (400, 403))
+    # 2.7.3: telefon web modu tuş düzenini ve ekstra tekerlekleri değiştirebilir
+    check("telefondan tuş düzeni değişir", e.post("settings", {"key": "web_layout", "value": "grid"})[0] == 200)
+    check("telefondan ekstra tekerlek eklenir", e.post("settings", {"key": "extra_wheels", "value": [{"id": "t1", "target": "general_volume"}]})[0] == 200)
+    check("telefondan geçersiz tekerlek hedefi reddedilir", e.post("settings", {"key": "extra_wheels", "value": [{"id": "t2", "target": "rm -rf"}]})[0] == 400)
 
     # ---- 7) 2.7.1: telefondan "Özel uygulama" atanamaz; atanmış tuşa basmak serbest
     lib = {}
