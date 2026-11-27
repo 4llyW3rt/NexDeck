@@ -1,3 +1,4 @@
+# NexStudio 2.0: tuşlar nex.send_hotkey ile gönderilir (güvenilir SendInput / USB HID).
 PLUGIN_NAME = "Odak Modu (Focus)"
 
 ACTIONS = {
@@ -10,21 +11,19 @@ def execute(func):
     
     if func == "start_focus":
         # 1. Discord'u sağırlaştır (Deafen) - Rahatsız edilmemek için
-        import keyboard
-        keyboard.send("ctrl+shift+d")
+        nex.send_hotkey("ctrl+shift+d")
         
         # 2. Windows Odaklanma Yardımcısını (Focus Assist) aç
         subprocess.Popen("ms-settings:quiethours", shell=True)
         time.sleep(1)
-        keyboard.send("tab")
-        keyboard.send("space")
-        keyboard.send("alt+f4") # Ayarları kapat
+        nex.send_hotkey("tab")
+        nex.send_hotkey("space")
+        nex.send_hotkey("alt+f4") # Ayarları kapat
         
         print("Odak Modu BAŞLADI: Discord sağırlaştırıldı, bildirimler kapatıldı.")
         
     elif func == "stop_focus":
         # 1. Discord sağırlaştırmayı kapat
-        import keyboard
-        keyboard.send("ctrl+shift+d")
+        nex.send_hotkey("ctrl+shift+d")
         
         print("Odak Modu BİTTİ: Normale dönüldü.")

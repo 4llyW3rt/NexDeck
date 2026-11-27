@@ -1,3 +1,4 @@
+# NexStudio 2.0: tuşlar nex.send_hotkey ile gönderilir (güvenilir SendInput / USB HID).
 PLUGIN_NAME = "Discord Kontrolleri"
 
 ACTIONS = {
@@ -9,11 +10,11 @@ ACTIONS = {
 }
 
 def execute(func):
-    import keyboard, ctypes, subprocess
-    if func == "mute": keyboard.send("ctrl+shift+m")
-    elif func == "deafen": keyboard.send("ctrl+shift+d")
-    elif func == "answer": keyboard.send("ctrl+enter")
-    elif func == "decline": keyboard.send("esc")
+    import ctypes, subprocess
+    if func == "mute": nex.send_hotkey("ctrl+shift+m")
+    elif func == "deafen": nex.send_hotkey("ctrl+shift+d")
+    elif func == "answer": nex.send_hotkey("ctrl+enter")
+    elif func == "decline": nex.send_hotkey("esc")
     elif func == "focus":
         try:
             output = subprocess.check_output('tasklist /FI "IMAGENAME eq Discord.exe" /NH /FO CSV', shell=True).decode('utf-8', errors='ignore')

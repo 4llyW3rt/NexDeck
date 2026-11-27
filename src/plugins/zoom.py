@@ -1,3 +1,4 @@
+# NexStudio 2.0: tuşlar nex.send_hotkey ile gönderilir (güvenilir SendInput / USB HID).
 PLUGIN_NAME = "Zoom Kontrolleri"
 
 ACTIONS = {
@@ -10,13 +11,13 @@ ACTIONS = {
 }
 
 def execute(func):
-    import keyboard, time
-    if func == "mic": keyboard.send("alt+a")
-    elif func == "cam": keyboard.send("alt+v")
-    elif func == "share": keyboard.send("alt+s")
-    elif func == "record": keyboard.send("alt+r")
-    elif func == "raise_hand": keyboard.send("alt+y")
+    import time
+    if func == "mic": nex.send_hotkey("alt+a")
+    elif func == "cam": nex.send_hotkey("alt+v")
+    elif func == "share": nex.send_hotkey("alt+s")
+    elif func == "record": nex.send_hotkey("alt+r")
+    elif func == "raise_hand": nex.send_hotkey("alt+y")
     elif func == "leave":
-        keyboard.send("alt+q")
+        nex.send_hotkey("alt+q")
         time.sleep(0.5)
-        keyboard.send("enter")
+        nex.send_hotkey("enter")

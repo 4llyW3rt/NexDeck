@@ -94,8 +94,8 @@ MAIN_WINDOW = None
 # 2. DOSYA YOLLARI VE KLASÖRLER
 # =========================================================
 def get_appdata_path():
-    appdata = os.getenv('APPDATA')
-    path = os.path.join(appdata, "NexStudio")
+    # NEXSTUDIO_DATA_DIR: test/geliştirme için ayrı veri klasörü (gerçek ayarlara dokunmadan dener).
+    path = os.getenv("NEXSTUDIO_DATA_DIR") or os.path.join(os.getenv('APPDATA'), "NexStudio")
     if not os.path.exists(path):
         os.makedirs(path)
     return path
@@ -161,8 +161,8 @@ NEXSTUDIO_PROVENANCE_MARKERS = [
     "NEXHUB:PROJECT_BRAND",
     "NEXSTUDIO:COMMUNITY_FREE_ONLY",
 ]
-NEXSTUDIO_BUILD_CHANNEL = "Public 1.5 Final"
-NEXSTUDIO_BUILD_ID = "NEX-15-FINAL-AMT"
+NEXSTUDIO_BUILD_CHANNEL = "Public 2.0"
+NEXSTUDIO_BUILD_ID = "NEX-20-AMT"
 # Zero-width provenance watermark; kişisel e-posta/handle içermez, çalışma akışını etkilemez.
 NEXSTUDIO_ZERO_WIDTH_WATERMARK = "​‌​‌‍​​‌‌‍‌​‌​‍​‌‌​‍‌‌​​"
 
@@ -170,37 +170,374 @@ NEXSTUDIO_ZERO_WIDTH_WATERMARK = "​‌​‌‍​​‌‌‍‌​‌​‍�
 # GÜNCELLEME REHBERİ / CHANGELOG
 # Burayı düzenleyerek başlangıç ekranındaki "Güncelleme Rehberi" kartını
 # kolayca değiştirebilirsin. Dil aktif dile göre otomatik seçilir.
-# Format:
-#   ("Tarih", "Son kullanıcının anlayacağı kısa açıklama")
+# Format (2.0): sürüm grupları, en yeni üstte:
+#   ("Sürüm", "Tarih", ["Madde 1", "Madde 2", ...])
+# Eski sürümleri silme; kart kaydırılabilir, tüm geçmiş görünür.
 # =========================================================
 NEXSTUDIO_CHANGELOG = {
     "tr": [
-        ("18.06.2026", "NexStudio 1.5 Final hazırlandı; Web Kontrolü, cihaz güvenliği, günlük yönetimi ve paketleme tarafı yayın adayı seviyesine getirildi."),
-        ("18.06.2026", "Web Kontrolü sayfası sadeleştirildi; PIN, bağlantı ve QR gibi gizli bilgiler ayrı güvenli panelde yönetilecek şekilde düzenlendi."),
-        ("18.06.2026", "QR büyütme, bağlantı kopyalama, PIN yenileme ve QR/link yenileme araçları daha anlaşılır hale getirildi."),
-        ("18.06.2026", "Tanınan cihaz sistemi eklendi; kullanıcı onayıyla kaydedilen cihazlar aynı tarayıcıdan PIN girmeden bağlanabilir."),
-        ("18.06.2026", "Hatalı PIN ekranı yenilendi; 5 hatalı denemeden sonra geri sayımlı geçici kilitleme sistemi eklendi."),
-        ("18.06.2026", "Başarılı girişler, hatalı PIN denemeleri ve yetkisiz web istekleri sistem günlüğüne ve web geçmişine kaydedilecek şekilde geliştirildi."),
-        ("18.06.2026", "Sistem günlüğü gizlenebilir hale getirildi; günlük temizleme, TXT dışa aktarma ve 7 günden eski kayıtları otomatik silme özellikleri eklendi."),
-        ("18.06.2026", "Web Kontrolü ve Ayarlar ekranları ayrıştırıldı; son bağlantı, tanınan cihazlar, IP gizleme ve sadece tanınan cihazlara izin verme seçenekleri düzenlendi."),
-        ("18.06.2026", "Uygulama/tray simgesi, arka plandan geri açılış, tam ekran arka plan davranışı ve PyInstaller/Inno Setup paketleme hazırlıkları iyileştirildi."),
+        ("2.0", "25–27.11.2026", [
+            "Kararlılık sürümü: çökme, donma ve tuşların ardarda çalışması sorunlarının kökleri giderildi.",
+            "Tuşlar SendInput + gerçek tarama kodu ile ve kısa basılı tutularak gönderiliyor; OBS kısayolları ve oyunlar tuşu kaçırmıyor.",
+            "Firmware 2.0: NexDeck tuşları gerçek USB klavye gibi basabiliyor (hile korumalı oyunlar için). Ayarlar > Tuş Gönderimi.",
+            "Görevler ayrı kuyrukta çalışıyor; arayüz donmuyor, gecikmiş görevler topluca tetiklenmiyor. Eklentiler kendi thread'inde çalışıyor.",
+            "Cihaz kablosu çıkınca bildirim gösteriliyor ve takılınca otomatik yeniden bağlanıyor; COM numarası değişse de cihaz bulunuyor.",
+            "Birden fazla NexDeck listeleniyor ve adlandırılabiliyor.",
+            "Profil görevleri: cihazdaki bir tuşa 'Sonraki/Önceki profil' veya belirli profile geçiş atanabiliyor.",
+            "Ayarlar atomik kaydediliyor ve yedekleniyor; bozulursa yedekten dönülüyor. Not Defteri ile kaydedilmiş ayar dosyası da okunuyor.",
+            "Web Kontrolü arayüzü başka thread'den değiştirmiyor (rastgele çökmeler giderildi); yanlış PIN günlüğe düz metin yazılmıyor.",
+            "Aynı anda iki NexStudio açılması engellendi; hatalar logs/error.log dosyasına kaydediliyor.",
+            "Güncelleme Rehberi artık tüm eski sürümleri gösteriyor ve kaydırılabiliyor.",
+        ]),
+        ("1.5 Final", "18.06.2026", [
+            "Web Kontrolü, cihaz güvenliği, günlük yönetimi ve paketleme yayın adayı seviyesine getirildi.",
+            "Web Kontrolü sayfası sadeleştirildi; PIN, bağlantı ve QR gibi gizli bilgiler ayrı güvenli panelde yönetiliyor.",
+            "QR büyütme, bağlantı kopyalama, PIN yenileme ve QR/link yenileme araçları daha anlaşılır hale getirildi.",
+            "Tanınan cihaz sistemi: kullanıcı onayıyla kaydedilen cihazlar aynı tarayıcıdan PIN girmeden bağlanabilir.",
+            "Hatalı PIN ekranı yenilendi; 5 hatalı denemeden sonra geri sayımlı geçici kilitleme.",
+            "Başarılı girişler, hatalı PIN denemeleri ve yetkisiz web istekleri sistem günlüğüne ve web geçmişine kaydediliyor.",
+            "Sistem günlüğü gizlenebilir; temizleme, TXT dışa aktarma ve 7 günden eski kayıtları otomatik silme.",
+            "Web Kontrolü ve Ayarlar ekranları ayrıştırıldı; son bağlantı, tanınan cihazlar, IP gizleme ve sadece tanınan cihazlara izin seçenekleri.",
+            "Uygulama/tray simgesi, arka plandan geri açılış, tam ekran arka planı ve paketleme iyileştirildi.",
+        ]),
+        ("1.5.8 – 1.5.10", "18.06.2026", [
+            "PIN/URL/QR varsayılan olarak gizleniyor; göster/gizle paneli ve QR büyütme penceresi eklendi.",
+            "Logo web sayfasına gömülü olarak ekleniyor; paketlemede kaybolmuyor.",
+            "Son bağlantı / son cihaz kartı eklendi, son cihazı adlandırma daha görünür hale geldi.",
+            "Web oturumlarını sıfırlama artık QR/link ve PIN'i de yeniliyor.",
+            "Web Kontrolü kartı tam genişlik düzenine alındı; Ayarlar'a son bağlantı özeti eklendi.",
+        ]),
+        ("1.5.6 – 1.5.7", "17.06.2026", [
+            "Sistem günlüğü temizleme, TXT dışa aktarma ve günlük dosyası tutma eklendi.",
+            "5 hatalı PIN'den sonra 5 dakikalık geçici engel; tanınan cihazlar, cihaza isim verme ve cihaz unutma.",
+            "PIN yenileme, web oturumlarını sıfırlama, otomatik web başlatma, IP gizleme ve sadece tanınan cihazlar seçenekleri.",
+            "Web PIN ekranına logo; hatalı PIN mesajı kart içinde, kilitlenince canlı geri sayım.",
+            "Web durumu kartı: port, PIN, son giriş, tanınan cihaz sayısı ve bağlantı adresi.",
+        ]),
+        ("1.5.3 – 1.5.5", "17.06.2026", [
+            "Tam ekran / büyütmede görünen beyaz alan sorunu giderildi.",
+            "Tray'den geri açılınca uygulama normal boyutta açılıyor.",
+            "Web portu doluysa otomatik başka port deneniyor ve günlüğe yazılıyor.",
+            "Başarılı web girişleri cihaz türü, işletim sistemi ve tarayıcı bilgisiyle günlüğe yazılıyor.",
+            "Sistem Günlüğü sol menüde gizlenip Ayarlar'dan açılabiliyor.",
+        ]),
+        ("1.0", "06.06.2026", [
+            "Arayüz düzeni sadeleştirildi; ikonlar, başlıklar ve gezinme yapısı daha okunaklı hale getirildi.",
+            "Ses kontrolü %1 adımlı hale getirildi ve Windows ses karıştırıcısı ile daha uyumlu çalışacak şekilde düzenlendi.",
+            "Tekerlek ayarı yalnızca Tekerlek Butonu panelinden yönetilecek şekilde düzenlendi.",
+            "Web Kontrolü ve Hesap özellikleri ayrıştırıldı; geliştirme aşamasındaki bölümler kullanıcıya açıkça belirtildi.",
+        ]),
     ],
     "en": [
-        ("2026-06-18", "NexStudio 1.5 Final was prepared; Web Control, device security, log management, and packaging were brought to release-candidate quality."),
-        ("2026-06-18", "The Web Control page was simplified; PIN, link, and QR details are now managed in a separate secure panel."),
-        ("2026-06-18", "QR enlarge, link copy, PIN refresh, and QR/link refresh tools were made clearer."),
-        ("2026-06-18", "Trusted devices were added; user-approved devices can reconnect from the same browser without entering the PIN."),
-        ("2026-06-18", "The wrong-PIN screen was improved; a timed lockout starts after 5 failed attempts."),
-        ("2026-06-18", "Successful logins, failed PIN attempts, and unauthorized web requests are now recorded in the system log and web history."),
-        ("2026-06-18", "The system log can now be hidden, cleared, exported as TXT, and old log files are cleaned automatically after 7 days."),
-        ("2026-06-18", "Web Control and Settings were separated more clearly; last connection, trusted devices, IP privacy, and trusted-device-only options were organized."),
-        ("2026-06-18", "App/tray icon handling, background restore behavior, fullscreen background painting, and PyInstaller/Inno Setup packaging were improved."),
+        ("2.0", "2026-11-25/27", [
+            "Stability release: root causes of crashes, freezes and repeated key triggers were fixed.",
+            "Keys are sent with SendInput using real scan codes and a short hold; OBS hotkeys and games no longer miss them.",
+            "Firmware 2.0: NexDeck can press keys as a real USB keyboard (for anti-cheat protected games). Settings > Key Sending.",
+            "Tasks run in a separate queue; the UI no longer freezes and stale tasks are not fired in bursts. Plugins run in their own thread.",
+            "Unplugging the device shows a notification and it reconnects automatically, even if its COM number changes.",
+            "Multiple NexDecks are listed and can be renamed.",
+            "Profile actions: assign Next/Previous profile or a specific profile to any device button.",
+            "Settings are saved atomically with a backup; files saved by Notepad are read correctly.",
+            "Web Control no longer touches the UI from background threads; wrong PINs are not logged in plain text.",
+            "Only one NexStudio instance can run; errors are written to logs/error.log.",
+            "The changelog now shows every past release and can be scrolled.",
+        ]),
+        ("1.5 Final", "2026-06-18", [
+            "Web Control, device security, log management and packaging brought to release quality.",
+            "PIN, link and QR details are managed in a separate secure panel.",
+            "Trusted devices can reconnect from the same browser without a PIN.",
+            "Timed lockout after 5 wrong PINs; logins and unauthorized requests are logged.",
+            "System log can be hidden, cleared, exported; logs older than 7 days are deleted automatically.",
+        ]),
+        ("1.5.3 – 1.5.10", "2026-06-17/18", [
+            "Hidden-by-default PIN/URL/QR, QR enlarge window, embedded logo, last-connection card.",
+            "Log export, trusted devices, PIN refresh, session reset, IP masking options.",
+            "Fullscreen white-area fix, tray restore size, automatic free web port.",
+        ]),
+        ("1.0", "2026-06-06", [
+            "Cleaner layout, icons and navigation.",
+            "1% volume steps that work better with the Windows mixer.",
+            "Wheel settings managed only from the Wheel Button panel.",
+            "Web Control and Account features separated.",
+        ]),
     ],
 }
 
 if not os.path.exists(PLUGINS_DIR): os.makedirs(PLUGINS_DIR)
 if not os.path.exists(LOCALES_DIR): os.makedirs(LOCALES_DIR)
 if not os.path.exists(LOGS_DIR): os.makedirs(LOGS_DIR)
+
+# =========================================================
+# 2.5 ÇEKİRDEK ALTYAPI (2.0)
+# - Thread-güvenli log: arka thread'ler Qt widget'ına doğrudan dokunmaz.
+# - Makro kuyruğu: görevler arayüzü dondurmadan, sırayla ve ayrı thread'de çalışır.
+# - Hata günlüğü: exe'de konsol olmadığı için hatalar logs/error.log dosyasına yazılır.
+# =========================================================
+import threading
+import queue
+import traceback
+import shutil
+from PyQt5.QtCore import QObject
+
+APP_VERSION = "2.0.0"
+ERROR_LOG_FILE = os.path.join(LOGS_DIR, "error.log")
+CONFIG_BACKUP_FILE = CONFIG_FILE + ".bak"
+WEB_HISTORY_LIMIT = 100
+CONFIG_LOCK = threading.RLock()
+
+
+def write_error_log(message):
+    """Beklenmeyen hataları kalıcı dosyaya yazar (1 MB üstünde dosyayı döndürür)."""
+    try:
+        if os.path.exists(ERROR_LOG_FILE) and os.path.getsize(ERROR_LOG_FILE) > 1024 * 1024:
+            os.replace(ERROR_LOG_FILE, ERROR_LOG_FILE + ".1")
+        with open(ERROR_LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}\n")
+    except Exception:
+        pass
+
+
+def _global_excepthook(exc_type, exc, tb):
+    write_error_log("Yakalanmamış hata:\n" + "".join(traceback.format_exception(exc_type, exc, tb)))
+    try:
+        ui_log(f"⚠️ Beklenmeyen hata: {exc}")
+    except Exception:
+        pass
+
+
+sys.excepthook = _global_excepthook
+try:
+    threading.excepthook = lambda args: _global_excepthook(args.exc_type, args.exc_value, args.exc_traceback)
+except Exception:
+    pass
+
+
+class UiBridge(QObject):
+    """Arka thread'lerden GUI thread'ine güvenli köprü (Qt sinyalleri kuyruklu çalışır)."""
+    log_signal = pyqtSignal(str)
+    call_signal = pyqtSignal(object)
+
+    def __init__(self):
+        super().__init__()
+        self.call_signal.connect(self._run_call)
+
+    def _run_call(self, fn):
+        try:
+            fn()
+        except Exception as e:
+            write_error_log("UI çağrısı hatası:\n" + traceback.format_exc())
+            ui_log(f"⚠️ Arayüz hatası: {e}")
+
+
+UI_BRIDGE = None
+_PENDING_UI_LOGS = []
+
+
+def _is_gui_thread():
+    return threading.current_thread() is threading.main_thread()
+
+
+def ui_log(message):
+    """Her thread'den güvenle çağrılabilir; mesaj GUI thread'inde log alanına eklenir."""
+    text = str(message)
+    if UI_BRIDGE is None:
+        _PENDING_UI_LOGS.append(text)
+        return
+    if _is_gui_thread():
+        _append_log_now(text)
+    else:
+        UI_BRIDGE.log_signal.emit(text)
+
+
+def _append_log_now(text):
+    if MAIN_WINDOW is not None and hasattr(MAIN_WINDOW, "log_area"):
+        MAIN_WINDOW.log_area.append(f"[{datetime.now().strftime('%H:%M:%S')}] {text}")
+    else:
+        _PENDING_UI_LOGS.append(text)
+
+
+def run_on_ui(fn):
+    """Bir fonksiyonu GUI thread'inde çalıştırır (web/makro thread'lerinden arayüz güncellemek için)."""
+    if UI_BRIDGE is None or _is_gui_thread():
+        fn()
+    else:
+        UI_BRIDGE.call_signal.emit(fn)
+
+
+def init_ui_bridge():
+    global UI_BRIDGE
+    if UI_BRIDGE is None:
+        UI_BRIDGE = UiBridge()
+        UI_BRIDGE.log_signal.connect(_append_log_now)
+
+
+def flush_pending_ui_logs():
+    pending = list(_PENDING_UI_LOGS)
+    _PENDING_UI_LOGS.clear()
+    for text in pending:
+        _append_log_now(text)
+
+
+class TaskWorker:
+    """
+    Görevleri tek bir arka thread'de sırayla çalıştırır.
+    - Arayüz donmaz; donma sırasında biriken tuşlar sonradan topluca çalışmaz.
+    - Kuyrukta STALE_SECONDS'tan uzun bekleyen tuş görevleri atılır (ardarda tetiklenme engeli).
+    - COM (pycaw) bu thread'de bir kez başlatılır.
+    """
+    STALE_SECONDS = 1.5
+
+    def __init__(self):
+        self.q = queue.Queue()
+        self.thread = threading.Thread(target=self._loop, name="NexTaskWorker", daemon=True)
+        self.thread.start()
+
+    def submit(self, fn, *args, droppable=True):
+        self.q.put((time.monotonic(), droppable, fn, args))
+
+    def _loop(self):
+        try:
+            import comtypes
+            comtypes.CoInitialize()
+        except Exception:
+            pass
+        while True:
+            queued_at, droppable, fn, args = self.q.get()
+            try:
+                waited = time.monotonic() - queued_at
+                if droppable and waited > self.STALE_SECONDS:
+                    ui_log(f"⏭️ Gecikmiş görev atlandı ({waited:.1f} sn bekledi)")
+                    continue
+                fn(*args)
+            except Exception as e:
+                write_error_log("Görev hatası:\n" + traceback.format_exc())
+                ui_log(f"⚠️ Görev hatası: {e}")
+
+
+TASK_WORKER = TaskWorker()
+
+# ---------------------------------------------------------
+# SendInput tabanlı tuş gönderimi
+# keybd_event(scan=0) yerine gerçek scan code + kısa basılı tutma.
+# OBS gibi tuşları periyodik yoklayan programlar ve DirectInput/RawInput
+# kullanan oyunlar artık tuşu kaçırmaz.
+# ---------------------------------------------------------
+from ctypes import wintypes
+
+INPUT_KEYBOARD = 1
+KEYEVENTF_EXTENDEDKEY = 0x0001
+KEYEVENTF_KEYUP = 0x0002
+KEYEVENTF_SCANCODE = 0x0008
+MAPVK_VK_TO_VSC_EX = 4
+KEY_HOLD_SECONDS = 0.04
+ULONG_PTR = ctypes.c_size_t
+
+
+class _KEYBDINPUT(ctypes.Structure):
+    _fields_ = [("wVk", wintypes.WORD), ("wScan", wintypes.WORD), ("dwFlags", wintypes.DWORD),
+                ("time", wintypes.DWORD), ("dwExtraInfo", ULONG_PTR)]
+
+
+class _MOUSEINPUT(ctypes.Structure):
+    _fields_ = [("dx", wintypes.LONG), ("dy", wintypes.LONG), ("mouseData", wintypes.DWORD),
+                ("dwFlags", wintypes.DWORD), ("time", wintypes.DWORD), ("dwExtraInfo", ULONG_PTR)]
+
+
+class _INPUTUNION(ctypes.Union):
+    _fields_ = [("ki", _KEYBDINPUT), ("mi", _MOUSEINPUT)]
+
+
+class _INPUT(ctypes.Structure):
+    _fields_ = [("type", wintypes.DWORD), ("u", _INPUTUNION)]
+
+
+# Medya/ses tuşlarının scan code karşılığı yok; bunlar VK ile gönderilir.
+VK_ONLY_KEYS = {0xAD, 0xAE, 0xAF, 0xB0, 0xB1, 0xB2, 0xB3}
+EXTENDED_VKS = {0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x2C, 0x2D, 0x2E, 0x5B, 0x5C, 0x5D, 0x6F, 0x90, 0xA3, 0xA5}
+
+
+def _send_key_event(vk, up=False):
+    flags = KEYEVENTF_KEYUP if up else 0
+    scan = 0
+    if vk not in VK_ONLY_KEYS:
+        try:
+            scan_ex = ctypes.windll.user32.MapVirtualKeyW(vk, MAPVK_VK_TO_VSC_EX)
+        except Exception:
+            scan_ex = 0
+        scan = scan_ex & 0xFF
+        if scan:
+            flags |= KEYEVENTF_SCANCODE
+            if (scan_ex >> 8) in (0xE0, 0xE1) or vk in EXTENDED_VKS:
+                flags |= KEYEVENTF_EXTENDEDKEY
+    inp = _INPUT(type=INPUT_KEYBOARD)
+    inp.u.ki = _KEYBDINPUT(wVk=0 if (flags & KEYEVENTF_SCANCODE) else vk, wScan=scan, dwFlags=flags, time=0, dwExtraInfo=0)
+    sent = ctypes.windll.user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(_INPUT))
+    if sent != 1:
+        # Yönetici olarak çalışan bir pencereye normal yetkiyle tuş gönderilemez (Windows UIPI).
+        raise OSError("Tuş gönderilemedi. Hedef uygulama yönetici olarak çalışıyor olabilir; NexStudio'yu da yönetici olarak çalıştırın.")
+
+
+def send_key_combo(vk_list, hold=KEY_HOLD_SECONDS):
+    pressed = []
+    try:
+        for vk in vk_list:
+            _send_key_event(vk)
+            pressed.append(vk)
+            time.sleep(0.01)
+        time.sleep(hold)
+    finally:
+        for vk in reversed(pressed):
+            try:
+                _send_key_event(vk, up=True)
+            except Exception:
+                pass
+            time.sleep(0.005)
+
+
+def is_process_elevated():
+    try:
+        return bool(ctypes.windll.shell32.IsUserAnAdmin())
+    except Exception:
+        return False
+
+
+_SINGLE_INSTANCE_HANDLE = None
+
+
+def acquire_single_instance():
+    """
+    Aynı anda iki NexStudio açılırsa ikisi de aynı COM portunu kapmaya çalışır ve
+    tuşlar 'bazen' çalışmaz. Windows named mutex ile tek kopya garantilenir.
+    """
+    global _SINGLE_INSTANCE_HANDLE
+    try:
+        name = "Local\\NexStudio_SingleInstance_" + hashlib.md5(APP_DIR.lower().encode("utf-8")).hexdigest()[:12]
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.CreateMutexW.restype = wintypes.HANDLE
+        _SINGLE_INSTANCE_HANDLE = kernel32.CreateMutexW(None, False, name)
+        return ctypes.get_last_error() != 183  # ERROR_ALREADY_EXISTS
+    except Exception:
+        return True
+
+
+def release_single_instance():
+    global _SINGLE_INSTANCE_HANDLE
+    if _SINGLE_INSTANCE_HANDLE:
+        try:
+            ctypes.windll.kernel32.CloseHandle(_SINGLE_INSTANCE_HANDLE)
+        except Exception:
+            pass
+        _SINGLE_INSTANCE_HANDLE = None
+
+
+def relaunch_as_admin():
+    """Uygulamayı yönetici olarak yeniden başlatır (UAC onayı istenir)."""
+    if getattr(sys, "frozen", False):
+        exe, params = sys.executable, " ".join(f'"{a}"' for a in sys.argv[1:])
+    else:
+        exe, params = sys.executable, " ".join(f'"{a}"' for a in sys.argv)
+    rc = ctypes.windll.shell32.ShellExecuteW(None, "runas", exe, params, None, 1)
+    return rc > 32
 
 # =========================================================
 # 3. DİL SİSTEMİ (ÇEVİRİLER)
@@ -497,7 +834,10 @@ def load_locales():
             with open(file, "r", encoding="utf-8") as f:
                 file_data = json.load(f)
                 if lang_code in TRANSLATIONS:
-                    TRANSLATIONS[lang_code].update(file_data)
+                    # 2.0: Uygulamanın kendi metinleri her zaman güncel kalsın diye varsayılanlar önceliklidir.
+                    # Dosya sadece eksik anahtarları tamamlar (eski sürümden kalan metinler yeni sürümü ezmez).
+                    for key, value in file_data.items():
+                        TRANSLATIONS[lang_code].setdefault(key, value)
                 else:
                     TRANSLATIONS[lang_code] = file_data
         except:
@@ -537,12 +877,33 @@ VK_MAP = {
     'up': 0x26, 'down': 0x28, 'left': 0x25, 'right': 0x27,
     'a': 0x41, 'b': 0x42, 'c': 0x43, 'd': 0x44, 'e': 0x45, 'f': 0x46, 'g': 0x47, 'h': 0x48, 'i': 0x49, 'j': 0x4A, 'k': 0x4B, 'l': 0x4C, 'm': 0x4D, 'n': 0x4E, 'o': 0x4F, 'p': 0x50, 'q': 0x51, 'r': 0x52, 's': 0x53, 't': 0x54, 'u': 0x55, 'v': 0x56, 'w': 0x57, 'x': 0x58, 'y': 0x59, 'z': 0x5A,
     '0': 0x30, '1': 0x31, '2': 0x32, '3': 0x33, '4': 0x34, '5': 0x35, '6': 0x36, '7': 0x37, '8': 0x38, '9': 0x39,
-    'f1': 0x70, 'f2': 0x71, 'f3': 0x72, 'f4': 0x73, 'f5': 0x74, 'f6': 0x75, 'f7': 0x76, 'f8': 0x77, 'f9': 0x78, 'f10': 0x79, 'f11': 0x7A, 'f12': 0x7B
+    'f1': 0x70, 'f2': 0x71, 'f3': 0x72, 'f4': 0x73, 'f5': 0x74, 'f6': 0x75, 'f7': 0x76, 'f8': 0x77, 'f9': 0x78, 'f10': 0x79, 'f11': 0x7A, 'f12': 0x7B,
+    'f13': 0x7C, 'f14': 0x7D, 'f15': 0x7E, 'f16': 0x7F, 'f17': 0x80, 'f18': 0x81, 'f19': 0x82, 'f20': 0x83, 'f21': 0x84, 'f22': 0x85, 'f23': 0x86, 'f24': 0x87,
+    'control': 0x11, 'windows': 0x5B, 'escape': 0x1B, 'return': 0x0D,
+    'delete': 0x2E, 'del': 0x2E, 'insert': 0x2D, 'ins': 0x2D, 'home': 0x24, 'end': 0x23,
+    'pageup': 0x21, 'page up': 0x21, 'pgup': 0x21, 'pagedown': 0x22, 'page down': 0x22, 'pgdn': 0x22,
+    '`': 0xC0
 }
 
+# Windows VK -> USB HID usage kodu. Cihaz "USB klavye" modunda bu kodları gerçek klavye gibi basar.
+# Firmware: kod >= 0xE0 ise modifier (Ctrl/Shift/Alt/Win), değilse normal tuş.
+HID_KEY_CODES = {
+    0x11: 0xE0, 0x10: 0xE1, 0x12: 0xE2, 0x5B: 0xE3,
+    0x0D: 0x28, 0x1B: 0x29, 0x08: 0x2A, 0x09: 0x2B, 0x20: 0x2C, 0x2C: 0x46,
+    0x2D: 0x49, 0x24: 0x4A, 0x21: 0x4B, 0x2E: 0x4C, 0x23: 0x4D, 0x22: 0x4E,
+    0x27: 0x4F, 0x25: 0x50, 0x28: 0x51, 0x26: 0x52,
+    0x6F: 0x54, 0x6A: 0x55, 0x6D: 0x56, 0x6B: 0x57, 0x60: 0x62, 0x6E: 0x63,
+    0xC0: 0x35,
+}
+HID_KEY_CODES.update({0x41 + i: 0x04 + i for i in range(26)})              # A-Z
+HID_KEY_CODES.update({0x31 + i: 0x1E + i for i in range(9)})               # 1-9
+HID_KEY_CODES[0x30] = 0x27                                                  # 0
+HID_KEY_CODES.update({0x70 + i: 0x3A + i for i in range(12)})              # F1-F12
+HID_KEY_CODES.update({0x7C + i: 0x68 + i for i in range(12)})              # F13-F24
+HID_KEY_CODES.update({0x61 + i: 0x59 + i for i in range(9)})               # Numpad 1-9
+
 def press_key(vk_code):
-    ctypes.windll.user32.keybd_event(vk_code, 0, 0, 0)
-    ctypes.windll.user32.keybd_event(vk_code, 0, 2, 0)
+    send_key_combo([vk_code])
 
 def get_physical_buttons():
     return {
@@ -681,62 +1042,11 @@ def resolve_nextion_signal(data, buttons_cfg):
     """
     Dokunmatik ekran sinyalinde çeviri yapmaz.
     Nextion hangi sinyali gönderiyorsa görev o anahtarda aranır.
+    (2.0: önceki sürümlerden kalan erişilemeyen eski eşleme kodu kaldırıldı.)
     """
     if not isinstance(data, str):
         return data
     return data.strip()
-
-
-
-    data = data.strip()
-
-    # Direkt kayıt her zaman öncelikli.
-    if is_valid_user_task(buttons_cfg.get(data)):
-        return data
-
-    # Sayfa 3-4 obje adı / UI sıra eşleşmesi.
-    match = re.match(r"^NEX:P([34])_B(\d+)$", data)
-    if not match:
-        return data
-
-    page = int(match.group(1))
-    raw_btn = int(match.group(2))
-    obj_name = f"b{raw_btn}"
-
-    candidates = [data]
-    obj_map = NEXTION_OBJ_MAP.get(page, [])
-    if obj_name in obj_map:
-        ui_index = obj_map.index(obj_name) + 1
-        mapped = f"NEX:P{page}_B{ui_index}"
-        if mapped not in candidates:
-            candidates.append(mapped)
-
-    for candidate in candidates:
-        if is_valid_user_task(buttons_cfg.get(candidate)):
-            return candidate
-
-    return data
-
-
-    if data in buttons_cfg:
-        return data
-
-    match = re.match(r"^NEX:P([34])_B(\d+)$", data.strip())
-    if not match:
-        return data
-
-    page = int(match.group(1))
-    raw_btn = int(match.group(2))
-    obj_name = f"b{raw_btn}"
-
-    obj_map = NEXTION_OBJ_MAP.get(page, [])
-    if obj_name in obj_map:
-        ui_index = obj_map.index(obj_name) + 1
-        mapped = f"NEX:P{page}_B{ui_index}"
-        if mapped in buttons_cfg:
-            return mapped
-
-    return data
 
 def get_builtin_macros():
     return {
@@ -801,6 +1111,16 @@ def get_builtin_macros():
             tr("act_web_yt"): {"type": "web", "cmd": "https://www.youtube.com/@NexHubCo/@NexHubCo"},
             tr("act_web_kick"): {"type": "web", "cmd": "https://kick.com"}
         },
+        "👤 Profil": dict(
+            [
+                ("Sonraki Profile Geç", {"type": "profile", "mode": "next"}),
+                ("Önceki Profile Geç", {"type": "profile", "mode": "prev"}),
+            ]
+            + [
+                (f"'{name}' profiline geç", {"type": "profile", "mode": "switch", "custom_arg": name})
+                for name in (APP_CONFIG.get("profiles") or {}).keys()
+            ]
+        ),
         tr("cat_tools"): {
             tr("act_tool_exp"): {"type": "cmd", "cmd": "explorer.exe"},
             tr("act_tool_calc"): {"type": "cmd", "cmd": "calc.exe"},
@@ -827,20 +1147,84 @@ FACTORY_DEFAULT_BUTTONS = {
     "NEX:OPEN_KICK": {"name": "Kick", "action": {"type": "web", "cmd": "https://kick.com"}},
 }
 
+class NexPluginAPI:
+    """
+    Eklentilere verilen yardımcı API (eklentide `nex` adıyla erişilir).
+      nex.send_hotkey("ctrl+shift+m")   -> NexStudio'nun güvenilir tuş gönderimi (SendInput / USB HID)
+      nex.log("mesaj")                  -> Sistem günlüğüne yazar
+      nex.get_setting("anahtar", varsayılan) / nex.set_setting("anahtar", değer)
+                                         -> config.json > plugin_settings > <eklenti adı>
+    """
+
+    def __init__(self, plugin_name):
+        self.plugin_name = plugin_name
+
+    def send_hotkey(self, combo):
+        keys = [k.strip().lower() for k in str(combo).split("+") if k.strip()]
+        vk_list = [VK_MAP[k] for k in keys if k in VK_MAP]
+        if len(vk_list) != len(keys):
+            raise ValueError(f"Tanınmayan tuş: {combo}")
+        if not _send_hotkey_via_device(vk_list):
+            send_key_combo(vk_list)
+
+    def log(self, message):
+        ui_log(f"🧩 {self.plugin_name}: {message}")
+
+    def get_setting(self, key, default=None):
+        return (APP_CONFIG.get("plugin_settings", {}).get(self.plugin_name, {})).get(key, default)
+
+    def set_setting(self, key, value):
+        with CONFIG_LOCK:
+            APP_CONFIG.setdefault("plugin_settings", {}).setdefault(self.plugin_name, {})[key] = value
+        save_config(APP_CONFIG)
+
+
+def seed_bundled_plugins():
+    """
+    Kurulumla gelen eklentileri kullanıcının eklenti klasörüne kopyalar.
+    (1.x'te paketlenen eklentiler AppData'ya hiç kopyalanmıyordu.)
+    Paketteki dosya daha yeniyse eski dosya .bak olarak saklanıp güncellenir.
+    """
+    bundled_dir = get_resource_path("plugins")
+    if not os.path.isdir(bundled_dir) or os.path.abspath(bundled_dir) == os.path.abspath(PLUGINS_DIR):
+        return
+    for src in glob.glob(os.path.join(bundled_dir, "*.py")):
+        dst = os.path.join(PLUGINS_DIR, os.path.basename(src))
+        try:
+            if not os.path.exists(dst):
+                shutil.copy2(src, dst)
+            elif os.path.getmtime(src) > os.path.getmtime(dst) + 1:
+                with open(src, "rb") as a, open(dst, "rb") as b:
+                    if a.read() == b.read():
+                        continue
+                shutil.copy2(dst, dst + ".bak")
+                shutil.copy2(src, dst)
+                ui_log(f"🧩 Eklenti güncellendi: {os.path.basename(src)} (eski hali .bak olarak saklandı)")
+        except Exception as e:
+            write_error_log(f"Eklenti kopyalanamadı ({src}): {e}")
+
+
 LOADED_PLUGINS = {}
 def load_plugins():
     global LOADED_PLUGINS
     LOADED_PLUGINS = {}
+    seed_bundled_plugins()
     for file_path in glob.glob(os.path.join(PLUGINS_DIR, "*.py")):
         module_name = os.path.basename(file_path)[:-3]
         try:
             spec = importlib.util.spec_from_file_location(module_name, file_path)
             module = importlib.util.module_from_spec(spec)
+            module.nex = NexPluginAPI(module_name)  # modül çalışmadan önce erişilebilir olsun
             spec.loader.exec_module(module)
+            if hasattr(module, "PLUGIN_NAME"):
+                module.nex.plugin_name = module.PLUGIN_NAME
             if hasattr(module, "PLUGIN_NAME") and hasattr(module, "ACTIONS"):
-                LOADED_PLUGINS[module.PLUGIN_NAME] = {"actions": module.ACTIONS, "module": module}
-        except:
-            pass
+                LOADED_PLUGINS[module.PLUGIN_NAME] = {"actions": module.ACTIONS, "module": module, "file": file_path}
+            else:
+                ui_log(f"⚠️ Eklenti atlandı ({os.path.basename(file_path)}): PLUGIN_NAME veya ACTIONS tanımlı değil.")
+        except Exception as e:
+            write_error_log(f"Eklenti yüklenemedi ({file_path}):\n" + traceback.format_exc())
+            ui_log(f"⚠️ Eklenti yüklenemedi ({os.path.basename(file_path)}): {e}")
 
 def get_all_macros():
     all_macros = get_builtin_macros()
@@ -909,6 +1293,7 @@ def load_config():
         "run_in_bg": False, "start_with_win": False, "auto_connect": True, "screen_bg": "", 
         "show_system_log_menu": False,
         "web_auto_start": False, "web_private_log": False, "web_known_only": False,
+        "key_send_mode": "auto", "last_port_serial": "", "device_names": {},
         "known_web_devices": {}, "web_access_history": [],
         "mobile_pin": "", "web_token": "", "logged_in_email": "",
         "encoder": {"turn": "general_volume"},
@@ -917,17 +1302,17 @@ def load_config():
         "active_profile": DEFAULT_PROFILE_NAME,
         "profiles": {}
     }
-    if os.path.exists(CONFIG_FILE):
-        try:
-            with open(CONFIG_FILE, "r", encoding="utf-8") as f: 
-                data = json.load(f)
-                for k, v in data.items():
-                    if isinstance(v, dict) and k in default_cfg and k not in ["buttons", "profiles"]:
-                        default_cfg[k].update(v)
-                    else:
-                        default_cfg[k] = v
-        except:
-            pass
+    data = _read_config_file_safely()
+    for k, v in data.items():
+        if isinstance(v, dict) and isinstance(default_cfg.get(k), dict) and k not in ["buttons", "profiles"]:
+            default_cfg[k].update(v)
+        else:
+            default_cfg[k] = v
+
+    # Eski sürümlerde PIN içeren web adresi config'e yazılıyordu; artık gerek yok.
+    default_cfg.pop("mobile_url", None)
+    if isinstance(default_cfg.get("web_access_history"), list):
+        default_cfg["web_access_history"] = default_cfg["web_access_history"][:WEB_HISTORY_LIMIT]
 
     if not default_cfg.get("web_token"):
         default_cfg["web_token"] = secrets.token_urlsafe(8)
@@ -950,11 +1335,54 @@ def load_config():
     return default_cfg
 
 def save_config(config_data):
+    """
+    Atomik kayıt: önce geçici dosyaya yazılır, sonra tek hamlede değiştirilir.
+    Böylece yazma sırasında uygulama kapanırsa / iki thread aynı anda kaydederse
+    config.json bozulmaz. Önceki sağlam kopya config.json.bak olarak tutulur.
+    """
     global APP_CONFIG
-    ensure_profiles(config_data, update_active=True)
-    APP_CONFIG = config_data
-    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-        json.dump(config_data, f, indent=4)
+    with CONFIG_LOCK:
+        ensure_profiles(config_data, update_active=True)
+        APP_CONFIG = config_data
+        tmp_path = CONFIG_FILE + ".tmp"
+        try:
+            payload = json.dumps(config_data, indent=4, ensure_ascii=False)
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                f.write(payload)
+                f.flush()
+                os.fsync(f.fileno())
+            if os.path.exists(CONFIG_FILE):
+                try:
+                    shutil.copy2(CONFIG_FILE, CONFIG_BACKUP_FILE)
+                except Exception:
+                    pass
+            os.replace(tmp_path, CONFIG_FILE)
+        except Exception as e:
+            write_error_log("Config kaydedilemedi:\n" + traceback.format_exc())
+            ui_log(f"⚠️ Ayarlar kaydedilemedi: {e}")
+
+
+def _read_config_file_safely():
+    """config.json okunamazsa yedekten döner; bozuk dosyayı silmez, yanına kopyalar."""
+    for path in (CONFIG_FILE, CONFIG_BACKUP_FILE):
+        if not os.path.exists(path):
+            continue
+        try:
+            # utf-8-sig: Not Defteri ile düzenlenip BOM eklenmiş dosyalar da okunur.
+            with open(path, "r", encoding="utf-8-sig") as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                if path == CONFIG_BACKUP_FILE:
+                    ui_log("⚠️ config.json okunamadı; son yedekten (config.json.bak) geri yüklendi.")
+                return data
+        except Exception:
+            write_error_log(f"Config okunamadı: {path}\n" + traceback.format_exc())
+            if path == CONFIG_FILE:
+                try:
+                    shutil.copy2(CONFIG_FILE, CONFIG_FILE + f".corrupt-{datetime.now().strftime('%Y%m%d-%H%M%S')}")
+                except Exception:
+                    pass
+    return {}
 
 def format_action_details(action):
     """Kullanıcının atanmış görevin detayını hatırlaması için kısa açıklama üretir."""
@@ -1000,6 +1428,12 @@ def format_action_details(action):
         if vk:
             return f"VK: {vk}"
 
+    if atype == "profile":
+        mode = action.get("mode", "")
+        if mode == "switch":
+            return f"Profil: {custom_arg}" if custom_arg else "Profil seçilmedi"
+        return {"next": "Sonraki profil", "prev": "Önceki profil"}.get(mode, "")
+
     return ""
 
 def format_assignment_label(cfg):
@@ -1013,10 +1447,65 @@ def format_assignment_label(cfg):
         return f"{name} — {details}"
     return name
 
-def execute_macro(action):
+def execute_macro(action, droppable=True):
+    """Görevi makro kuyruğuna ekler; arayüzü bekletmez."""
+    if not isinstance(action, dict) or not action.get("type"):
+        return
+    TASK_WORKER.submit(_execute_macro_now, copy.deepcopy(action), droppable=droppable)
+
+
+def _run_plugin_action(action):
+    plugin_name = action.get("plugin_name")
+    plugin = LOADED_PLUGINS.get(plugin_name)
+    if not plugin:
+        ui_log(f"⚠️ Eklenti bulunamadı veya yüklenemedi: {plugin_name}")
+        return
+    module = plugin["module"]
+    if not hasattr(module, "execute"):
+        ui_log(f"⚠️ Eklentide execute() fonksiyonu yok: {plugin_name}")
+        return
+
+    def _runner():
+        started = time.monotonic()
+        try:
+            module.execute(action.get("function"))
+        except Exception as e:
+            write_error_log(f"Eklenti hatası ({plugin_name}):\n" + traceback.format_exc())
+            ui_log(f"⚠️ Eklenti hatası ({plugin_name}): {e}")
+            return
+        elapsed = time.monotonic() - started
+        if elapsed > 2:
+            ui_log(f"🐢 Eklenti yavaş çalıştı ({plugin_name}): {elapsed:.1f} sn")
+
+    # Eklentiler kendi thread'inde çalışır; yavaş/donan bir eklenti diğer tuşları bekletmez.
+    threading.Thread(target=_runner, name=f"Plugin-{plugin_name}", daemon=True).start()
+
+
+def _send_hotkey_via_device(vk_list):
+    """Cihaz 'USB klavye' modunu destekliyorsa tuşları gerçek donanım klavyesi gibi gönderir."""
+    window = MAIN_WINDOW
+    if window is None or not getattr(window, "device_supports_hid", False):
+        return False
+    mode = APP_CONFIG.get("key_send_mode", "auto")
+    if mode == "software":
+        return False
+    codes = [HID_KEY_CODES.get(vk) for vk in vk_list]
+    if not codes or any(c is None for c in codes):
+        return False
+    thread = getattr(window, "serial_thread", None)
+    if not thread or not thread.is_running:
+        return False
+    thread.send_data("HID:" + ",".join(str(c) for c in codes) + "\n")
+    return True
+
+
+def _execute_macro_now(action):
     try:
         if action["type"] == "native":
-            press_key(action["vk"])
+            if not _send_hotkey_via_device([action["vk"]]):
+                press_key(action["vk"])
+        elif action["type"] == "profile":
+            run_on_ui(lambda: MAIN_WINDOW and MAIN_WINDOW.handle_profile_action(action))
         elif action["type"] == "cmd":
             subprocess.Popen(action["cmd"], shell=True, creationflags=0x08000000)
         elif action["type"] == "ps":
@@ -1048,15 +1537,16 @@ def execute_macro(action):
         elif action["type"] == "custom_hotkey":
             keys = [k.strip().lower() for k in action.get("custom_arg", "").split("+")]
             vk_list = [VK_MAP[k] for k in keys if k in VK_MAP]
-            for vk in vk_list: ctypes.windll.user32.keybd_event(vk, 0, 0, 0)
-            for vk in reversed(vk_list): ctypes.windll.user32.keybd_event(vk, 0, 2, 0)
+            unknown = [k for k in keys if k and k not in VK_MAP]
+            if unknown:
+                ui_log(f"⚠️ Tanınmayan tuş adı: {', '.join(unknown)}")
+            if vk_list and not _send_hotkey_via_device(vk_list):
+                send_key_combo(vk_list)
         elif action["type"] == "plugin":
-            if action["plugin_name"] in LOADED_PLUGINS:
-                module = LOADED_PLUGINS[action["plugin_name"]]["module"]
-                if hasattr(module, "execute"):
-                    module.execute(action["function"])
+            _run_plugin_action(action)
     except Exception as e:
-        if MAIN_WINDOW: MAIN_WINDOW.log_area.append(f"⚠️ Makro Hatası: {str(e)}")
+        write_error_log("Makro hatası:\n" + traceback.format_exc())
+        ui_log(f"⚠️ Makro Hatası: {str(e)}")
 
 # =========================================================
 # 5. MOBİL SUNUCU (WEB ARAYÜZÜ)
@@ -1107,7 +1597,7 @@ def append_system_log(message):
         text = str(message)
         write_log_file(text)
         if MAIN_WINDOW and hasattr(MAIN_WINDOW, "log_area"):
-            MAIN_WINDOW.log_area.append(text)
+            ui_log(text)
     except Exception:
         pass
 
@@ -1296,12 +1786,12 @@ def add_web_history(event_type, ip, user_agent, detail="", device_id_override=""
             "browser": info.get("browser", ""),
         }
         APP_CONFIG["web_access_history"].insert(0, entry)
-        APP_CONFIG["web_access_history"] = APP_CONFIG["web_access_history"][:250]
+        APP_CONFIG["web_access_history"] = APP_CONFIG["web_access_history"][:WEB_HISTORY_LIMIT]
         try: save_config(APP_CONFIG)
         except Exception: pass
         try:
             if MAIN_WINDOW and hasattr(MAIN_WINDOW, "refresh_web_security_panel"):
-                QTimer.singleShot(0, MAIN_WINDOW.refresh_web_security_panel)
+                run_on_ui(MAIN_WINDOW.refresh_web_security_panel)
         except Exception: pass
         return entry
     except Exception:
@@ -1751,7 +2241,7 @@ class MobileHandler(BaseHTTPRequestHandler):
         except Exception as e:
             if MAIN_WINDOW and hasattr(MAIN_WINDOW, 'log_area'):
                 try:
-                    MAIN_WINDOW.log_area.append(f"⚠️ Web arayüz hatası: {e}")
+                    ui_log(f"⚠️ Web arayüz hatası: {e}")
                 except Exception:
                     pass
             return self._send_error_page(e)
@@ -1794,7 +2284,7 @@ class MobileHandler(BaseHTTPRequestHandler):
                 if pin:
                     blocked_now = register_pin_failure(self._client_ip())
                     attempts_remaining = get_pin_attempts_remaining(self._client_ip())
-                    record_web_event("Hatalı PIN denemesi", self._client_ip(), self._client_user_agent(), f"Girilen PIN: {pin}", "🔐")
+                    record_web_event("Hatalı PIN denemesi", self._client_ip(), self._client_user_agent(), "Yanlış PIN girildi", "🔐")
                     if blocked_now:
                         record_web_event("Cihaz geçici engellendi", self._client_ip(), self._client_user_agent(), f"{WEB_PIN_FAIL_LIMIT} hatalı PIN", "⛔")
                         return self._send_login_page(token, error_message="Çok fazla hatalı giriş yapıldı", sub_message="Güvenlik nedeniyle PIN girişi geçici olarak kilitlendi.", blocked_remaining=get_pin_block_remaining(self._client_ip()), status=429)
@@ -1847,6 +2337,10 @@ class MobileHandler(BaseHTTPRequestHandler):
                 if sig.startswith("NEX:P3_") or sig.startswith("NEX:P4_"):
                     APP_CONFIG["buttons"][sig]["btn_text"] = btn_text
                 save_config(APP_CONFIG)
+                if MAIN_WINDOW:
+                    run_on_ui(lambda: MAIN_WINDOW.refresh_screen_buttons())
+                    if sig.startswith("NEX:P3_") or sig.startswith("NEX:P4_"):
+                        run_on_ui(lambda: MAIN_WINDOW.sync_nextion_texts())
                 
             self.send_response(200)
             self.end_headers()
@@ -1873,7 +2367,7 @@ class MobileHandler(BaseHTTPRequestHandler):
                 if MAIN_WINDOW:
                     try:
                         MAIN_WINDOW.config["accent_color"] = color.upper()
-                        MAIN_WINDOW.setStyleSheet(get_stylesheet(color.upper()))
+                        run_on_ui(MAIN_WINDOW.apply_theme)
                     except Exception:
                         pass
             self.send_response(200)
@@ -1905,15 +2399,15 @@ class MobileHandler(BaseHTTPRequestHandler):
             try:
                 if MAIN_WINDOW:
                     if mode in ["general_volume", "Genel Ses Seviyesi", "General Volume", ""]:
-                        MAIN_WINDOW.change_master_volume(delta)
+                        TASK_WORKER.submit(MAIN_WINDOW.change_master_volume, delta)
                     elif mode in ["brightness", "Ekran Parlaklığı", "Screen Brightness"]:
                         brightness_delta = max(-20, min(20, steps if direction == "up" else -steps))
                         execute_macro({"type": "nircmd", "cmd": f"changebrightness {brightness_delta}"})
                     else:
-                        MAIN_WINDOW.change_app_volume(mode, delta)
+                        TASK_WORKER.submit(MAIN_WINDOW.change_app_volume, mode, delta)
             except Exception as e:
                 if MAIN_WINDOW and hasattr(MAIN_WINDOW, "log_area"):
-                    MAIN_WINDOW.log_area.append(f"Web volume error: {e}")
+                    ui_log(f"Web volume error: {e}")
             self.send_response(200)
             self.end_headers()
             self.wfile.write(b"OK")
@@ -4075,32 +4569,74 @@ class MobileServerThread(QThread):
 # 6. SERİ PORT HABERLEŞMESİ (ARDUINO)
 # =========================================================
 class SerialThread(QThread):
+    """
+    Arduino ile seri haberleşme.
+    2.0: kendi satır tamponu (yarım satır gelmez), kopma algılama, thread-güvenli yazma,
+    port kapatma işlemini okuma thread'inin kendisi yapar (yarış durumu yok).
+    """
     data_received = pyqtSignal(str)
     connection_error = pyqtSignal(str)
+    connected = pyqtSignal(str)
+
     def __init__(self, port):
         super().__init__()
         self.port = port
         self.serial_conn = None
         self.is_running = True
+        self._stop_requested = False
+        self._write_lock = threading.Lock()
+        self.last_rx = time.monotonic()
+
     def run(self):
+        buf = b""
         try:
-            self.serial_conn = serial.Serial(self.port, 9600, timeout=1)
-            time.sleep(2)
-            while self.is_running:
-                if self.serial_conn.in_waiting > 0:
-                    data = self.serial_conn.readline().decode('utf-8', errors='ignore').strip()
-                    if data: self.data_received.emit(data)
-                time.sleep(0.01)
-        except Exception as e: self.connection_error.emit(str(e))
+            self.serial_conn = serial.Serial(self.port, 9600, timeout=0.05, write_timeout=1)
+            try:
+                self.serial_conn.dtr = True  # Pro Micro (32U4) USB-CDC, DTR olmadan veri göndermeyebilir.
+            except Exception:
+                pass
+            self.last_rx = time.monotonic()
+            self.connected.emit(self.port)
+            self.send_data("HELLO\n")  # 2.0 firmware kimlik bilgisi döner; eski firmware yok sayar.
+            while not self._stop_requested:
+                chunk = self.serial_conn.read(self.serial_conn.in_waiting or 1)
+                if not chunk:
+                    continue
+                self.last_rx = time.monotonic()
+                buf += chunk
+                while b"\n" in buf:
+                    line, buf = buf.split(b"\n", 1)
+                    text = line.decode("utf-8", errors="ignore").strip()
+                    if text:
+                        self.data_received.emit(text)
+                if len(buf) > 1024:
+                    buf = b""
+        except Exception as e:
+            if not self._stop_requested:
+                self.connection_error.emit(str(e))
+        finally:
+            self.is_running = False
+            try:
+                if self.serial_conn and self.serial_conn.is_open:
+                    self.serial_conn.close()
+            except Exception:
+                pass
+
     def send_data(self, data_str):
-        if self.serial_conn and self.serial_conn.is_open:
-            try: self.serial_conn.write(data_str.encode('iso-8859-9', errors='replace'))
-            except:
-                try: self.serial_conn.write(data_str.encode('utf-8', errors='ignore'))
-                except: pass
+        conn = self.serial_conn
+        if not conn or not conn.is_open:
+            return False
+        with self._write_lock:
+            try:
+                conn.write(data_str.encode("iso-8859-9", errors="replace"))
+                return True
+            except Exception as e:
+                write_error_log(f"Seri yazma hatası ({self.port}): {e}")
+                return False
+
     def stop(self):
-        self.is_running = False
-        if self.serial_conn and self.serial_conn.is_open: self.serial_conn.close()
+        self._stop_requested = True
+
 
 # =========================================================
 # 7. ARAYÜZ (UI) VE ANA UYGULAMA SINIFI
@@ -4921,26 +5457,45 @@ class ChangelogHoverCard(QFrame):
         self.lbl_body = QLabel()
         self.lbl_body.setWordWrap(True)
         self.lbl_body.setTextFormat(Qt.RichText)
-        self.lbl_body.setStyleSheet("color: #E5ECF6; font-size: 13px; line-height: 1.5;")
-        layout.addWidget(self.lbl_body)
-        layout.addStretch()
+        self.lbl_body.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        self.lbl_body.setStyleSheet("color: #E5ECF6; font-size: 13px; line-height: 1.5; background: transparent;")
+        # 2.0: Tüm sürüm geçmişi kaydırılarak okunur.
+        self.body_scroll = QScrollArea()
+        self.body_scroll.setWidgetResizable(True)
+        self.body_scroll.setFrameShape(QFrame.NoFrame)
+        self.body_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.body_scroll.setStyleSheet("QScrollArea { background: transparent; } QScrollArea > QWidget > QWidget { background: transparent; }")
+        self.body_scroll.setWidget(self.lbl_body)
+        layout.addWidget(self.body_scroll, 1)
         self.set_entries(entries)
         self.refresh_style()
 
     def set_entries(self, entries):
+        """entries: [("Sürüm", "Tarih", [maddeler]), ...]  (eski [(tarih, metin)] biçimi de desteklenir)"""
         self.entries = entries
         html_parts = []
-        for date_text, desc in entries:
-            html_parts.append(
-                f'<div style="margin-top:8px; color:#A7B8D0; font-size:11px; font-weight:700;">{date_text}</div>'
-                f'<div style="margin-top:4px; color:#F8FAFC; font-size:13px;">• {desc}</div>'
-            )
+        for entry in entries:
+            if len(entry) == 3:
+                version, date_text, items = entry
+                html_parts.append(
+                    f'<div style="margin-top:12px; color:#F8FAFC; font-size:14px; font-weight:900;">{html_escape(version)}'
+                    f'<span style="color:#A7B8D0; font-size:11px; font-weight:700;">  ·  {html_escape(date_text)}</span></div>'
+                )
+                for item in items:
+                    html_parts.append(f'<div style="margin-top:4px; color:#E5ECF6; font-size:12px;">• {html_escape(item)}</div>')
+            else:
+                date_text, desc = entry
+                html_parts.append(
+                    f'<div style="margin-top:8px; color:#A7B8D0; font-size:11px; font-weight:700;">{html_escape(date_text)}</div>'
+                    f'<div style="margin-top:4px; color:#F8FAFC; font-size:13px;">• {html_escape(desc)}</div>'
+                )
         self.lbl_body.setText("".join(html_parts))
 
     def refresh_style(self):
         if self._hovered:
             self.setStyleSheet(
-                "QFrame#ChangelogHoverCard { background-color: #101A2D; border: 1px solid {accent_color}; border-radius: 24px; }"
+                "QFrame#ChangelogHoverCard { background-color: #101A2D; border: 1px solid "
+                + str(APP_CONFIG.get("accent_color", "#3B82F6")) + "; border-radius: 24px; }"
             )
         else:
             self.setStyleSheet(
@@ -5002,6 +5557,19 @@ class NexHubApp(QMainWindow):
         self.encoder_flush_timer = QTimer(self)
         self.encoder_flush_timer.setSingleShot(True)
         self.encoder_flush_timer.timeout.connect(self.process_encoder_pending_steps)
+        self.device_supports_hid = False
+        self.device_supports_ping = False
+        self.device_fw = ""
+        self._user_disconnected = False
+        self.reconnect_timer = QTimer(self)
+        self.reconnect_timer.timeout.connect(self.try_reconnect)
+        self.heartbeat_timer = QTimer(self)
+        self.heartbeat_timer.timeout.connect(self.check_device_heartbeat)
+        self.heartbeat_timer.start(3000)
+        if hasattr(self, "log_area"):
+            self.log_area.document().setMaximumBlockCount(1500)
+        flush_pending_ui_logs()
+        ui_log(f"NexStudio {APP_VERSION} başlatıldı" + (" (yönetici)" if is_process_elevated() else ""))
         self.apply_startup_setting()
         QTimer.singleShot(900, self.auto_connect_device)
         if self.config.get("web_auto_start", False):
@@ -5151,6 +5719,7 @@ class NexHubApp(QMainWindow):
         quick_title.setObjectName("SectionTitle")
         self.lbl_sidebar_status = QLabel(tr("status_waiting"))
         self.lbl_sidebar_status.setObjectName("StatusPill")
+        self.lbl_sidebar_status.setWordWrap(True)
         quick_l.addWidget(quick_title)
         quick_l.addWidget(self.lbl_sidebar_status)
         quick_hint = QLabel(tr("sidebar_status_hint"))
@@ -5181,10 +5750,12 @@ class NexHubApp(QMainWindow):
         self.lbl_page_title.setObjectName("PageTitle")
         self.lbl_page_subtitle = QLabel(tr("page_sub_home"))
         self.lbl_page_subtitle.setObjectName("PageSubtitle")
+        self.lbl_page_subtitle.setWordWrap(True)
+        self.lbl_page_title.setMinimumWidth(0)
+        self.lbl_page_subtitle.setMinimumWidth(0)
         title_box.addWidget(self.lbl_page_title)
         title_box.addWidget(self.lbl_page_subtitle)
-        topbar_layout.addLayout(title_box)
-        topbar_layout.addStretch()
+        topbar_layout.addLayout(title_box, 1)
 
         self.port_combo = QComboBox()
         self.port_combo.setMinimumWidth(220)
@@ -5246,8 +5817,8 @@ class NexHubApp(QMainWindow):
 
     def get_changelog_hint(self):
         if self.config.get("language", "tr") == "en":
-            return "Hover to expand and read the full changelog."
-        return "Üzerine gelince kart genişler ve tüm değişiklikler okunur hale gelir."
+            return "Hover to expand, scroll to read every release."
+        return "Üzerine gelince kart genişler; kaydırarak tüm sürümleri okuyabilirsin."
 
     def build_web_info_cards(self):
         if self.config.get("language", "tr") == "en":
@@ -5290,12 +5861,15 @@ class NexHubApp(QMainWindow):
         left = QVBoxLayout()
         title = QLabel(tr("home_title"))
         title.setObjectName("PageTitle")
+        title.setWordWrap(True)  # 2.0: dar pencerede başlık kesilmesin
         desc = QLabel(tr("home_desc"))
         desc.setObjectName("PageSubtitle")
         desc.setWordWrap(True)
         left.addWidget(title)
         left.addWidget(desc)
-        btn_row = QHBoxLayout()
+        # 2.0: Dar pencerede yan yana sığmayıp yazıları kesiliyordu; alt alta yerleşir.
+        btn_row = QVBoxLayout()
+        btn_row.setSpacing(10)
         btn_physical = AnimatedButton(tr("edit_physical_keys"), accent="#EF4444")
         btn_physical.setObjectName("SaveBtn")
         btn_physical.setHoverHeights(52, 7)
@@ -5305,11 +5879,10 @@ class NexHubApp(QMainWindow):
         btn_screen.clicked.connect(lambda: self.switch_main_page(2))
         btn_row.addWidget(btn_physical)
         btn_row.addWidget(btn_screen)
-        btn_row.addStretch()
         left.addSpacing(12)
         left.addLayout(btn_row)
         left.addStretch()
-        hero_l.addLayout(left, 2)
+        hero_l.addLayout(left, 1)
 
         device_card = ChangelogHoverCard(
             tr("quick_status"),
@@ -5728,7 +6301,7 @@ class NexHubApp(QMainWindow):
             self.toast.show_message(f"✓ {msg}")
             self.position_saved_toast()
         elif hasattr(self, "log_area"):
-            self.log_area.append(f"✓ {msg}")
+            ui_log(f"✓ {msg}")
 
     def position_saved_toast(self):
         if not hasattr(self, "toast") or not hasattr(self, "quick_card"):
@@ -6292,6 +6865,48 @@ class NexHubApp(QMainWindow):
         l_sys.addWidget(self.chk_auto_connect)
         s_layout.addWidget(group_sys)
 
+        # 2.0: Oyun/OBS uyumluluğu ve cihaz yönetimi
+        group_compat = QGroupBox("Tuş Gönderimi ve Uyumluluk")
+        l_compat = QVBoxLayout(group_compat)
+        lbl_compat = QLabel(
+            "Bazı oyunlar (ör. hile korumalı oyunlar) yazılımla gönderilen tuşları yok sayar. "
+            "2.0 firmware yüklü NexDeck, tuşları gerçek USB klavye gibi gönderebilir. "
+            "Yönetici olarak çalışan programlara tuş göndermek için NexStudio da yönetici olarak çalışmalıdır."
+        )
+        lbl_compat.setWordWrap(True)
+        lbl_compat.setObjectName("Muted")
+        l_compat.addWidget(lbl_compat)
+
+        mode_row = QHBoxLayout()
+        mode_row.addWidget(QLabel("Tuş gönderim yöntemi"))
+        self.combo_key_mode = QComboBox()
+        self.combo_key_mode.addItem("Otomatik (cihaz destekliyorsa USB klavye)", "auto")
+        self.combo_key_mode.addItem("Sadece yazılım (SendInput)", "software")
+        idx = self.combo_key_mode.findData(self.config.get("key_send_mode", "auto"))
+        self.combo_key_mode.setCurrentIndex(max(0, idx))
+        self.combo_key_mode.currentIndexChanged.connect(self.change_key_send_mode)
+        mode_row.addWidget(self.combo_key_mode, 1)
+        l_compat.addLayout(mode_row)
+
+        compat_btns = QVBoxLayout()
+        self.btn_run_admin = AnimatedButton(
+            "🛡️ Yönetici olarak çalışıyor" if is_process_elevated() else "🛡️ Yönetici olarak yeniden başlat",
+            accent=lambda: self.current_accent())
+        self.btn_run_admin.setHoverHeights(42, 5)
+        self.btn_run_admin.setEnabled(not is_process_elevated())
+        self.btn_run_admin.clicked.connect(self.restart_as_admin)
+        btn_rename_deck = AnimatedButton("✏️ Bağlı cihazı adlandır", accent=lambda: self.current_accent())
+        btn_rename_deck.setHoverHeights(42, 5)
+        btn_rename_deck.clicked.connect(self.rename_connected_deck)
+        btn_error_log = AnimatedButton("🧾 Hata günlüğünü aç", accent=lambda: self.current_accent())
+        btn_error_log.setHoverHeights(42, 5)
+        btn_error_log.clicked.connect(self.open_error_log)
+        compat_btns.addWidget(self.btn_run_admin)
+        compat_btns.addWidget(btn_rename_deck)
+        compat_btns.addWidget(btn_error_log)
+        l_compat.addLayout(compat_btns)
+        s_layout.addWidget(group_compat)
+
         group_log_settings = QGroupBox("Sistem Günlüğü")
         l_log_settings = QVBoxLayout(group_log_settings)
         lbl_log_settings = QLabel("Web girişleri, hatalı PIN denemeleri, yetkisiz erişimler ve cihaz sinyalleri burada takip edilir. Normal kullanıcılar için sol menüde gizlenebilir.")
@@ -6736,9 +7351,9 @@ class NexHubApp(QMainWindow):
 
             if hasattr(self, "log_area"):
                 if port != DEFAULT_MOBILE_PORT:
-                    self.log_area.append(f"🌐 Varsayılan port dolu olduğu için Web Kontrolü {port} portundan başlatılacak.")
+                    ui_log(f"🌐 Varsayılan port dolu olduğu için Web Kontrolü {port} portundan başlatılacak.")
                 else:
-                    self.log_area.append(f"🌐 Web Kontrolü için port ayrıldı: {port}")
+                    ui_log(f"🌐 Web Kontrolü için port ayrıldı: {port}")
 
             save_config(self.config)
 
@@ -6785,7 +7400,7 @@ class NexHubApp(QMainWindow):
     def on_mobile_server_started(self, port):
         try:
             if hasattr(self, "log_area"):
-                self.log_area.append(f"🌐 Web Kontrolü başlatıldı: Port {port}")
+                ui_log(f"🌐 Web Kontrolü başlatıldı: Port {port}")
             self.refresh_web_control_status()
         except Exception:
             pass
@@ -6799,7 +7414,7 @@ class NexHubApp(QMainWindow):
             if hasattr(self, "lbl_mobile_ip"):
                 self.lbl_mobile_ip.setText("Web Hatası")
             if hasattr(self, "log_area"):
-                self.log_area.append(f"⚠️ Web Kontrolü Hatası: {error_text}")
+                ui_log(f"⚠️ Web Kontrolü Hatası: {error_text}")
             self.refresh_web_control_status()
             QMessageBox.warning(
                 self,
@@ -7041,11 +7656,15 @@ class NexHubApp(QMainWindow):
         if self.serial_thread and self.serial_thread.is_running:
             return
         try:
-            if hasattr(self, "port_combo") and self.port_combo.currentData():
-                self.toggle_connection()
+            port = self.find_preferred_port()
+            if port:
+                self.connect_device(port)
+            else:
+                # Cihaz henüz takılı değilse takıldığında otomatik bağlan.
+                self.reconnect_timer.start(3000)
         except Exception as e:
             try:
-                self.log_area.append(f"Otomatik bağlantı başarısız: {e}")
+                ui_log(f"Otomatik bağlantı başarısız: {e}")
             except Exception:
                 pass
 
@@ -7081,6 +7700,32 @@ class NexHubApp(QMainWindow):
         save_config(self.config)
         self.refresh_current_ui_state()
         self.show_saved_feedback(f"Profil yüklendi: {profile_name}")
+        if hasattr(self, "combo_profile"):
+            self.refresh_profile_combo()
+        QTimer.singleShot(300, self.sync_nextion_texts)
+
+    def handle_profile_action(self, action):
+        """Cihaz tuşundan/ekrandan gelen profil değiştirme görevleri (GUI thread'inde çalışır)."""
+        names = list(self.config.get("profiles", {}).keys())
+        if not names:
+            return
+        current = self.config.get("active_profile", names[0])
+        mode = action.get("mode")
+        if mode == "switch":
+            target = action.get("custom_arg", "")
+            if target not in names:
+                ui_log(f"⚠️ Profil bulunamadı: {target}")
+                return
+        else:
+            idx = names.index(current) if current in names else 0
+            step = 1 if mode == "next" else -1
+            target = names[(idx + step) % len(names)]
+        if target == current:
+            return
+        self.switch_to_profile(target)
+        ui_log(f"👤 Aktif profil: {target}")
+        if self.isHidden() and getattr(self, "tray_icon", None):
+            self.tray_icon.showMessage("NexStudio", f"Profil: {target}", QSystemTrayIcon.Information, 1500)
 
     def change_profile(self):
         if not hasattr(self, "combo_profile"):
@@ -7186,69 +7831,228 @@ class NexHubApp(QMainWindow):
             self.mobile_thread.stop()
             try: self.mobile_thread.wait(1500)
             except Exception: pass
+        release_single_instance()
         QApplication.quit()
-        subprocess.Popen([sys.executable] + sys.argv)
+        if getattr(sys, "frozen", False):
+            subprocess.Popen([sys.executable] + sys.argv[1:])
+        else:
+            subprocess.Popen([sys.executable] + sys.argv)
 
-    def refresh_ports(self):
-        self.port_combo.clear()
-        ALLOWED_VIDS =["2341", "1A86", "0403", "10C4"] 
-        found = False
+    # ---------------------------------------------------------
+    # Cihaz bağlantısı (2.0)
+    # ---------------------------------------------------------
+    NEXDECK_VIDS = ["2341", "1A86", "0403", "10C4", "1B4F", "2A03"]
+
+    def scan_device_ports(self):
+        """NexDeck olabilecek portları döndürür: [(etiket, port, seri_no)]."""
+        found = []
         for p in serial.tools.list_ports.comports():
             vid = f"{p.vid:04X}".upper() if p.vid else ""
-            if vid in ALLOWED_VIDS or "Arduino" in (p.description or ""):
-                self.port_combo.addItem("NexDeck", p.device)
-                found = True
-        if not found: self.port_combo.addItem(tr("device_not_found"), None)
-        elif self.config.get("last_port"):
-            idx = self.port_combo.findData(self.config["last_port"])
-            if idx >= 0: self.port_combo.setCurrentIndex(idx)
+            desc = p.description or ""
+            if vid in self.NEXDECK_VIDS or "Arduino" in desc:
+                name = self.config.get("device_names", {}).get(p.serial_number or p.device, "NexDeck")
+                found.append((f"{name} · {p.device}", p.device, p.serial_number or ""))
+        return found
+
+    def refresh_ports(self):
+        current = self.port_combo.currentData() if self.port_combo.count() else None
+        self.port_combo.blockSignals(True)
+        self.port_combo.clear()
+        self._port_serials = {}
+        ports = self.scan_device_ports()
+        for label, device, serial_no in ports:
+            self.port_combo.addItem(label, device)
+            self._port_serials[device] = serial_no
+        if not ports:
+            self.port_combo.addItem(tr("device_not_found"), None)
+        else:
+            wanted = current or self.find_preferred_port(ports)
+            idx = self.port_combo.findData(wanted)
+            if idx >= 0:
+                self.port_combo.setCurrentIndex(idx)
+        self.port_combo.blockSignals(False)
+
+    def find_preferred_port(self, ports=None):
+        """Son kullanılan cihazı önce seri numarasıyla (COM numarası değişse bile), sonra port adıyla bulur."""
+        ports = ports if ports is not None else self.scan_device_ports()
+        if not ports:
+            return None
+        last_serial = self.config.get("last_port_serial", "")
+        if last_serial:
+            for _, device, serial_no in ports:
+                if serial_no == last_serial:
+                    return device
+        last_port = self.config.get("last_port", "")
+        for _, device, _ in ports:
+            if device == last_port:
+                return device
+        return ports[0][1]
+
+    def is_device_connected(self):
+        return bool(self.serial_thread and self.serial_thread.is_running)
+
+    def set_device_status(self, state, detail=""):
+        styles = {
+            "connected": ("status_connected", "color: #22C55E; background-color: #052E1A; border: 1px solid #14532D;"),
+            "waiting": ("status_waiting", "color: #94A3B8; background-color: #111827; border: 1px solid #263244;"),
+            "lost": (None, "color: #F59E0B; background-color: #2A1A05; border: 1px solid #78350F;"),
+            "searching": (None, "color: #93C5FD; background-color: #0B1A33; border: 1px solid #1E3A8A;"),
+        }
+        key, css = styles.get(state, styles["waiting"])
+        fallback = {"lost": "Bağlantı koptu · yeniden deneniyor", "searching": "Cihaz aranıyor…"}
+        text = tr(key) if key else fallback.get(state, "")
+        if detail:
+            text = f"{text} · {detail}"
+        if hasattr(self, "lbl_sidebar_status"):
+            self.lbl_sidebar_status.setText(text)
+            self.lbl_sidebar_status.setStyleSheet(css + " border-radius: 16px; padding: 8px 12px; font-size: 12px; font-weight: 900;")
+        connected = state == "connected"
+        self.btn_connect.setText(tr("disconnect") if connected else tr("connect"))
+        self.btn_connect.setObjectName("DisconnectBtn" if connected else "ConnectBtn")
+        self.btn_connect.style().unpolish(self.btn_connect)
+        self.btn_connect.style().polish(self.btn_connect)
+
+    def connect_device(self, port):
+        if not port:
+            return
+        if self.serial_thread:
+            self.disconnect_device(user_requested=False)
+        self.config["last_port"] = port
+        serial_no = getattr(self, "_port_serials", {}).get(port, "")
+        if serial_no:
+            self.config["last_port_serial"] = serial_no
+        save_config(self.config)
+        self.device_supports_hid = False
+        self.device_supports_ping = False
+        self.device_fw = ""
+        self._user_disconnected = False
+        thread = SerialThread(port)
+        thread.data_received.connect(self.handle_serial_data)
+        thread.connection_error.connect(self.on_serial_connection_error)
+        thread.connected.connect(self.on_serial_connected)
+        self.serial_thread = thread
+        thread.start()
+
+    def disconnect_device(self, user_requested=True):
+        thread = self.serial_thread
+        self.serial_thread = None
+        if thread:
+            try:
+                thread.data_received.disconnect()
+                thread.connection_error.disconnect()
+                thread.connected.disconnect()
+            except Exception:
+                pass
+            thread.stop()
+            thread.wait(1500)
+        self.device_supports_hid = False
+        self.device_supports_ping = False
+        if user_requested:
+            self._user_disconnected = True
+            self.reconnect_timer.stop()
+            self.set_device_status("waiting")
+            ui_log(f"[-] {tr('disconnect')}")
 
     def toggle_connection(self):
-        if self.serial_thread and self.serial_thread.is_running:
-            self.serial_thread.stop()
-            self.serial_thread = None
-            self.btn_connect.setText(tr("connect"))
-            self.btn_connect.setObjectName("ConnectBtn")
-            self.btn_connect.style().unpolish(self.btn_connect); self.btn_connect.style().polish(self.btn_connect)
-            if hasattr(self, "lbl_sidebar_status"):
-                self.lbl_sidebar_status.setText(tr("status_waiting"))
-                self.lbl_sidebar_status.setStyleSheet("color: #94A3B8; background-color: #111827; border: 1px solid #263244; border-radius: 16px; padding: 8px 12px; font-size: 12px; font-weight: 800;")
-            if MAIN_WINDOW: MAIN_WINDOW.log_area.append(f"[-] {tr('disconnect')}")
+        if self.is_device_connected():
+            self.disconnect_device(user_requested=True)
         else:
-            port = self.port_combo.currentData()
-            if port:
-                self.config["last_port"] = port
-                save_config(self.config)
-                self.serial_thread = SerialThread(port)
-                self.serial_thread.data_received.connect(self.handle_serial_data)
-                self.serial_thread.start()
-                self.btn_connect.setText(tr("disconnect"))
-                self.btn_connect.setObjectName("DisconnectBtn")
-                self.btn_connect.style().unpolish(self.btn_connect); self.btn_connect.style().polish(self.btn_connect)
-                if hasattr(self, "lbl_sidebar_status"):
-                    self.lbl_sidebar_status.setText(tr("status_connected"))
-                    self.lbl_sidebar_status.setStyleSheet("color: #22C55E; background-color: #052E1A; border: 1px solid #14532D; border-radius: 16px; padding: 8px 12px; font-size: 12px; font-weight: 900;")
-                if MAIN_WINDOW: MAIN_WINDOW.log_area.append(tr("connected_log"))
-                QTimer.singleShot(2500, self.sync_nextion_texts)
+            self.connect_device(self.port_combo.currentData())
+
+    def on_serial_connected(self, port):
+        self.reconnect_timer.stop()
+        self._was_connected = True
+        self._last_conn_error = None
+        self._shown_lost = False
+        self.set_device_status("connected", port)
+        ui_log(tr("connected_log") + f" ({port})")
+        QTimer.singleShot(2500, self.sync_nextion_texts)
+
+    def on_serial_connection_error(self, error_text):
+        """Kablo çıktı / port açılamadı: kullanıcıyı uyar, otomatik yeniden bağlanmayı başlat."""
+        was_connected = getattr(self, "_was_connected", False)
+        self.disconnect_device(user_requested=False)
+        # Yeniden deneme sırasında aynı hata tekrar tekrar günlüğü doldurmasın.
+        if error_text != getattr(self, "_last_conn_error", None):
+            ui_log(f"⚠️ Cihaz bağlantısı: {error_text}")
+            if "PermissionError" in error_text or "Erişim engellendi" in error_text:
+                ui_log("ℹ️ Port başka bir program tarafından kullanılıyor (Arduino IDE seri monitör, eski NexStudio vb.).")
+        self._last_conn_error = error_text
+        if was_connected:
+            self._was_connected = False
+            if getattr(self, "tray_icon", None):
+                self.tray_icon.showMessage("NexStudio", "NexDeck bağlantısı koptu. Otomatik yeniden bağlanılacak.", QSystemTrayIcon.Warning, 3000)
+        if self.config.get("auto_connect", True) and not getattr(self, "_user_disconnected", False):
+            self.set_device_status("lost" if was_connected or getattr(self, "_shown_lost", False) else "searching")
+            self._shown_lost = self._shown_lost if hasattr(self, "_shown_lost") else False
+            if was_connected:
+                self._shown_lost = True
+            if not self.reconnect_timer.isActive():
+                self.reconnect_timer.start(3000)
+        else:
+            self.set_device_status("waiting")
+
+    def try_reconnect(self):
+        if self.is_device_connected() or getattr(self, "_user_disconnected", False):
+            self.reconnect_timer.stop()
+            return
+        port = self.find_preferred_port()
+        if port:
+            self.refresh_ports()
+            if getattr(self, "_last_conn_error", None) is None:
+                ui_log(f"🔄 Yeniden bağlanılıyor: {port}")
+            self.connect_device(port)
+
+    def check_device_heartbeat(self):
+        """2.0 firmware PING'e PONG ile cevap verir; cevap kesilirse bağlantı kopmuş sayılır."""
+        thread = self.serial_thread
+        if not thread or not thread.is_running or not getattr(self, "device_supports_ping", False):
+            return
+        if time.monotonic() - thread.last_rx > 9:
+            self.on_serial_connection_error("Cihaz 9 saniyedir cevap vermiyor.")
+            return
+        thread.send_data("PING\n")
+
+    def handle_device_hello(self, data):
+        """'NEXDECK:READY;FW=2.0;CAP=HID,PING' gibi kimlik satırlarını işler."""
+        info = {}
+        for part in data.split(";")[1:]:
+            if "=" in part:
+                k, v = part.split("=", 1)
+                info[k.strip().upper()] = v.strip()
+        caps = [c.strip().upper() for c in info.get("CAP", "").split(",") if c.strip()]
+        self.device_fw = info.get("FW", "1.x")
+        self.device_supports_hid = "HID" in caps
+        self.device_supports_ping = "PING" in caps
+        cap_text = ", ".join(caps) if caps else "temel"
+        ui_log(f"🔌 NexDeck tanındı · firmware {self.device_fw} · özellikler: {cap_text}")
+
+    def _send_nextion_commands(self, commands, delay):
+        """Ekran komutlarını arka thread'de, aralarında bekleyerek gönderir (arayüz donmaz)."""
+        thread = self.serial_thread
+        if not thread or not thread.is_running or not commands:
+            return
+
+        def _job():
+            for cmd in commands:
+                if not thread.is_running:
+                    return
+                thread.send_data(cmd)
+                time.sleep(delay)
+
+        TASK_WORKER.submit(_job, droppable=False)
 
     def reset_nextion_texts(self):
         """Sayfa 3-4 özel yazılarını cihaz ekranında temizler."""
-        if not self.serial_thread or not self.serial_thread.is_running:
-            return
-
+        commands = []
         for page_num, obj_list in NEXTION_TEXT_RESET_OBJS.items():
-            nextion_page = f"page{page_num}"
             for obj_name in obj_list:
-                cmd = f'NEXCMD:{nextion_page}.{obj_name}.txt=""' + chr(10)
-                self.serial_thread.send_data(cmd)
-                time.sleep(0.03)
-
+                commands.append(f'NEXCMD:page{page_num}.{obj_name}.txt=""\n')
+        self._send_nextion_commands(commands, 0.03)
 
     def sync_nextion_texts(self):
-        if not self.serial_thread or not self.serial_thread.is_running:
-            return
-
         # Sayfa 3-4'te kayıtlı özel yazıları cihaza tekrar bas.
+        commands = []
         for page_num, slot_map in NEXTION_TEXT_OBJ_BY_SLOT.items():
             signal_map = TOUCH_UI_SLOT_TO_SIGNAL.get(page_num, {})
             for slot_idx, obj_name in slot_map.items():
@@ -7256,17 +8060,24 @@ class NexHubApp(QMainWindow):
                 if not sig:
                     continue
                 cfg = self.config.get("buttons", {}).get(sig, {})
-                btn_text = cfg.get("btn_text", "")
+                btn_text = str(cfg.get("btn_text", "") or "").replace('"', "'").replace("\n", " ")
                 if btn_text:
-                    nextion_page = f"page{page_num}"
-                    cmd = f'NEXCMD:{nextion_page}.{obj_name}.txt="{btn_text}"\n'
-                    self.serial_thread.send_data(cmd)
-                    time.sleep(0.05)
-
+                    commands.append(f'NEXCMD:page{page_num}.{obj_name}.txt="{btn_text}"\n')
+        self._send_nextion_commands(commands, 0.05)
 
     def handle_serial_data(self, data):
-        if MAIN_WINDOW: MAIN_WINDOW.log_area.append(f"{tr('log_signal')} {data}")
-        
+        if data.startswith("NEXDECK:"):
+            self.handle_device_hello(data)
+            return
+        if data == "PONG" or data.startswith("HID_OK"):
+            return
+        if data.startswith("HID_ERR"):
+            ui_log(f"⚠️ Cihaz klavye hatası: {data}")
+            return
+
+        if data not in ["ENC:UP", "ENC:DOWN"]:
+            ui_log(f"{tr('log_signal')} {data}")
+
         if should_ignore_serial_signal(data):
             return
 
@@ -7279,17 +8090,24 @@ class NexHubApp(QMainWindow):
                 self.encoder_flush_timer.start(35)
             return
 
+        # Aynı sinyal 150 ms içinde tekrar gelirse (temas sıçraması / çift gönderim) yok say.
+        now = time.monotonic()
+        last_sig, last_time = getattr(self, "_last_signal", ("", 0.0))
+        if data == last_sig and now - last_time < 0.15:
+            return
+        self._last_signal = (data, now)
+
         buttons_cfg = self.config.get("buttons", {})
         resolved_data = resolve_nextion_signal(data, buttons_cfg)
         if resolved_data != data and MAIN_WINDOW:
-            MAIN_WINDOW.log_area.append(f"{tr('log_signal')} {data} → {resolved_data}")
+            ui_log(f"{tr('log_signal')} {data} → {resolved_data}")
 
         cfg = buttons_cfg.get(resolved_data)
         if cfg and cfg.get("action"):
-            if MAIN_WINDOW: MAIN_WINDOW.log_area.append(tr("found_task").format(cfg.get("name")))
+            if MAIN_WINDOW: ui_log(tr("found_task").format(cfg.get("name")))
             execute_macro(cfg["action"])
         else:
-            if MAIN_WINDOW: MAIN_WINDOW.log_area.append(tr("no_assigned_task"))
+            if MAIN_WINDOW: ui_log(tr("no_assigned_task"))
 
     def format_audio_app_label(self, proc_name, display_name=""):
         """
@@ -7568,7 +8386,7 @@ class NexHubApp(QMainWindow):
         if hasattr(self, "combo_encoder_turn"):
             self.populate_encoder_combo(self.combo_encoder_turn, current_turn)
         if MAIN_WINDOW and hasattr(MAIN_WINDOW, "log_area"):
-            MAIN_WINDOW.log_area.append(tr("audio_apps_refresh_log"))
+            ui_log(tr("audio_apps_refresh_log"))
 
     def save_encoder_value(self, value, text=""):
         if value in ["__disabled_header__", "__no_audio_apps__", None]:
@@ -7578,7 +8396,7 @@ class NexHubApp(QMainWindow):
         self.config["encoder"]["turn"] = value
         save_config(self.config)
         if text and MAIN_WINDOW:
-            MAIN_WINDOW.log_area.append(tr("encoder_changed_log").format(text))
+            ui_log(tr("encoder_changed_log").format(text))
         return True
 
     def process_encoder_pending_steps(self):
@@ -7591,13 +8409,14 @@ class NexHubApp(QMainWindow):
         turn_action = enc_cfg.get("turn", "general_volume")
         delta = max(-0.20, min(0.20, steps * 0.01))  # her kademe %1, tek pakette en fazla %20
 
+        # Ses işlemleri (COM/pycaw) arka thread'de; arayüz takılmaz.
         if turn_action in ["general_volume", "Genel Ses Seviyesi", "General Volume"]:
-            self.change_master_volume(delta)
+            TASK_WORKER.submit(self.change_master_volume, delta)
         elif turn_action in ["brightness", "Ekran Parlaklığı", "Screen Brightness"]:
             brightness_delta = max(-20, min(20, steps))
             execute_macro({"type": "nircmd", "cmd": f"changebrightness {brightness_delta}"})
         else:
-            self.change_app_volume(turn_action, delta)
+            TASK_WORKER.submit(self.change_app_volume, turn_action, delta)
 
     def change_master_volume(self, delta):
         if HAS_PYCAW:
@@ -7612,7 +8431,7 @@ class NexHubApp(QMainWindow):
                 return
             except Exception as e:
                 if MAIN_WINDOW:
-                    MAIN_WINDOW.log_area.append(tr("master_volume_fallback").format(str(e)))
+                    ui_log(tr("master_volume_fallback").format(str(e)))
             finally:
                 try:
                     comtypes.CoUninitialize()
@@ -7698,11 +8517,11 @@ class NexHubApp(QMainWindow):
                     continue
 
             if not changed and MAIN_WINDOW:
-                MAIN_WINDOW.log_area.append(tr("audio_session_not_found"))
+                ui_log(tr("audio_session_not_found"))
 
         except Exception as e:
             if MAIN_WINDOW:
-                MAIN_WINDOW.log_area.append(tr("volume_error").format(str(e)))
+                ui_log(tr("volume_error").format(str(e)))
         finally:
             try:
                 comtypes.CoUninitialize()
@@ -7737,6 +8556,36 @@ class NexHubApp(QMainWindow):
         if hasattr(self, "chk_auto_connect"):
             self.chk_auto_connect.setText(("✅ " if self.config.get("auto_connect", True) else "❌ ") + "Cihazı otomatik bağla")
 
+    def change_key_send_mode(self):
+        self.config["key_send_mode"] = self.combo_key_mode.currentData()
+        save_config(self.config)
+        self.show_saved_feedback("Tuş gönderim yöntemi kaydedildi")
+
+    def restart_as_admin(self):
+        save_config(self.config)
+        if relaunch_as_admin():
+            self.force_quit()
+        else:
+            QMessageBox.warning(self, "NexStudio", "Yönetici izni verilmedi.")
+
+    def rename_connected_deck(self):
+        port = self.port_combo.currentData()
+        if not port:
+            QMessageBox.information(self, "NexStudio", "Önce bir NexDeck seçin.")
+            return
+        key = getattr(self, "_port_serials", {}).get(port) or port
+        names = self.config.setdefault("device_names", {})
+        name, ok = QInputDialog.getText(self, "Cihazı Adlandır", "Cihaz adı:", QLineEdit.Normal, names.get(key, "NexDeck"))
+        if ok and name.strip():
+            names[key] = name.strip()
+            save_config(self.config)
+            self.refresh_ports()
+
+    def open_error_log(self):
+        if not os.path.exists(ERROR_LOG_FILE):
+            write_error_log("Hata günlüğü oluşturuldu (henüz hata yok).")
+        os.startfile(ERROR_LOG_FILE)
+
     def toggle_bg(self):
         self.config["run_in_bg"] = not self.config.get("run_in_bg", False)
         self.chk_bg.setText("✅ " + tr("run_bg") if self.config.get("run_in_bg") else "❌ " + tr("run_bg"))
@@ -7746,14 +8595,21 @@ class NexHubApp(QMainWindow):
         key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
         app_name = "NexStudio"
         exe_path = sys.argv[0]
+        if os.getenv("NEXSTUDIO_DATA_DIR"):
+            return  # Test modunda gerçek başlangıç kaydına dokunma.
+        if getattr(sys, "frozen", False):
+            exe_path = sys.executable  # paketlenmiş exe'nin kesin tam yolu
         try:
-            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_ALL_ACCESS)
+            # 2.0: KEY_ALL_ACCESS yerine sadece gereken izin (KEY_SET_VALUE); bazı sistemlerde tam izin reddediliyordu.
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_SET_VALUE)
             if self.config.get("start_with_win"): winreg.SetValueEx(key, app_name, 0, winreg.REG_SZ, f'"{exe_path}"')
             else:
                 try: winreg.DeleteValue(key, app_name)
                 except: pass
             winreg.CloseKey(key)
-        except Exception as e: print(tr("startup_error"), e)
+        except Exception as e:
+            write_error_log(f"Windows başlangıç ayarı yazılamadı: {e!r}")
+            ui_log(f"⚠️ {tr('startup_error')} {e}")
 
     def setup_tray(self):
         self.tray_icon = QSystemTrayIcon(self)
@@ -7844,7 +8700,7 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     
     try: 
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('nexstudio.pro.version.1')
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('nexhub.nexstudio.2')
     except: 
         pass
     
@@ -7862,6 +8718,10 @@ if __name__ == "__main__":
         pass
     app.setStyleSheet("QMainWindow { background-color: #070B14; } QWidget#AppRoot { background-color: #070B14; }")
     
+    init_ui_bridge()
+    if not acquire_single_instance():
+        QMessageBox.information(None, "NexStudio", "NexStudio zaten çalışıyor. Sağ alttaki simgeden açabilirsiniz.")
+        sys.exit(0)
     MAIN_WINDOW = NexHubApp()
     MAIN_WINDOW.show()
     

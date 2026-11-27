@@ -1,30 +1,45 @@
-; NexStudio 1.5 Final Inno Setup taslak dosyası
+; NexStudio 2.0 Inno Setup betiği
+; Önce build.bat çalıştırın, sonra bu dosyayı Inno Setup Compiler ile derleyin.
 #define MyAppName "NexStudio"
-#define MyAppVersion "1.5.10"
+#define MyAppVersion "2.0.0"
 #define MyAppPublisher "Ali Mert Taşcı / NexHub"
 #define MyAppExeName "NexStudio.exe"
 
 [Setup]
-AppId={{B9E9D60E-6E6E-4C9B-9A9A-NEXSTUDIO15FINAL}}
+; 1.5.x ile aynı AppId: kurulum eski sürümün üzerine güncelleme olarak yapılır.
+AppId={{B9E9D60E-6E6E-4C9B-9A9A-NEXSTUDIO158}}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
-OutputBaseFilename=NexStudio_Setup_1_5_Final
-Compression=lzma
+OutputDir=..\output
+OutputBaseFilename=NexStudio_Setup_2_0_0
+SetupIconFile=..\src\app_icon.ico
+UninstallDisplayIcon={app}\{#MyAppExeName}
+Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+; 64-bit uygulama: Program Files (x86) yerine Program Files'a kurulur
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
+; Çalışan NexStudio'yu kapatıp güncellemeye izin ver
+CloseApplications=yes
+RestartApplications=no
+
+[Languages]
+Name: "turkish"; MessagesFile: "compiler:Languages\Turkish.isl"
+Name: "english"; MessagesFile: "compiler:Default.isl"
+
+[Tasks]
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Files]
-Source: "dist\NexStudio\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\dist\NexStudio\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
-Name: "{commondesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
-
-[Tasks]
-Name: "desktopicon"; Description: "Masaüstü kısayolu oluştur"; GroupDescription: "Ek kısayollar:"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "{#MyAppName} uygulamasını başlat"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent

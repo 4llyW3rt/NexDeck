@@ -1,3 +1,4 @@
+# NexStudio 2.0: tuşlar nex.send_hotkey ile gönderilir (güvenilir SendInput / USB HID).
 PLUGIN_NAME = "VS Code Araçları"
 
 ACTIONS = {
@@ -10,13 +11,13 @@ ACTIONS = {
 }
 
 def execute(func):
-    import keyboard, time
-    if func == "cmd_palette": keyboard.send("ctrl+shift+p")
-    elif func == "terminal": keyboard.send("ctrl+`")
-    elif func == "save": keyboard.send("ctrl+s")
-    elif func == "open": keyboard.send("ctrl+o")
-    elif func == "format": keyboard.send("shift+alt+f")
+    import time
+    if func == "cmd_palette": nex.send_hotkey("ctrl+shift+p")
+    elif func == "terminal": nex.send_hotkey("ctrl+`")
+    elif func == "save": nex.send_hotkey("ctrl+s")
+    elif func == "open": nex.send_hotkey("ctrl+o")
+    elif func == "format": nex.send_hotkey("shift+alt+f")
     elif func == "comment":
-        keyboard.send("ctrl+k")
+        nex.send_hotkey("ctrl+k")
         time.sleep(0.2)
-        keyboard.send("ctrl+c")
+        nex.send_hotkey("ctrl+c")

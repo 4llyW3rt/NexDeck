@@ -1,3 +1,4 @@
+# NexStudio 2.0: tuşlar nex.send_hotkey ile gönderilir (güvenilir SendInput / USB HID).
 PLUGIN_NAME = "Adobe Photoshop"
 
 ACTIONS = {
@@ -9,9 +10,8 @@ ACTIONS = {
 }
 
 def execute(func):
-    import keyboard
-    if func == "new": keyboard.send("ctrl+n")
-    elif func == "brush": keyboard.send("b")
-    elif func == "eraser": keyboard.send("e")
-    elif func == "undo": keyboard.send("ctrl+z")
-    elif func == "save_web": keyboard.send("ctrl+alt+shift+s")
+    if func == "new": nex.send_hotkey("ctrl+n")
+    elif func == "brush": nex.send_hotkey("b")
+    elif func == "eraser": nex.send_hotkey("e")
+    elif func == "undo": nex.send_hotkey("ctrl+z")
+    elif func == "save_web": nex.send_hotkey("ctrl+alt+shift+s")

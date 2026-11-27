@@ -1,3 +1,4 @@
+# NexStudio 2.0: tuşlar nex.send_hotkey ile gönderilir (güvenilir SendInput / USB HID).
 PLUGIN_NAME = "Pencere Yönetimi"
 
 ACTIONS = {
@@ -10,10 +11,9 @@ ACTIONS = {
 }
 
 def execute(func):
-    import keyboard
-    if func == "max": keyboard.send("windows+up")
-    elif func == "min": keyboard.send("windows+down")
-    elif func == "left": keyboard.send("windows+left")
-    elif func == "right": keyboard.send("windows+right")
-    elif func == "next_mon": keyboard.send("windows+shift+right")
-    elif func == "desktop": keyboard.send("windows+d")
+    if func == "max": nex.send_hotkey("windows+up")
+    elif func == "min": nex.send_hotkey("windows+down")
+    elif func == "left": nex.send_hotkey("windows+left")
+    elif func == "right": nex.send_hotkey("windows+right")
+    elif func == "next_mon": nex.send_hotkey("windows+shift+right")
+    elif func == "desktop": nex.send_hotkey("windows+d")

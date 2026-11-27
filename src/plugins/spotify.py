@@ -1,3 +1,4 @@
+# NexStudio 2.0: tuşlar nex.send_hotkey ile gönderilir (güvenilir SendInput / USB HID).
 PLUGIN_NAME = "Spotify Kontrolleri"
 
 ACTIONS = {
@@ -24,13 +25,11 @@ def execute(func):
             elif func == "next": ctypes.windll.user32.SendMessageW(hwnd, 0x0319, 0, 11 << 16)
             elif func == "prev": ctypes.windll.user32.SendMessageW(hwnd, 0x0319, 0, 12 << 16)
             elif func == "shuffle":
-                import keyboard
                 ctypes.windll.user32.SetForegroundWindow(hwnd)
-                keyboard.send("ctrl+s")
+                nex.send_hotkey("ctrl+s")
             elif func == "repeat":
-                import keyboard
                 ctypes.windll.user32.SetForegroundWindow(hwnd)
-                keyboard.send("ctrl+r")
+                nex.send_hotkey("ctrl+r")
             return False
         return True
     ctypes.windll.user32.EnumWindows(ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int))(foreach_window), 0)

@@ -1,9 +1,7 @@
-PyQt5
-pyserial
-keyboard
-psutil
-comtypes
-pycaw
-qrcode
-pillow
-pyinstaller
+PyQt5>=5.15
+pyserial>=3.5
+pycaw>=20240210
+comtypes>=1.4
+qrcode[pil]>=7.4
+keyboard>=0.13.5
+obsws-python>=1.7

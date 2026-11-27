@@ -1,3 +1,4 @@
+# NexStudio 2.0: tuşlar nex.send_hotkey ile gönderilir (güvenilir SendInput / USB HID).
 PLUGIN_NAME = "Adobe Premiere Pro"
 ACTIONS = {
     "Kesme Aracı (Razor - C)": {"type": "plugin", "plugin_name": PLUGIN_NAME, "function": "razor"},
@@ -6,8 +7,7 @@ ACTIONS = {
     "Videoyu Dışa Aktar (Ctrl+M)": {"type": "plugin", "plugin_name": PLUGIN_NAME, "function": "export"}
 }
 def execute(func):
-    import keyboard
-    if func == "razor": keyboard.send("c")
-    elif func == "select": keyboard.send("v")
-    elif func == "undo": keyboard.send("ctrl+z")
-    elif func == "export": keyboard.send("ctrl+m")
+    if func == "razor": nex.send_hotkey("c")
+    elif func == "select": nex.send_hotkey("v")
+    elif func == "undo": nex.send_hotkey("ctrl+z")
+    elif func == "export": nex.send_hotkey("ctrl+m")
