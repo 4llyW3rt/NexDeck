@@ -20,6 +20,7 @@
 
 | Sürüm | Tarih | Özet |
 |---|---|---|
+| [2.5.1](../../releases/tag/nexstudio-v2.5.1) | 27.11.2026 | Kod modüllere bölündü, telefon bağlantısı (web portu) düzeltmesi |
 | [2.5](../../releases/tag/nexstudio-v2.5.0) | 27.11.2026 | Yeni arayüz, NexStudio Web, döndürülebilir tekerlek, canlı gösterim |
 | [2.0](../../releases/tag/nexstudio-v2.0.0) | 25.11.2026 | Kararlılık sürümü, firmware 2.0 (USB HID), otomatik yeniden bağlanma |
 | [1.5](../../releases/tag/nexstudio-v1.5.0) | 18.06.2026 | Web Kontrolü güvenliği, tanınan cihazlar, sistem günlüğü |
@@ -31,7 +32,9 @@ Tüm ayrıntılar ve her değişikliğin nedeni: [CHANGELOG.md](CHANGELOG.md)
 
 ```
 src/
-├── nexstudio_ui.py        Uygulama çekirdeği (PyQt5): seri port, görevler, web sunucusu, klasik görünüm
+├── nexstudio_ui.py        Giriş noktası
+├── nexstudio/             Uygulama kodu: core, engine (görevler/eklentiler/profiller), serial_link,
+│                          webserver (telefon), app_api (yeni arayüz API'si), classic_* (klasik görünüm)
 ├── web_ui/app.html        Yeni arayüz (masaüstü penceresi + NexStudio Web)
 ├── plugins/               Hazır eklentiler (ilk açılışta %APPDATA%\NexStudio\plugins'e kopyalanır)
 ├── locales/               tr / en dil dosyaları
