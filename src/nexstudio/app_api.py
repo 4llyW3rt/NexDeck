@@ -184,15 +184,48 @@ def action_needs(action):
         (action or {}).get("type", ""), "")
 
 
+# 2.7.1: geçerli tuş sinyalleri — fiziksel (BTN:n, BTN:n:LONG), tekerlek butonu (ENC:BTN),
+# Nextion dokunmatik (NEX:...) ve web ızgarası (WEB:P{p}_B{n})
+_SIG_RE = re.compile(r"^(BTN:\d{1,2}(:LONG)?|ENC:BTN|NEX:[A-Z0-9_]{1,32}|WEB:P\d{1,2}_B\d{1,3})$")
+# 2.7.1: tekerlek hedefleri (bkz. classic_app.apply_volume_steps); eski sürümlerin Türkçe/İngilizce adları da geçerli
+_TURN_NAMES = {"general_volume", "Genel Ses Seviyesi", "General Volume", "brightness", "Ekran Parlaklığı",
+               "Screen Brightness", "active_window", "Aktif Pencere Sesi", "Active Window Volume"}
+
+
+# 2.7.1: serbest yol alan görev türü telefondan atanamaz (custom_app: os.startfile ile herhangi bir program).
+# cmd/ps/nircmd türlerinin komutu sabittir (kütüphaneden gelir, istekten alınmaz), onlar serbest.
+_LOCAL_ONLY_TASK_TYPES = {"custom_app"}
+# 2.7.1: telefondan atanan web adresi: isteğe bağlı http(s)://, tırnak, boşluk, kontrol karakteri ve % yok
+_REMOTE_URL_RE = re.compile(r'^(?!http(?!s?://))[^\s"%\x00-\x1f\x7f]{1,2000}$', re.I)
+
+
+def is_valid_turn_target(turn):
+    if not isinstance(turn, str):
+        return False
+    if turn in _TURN_NAMES:
+        return True
+    return turn.startswith("app_volume:") and 0 < len(turn[len("app_volume:"):].strip()) <= 200
+
+
 def _save_data_url_image(data_url, max_size, prefix, fmt="PNG"):
     """Tarayıcıdan gelen resmi küçültüp icons/ klasörüne kaydeder, dosya adını döndürür."""
     from PIL import Image
     import io
+    # 2.7.1: metin olmayan / bozuk veri ya da resim olmayan dosya 500 yerine anlaşılır hata verir
+    if not isinstance(data_url, str) or "," not in data_url:
+        raise ValueError("Geçersiz resim")
     header, b64 = data_url.split(",", 1)
-    raw = base64.b64decode(b64)
+    try:
+        raw = base64.b64decode(b64)
+    except Exception:
+        raise ValueError("Geçersiz resim")
     if len(raw) > 25 * 1024 * 1024:
         raise ValueError("Resim 25 MB'tan büyük olamaz")
-    img = Image.open(io.BytesIO(raw))
+    try:
+        img = Image.open(io.BytesIO(raw))
+        img.load()
+    except Exception:
+        raise ValueError("Geçersiz resim")
     img.thumbnail((max_size, max_size))
     if fmt == "JPEG":
         img = img.convert("RGB")
@@ -239,12 +272,20 @@ class AppApi:
         handler = getattr(cls, f"{method.lower()}_{endpoint}", None)
         if handler is None:
             return 404, {"ok": False, "error": f"Bilinmeyen işlem: {endpoint}"}
+        if body is None:
+            body = {}
+        if not isinstance(body, dict):
+            # 2.7.1: JSON gövdesi nesne değilse (ör. [1,2]) 500 yerine 400
+            return 400, {"ok": False, "error": "Geçersiz istek"}
         try:
-            result = handler(body or {}, remote)
+            result = handler(body, remote)
             return 200, result if isinstance(result, dict) else {"ok": True}
         except (ValueError, PermissionError) as e:
             # Kullanıcı kaynaklı hata (ör. boş profil adı): günlüğe Traceback yazmaya gerek yok
             return 400, {"ok": False, "error": str(e)}
+        except TypeError:
+            # 2.7.1: yanlış türde alan (ör. metin yerine liste) kullanıcı hatasıdır
+            return 400, {"ok": False, "error": "Geçersiz istek"}
         except Exception as e:
             write_error_log(f"API hatası ({method} {endpoint}):\n" + traceback.format_exc())
             return 500, {"ok": False, "error": str(e)}
@@ -314,6 +355,7 @@ class AppApi:
                 "key_send_mode": cfg.get("key_send_mode", "auto"),
                 "elevated": is_process_elevated(),
                 "dev_mode": bool(cfg.get("dev_mode")),
+                "update_check": bool(cfg.get("update_check", True)),   # 2.7.1: arayüz anahtarı durumdan çizer
             }
             result["device"]["ports"] = [{"label": label, "port": port} for label, port, _ in (win.scan_device_ports() if win else [])]
         return result
@@ -432,15 +474,25 @@ class AppApi:
     # ----- tuş atama -----
     @classmethod
     def post_assign(cls, body, remote):
-        sig = str(body.get("sig", ""))
-        cat, act = body.get("cat", ""), body.get("act", "")
+        sig, cat, act = body.get("sig", ""), body.get("cat", ""), body.get("act", "")
+        # 2.7.1: alanlar metin olmalı (liste gibi değerler 500 veriyordu), sinyal bilinen biçimde olmalı
+        if not all(isinstance(x, str) for x in (sig, cat, act)):
+            raise ValueError("Görev bulunamadı")
+        if not _SIG_RE.match(sig):
+            raise ValueError("Geçersiz tuş")
         macros = get_all_macros()
-        if not sig or cat not in macros or act not in macros[cat]:
+        if cat not in macros or act not in macros[cat]:
             raise ValueError("Görev bulunamadı")
         action = copy.deepcopy(macros[cat][act])
         atype = action.get("type")
+        if remote and atype in _LOCAL_ONLY_TASK_TYPES:
+            # 2.7.1: PIN'i bilen biri telefondan istediği programı çalıştıramasın (atanmış tuşa basmak serbest)
+            raise PermissionError("Bu görev sadece bilgisayardan atanabilir.")
         if atype in ("custom_web", "custom_app", "custom_hotkey", "type_text"):
             action["custom_arg"] = str(body.get("arg", "")).strip()
+        if remote and atype == "custom_web" and not _REMOTE_URL_RE.fullmatch(action["custom_arg"]):
+            # 2.7.1: adres tarayıcı komutuna tırnak içinde eklenir; tırnak/boşluk/% ile komut eklenemesin
+            raise ValueError("Geçersiz web adresi")
         if atype in ("custom_web", "web"):
             action["browser"] = body.get("browser", "default") if body.get("browser") in ("default", "chrome", "edge", "firefox") else "default"
         if atype == "custom_app":
@@ -452,6 +504,10 @@ class AppApi:
             # Aynı göreve ayar değiştirilirken seçilmiş resim korunur
             if old.get("icon") and old.get("name") == act:
                 entry["icon"] = old["icon"]
+            # 2.7.1: kullanıcının seçtiği emoji de korunur (otomatik emoji ise yenisiyle güncellenir)
+            if (old.get("name") == act and old.get("emoji") and
+                    old["emoji"] != action_emoji(old.get("category", ""), old.get("name", ""), old.get("action"))):
+                entry["emoji"] = old["emoji"]
             if sig.startswith("NEX:P3_") or sig.startswith("NEX:P4_"):
                 entry["btn_text"] = str(body.get("btn_text", old.get("btn_text", "")))[:20]
             state.APP_CONFIG.setdefault("buttons", {})[sig] = entry
@@ -499,17 +555,22 @@ class AppApi:
         page = str(body.get("page", ""))
         if page not in ("1", "2", "3", "4") and page not in {f"w{i}" for i in range(1, 9)}:
             raise ValueError("Geçersiz sayfa")
+        name = body.get("name", "")
+        if not isinstance(name, str):   # 2.7.1: boş metin geçerli (varsayılan ada döner), None/nesne değil
+            raise ValueError("Geçersiz sayfa adı")
         with CONFIG_LOCK:
-            state.APP_CONFIG.setdefault("page_names", {})[page] = str(body.get("name", "")).strip()[:20]
+            state.APP_CONFIG.setdefault("page_names", {})[page] = name.strip()[:20]
             save_config(state.APP_CONFIG)
         cls._refresh_classic()
         return {"ok": True}
 
     @classmethod
     def post_encoder(cls, body, remote):
-        turn = str(body.get("turn", ""))
+        turn = body.get("turn", "")
         if not turn:
             raise ValueError("Tekerlek ayarı boş")
+        if not is_valid_turn_target(turn):   # 2.7.1: sadece bilinen hedefler
+            raise ValueError("Geçersiz tekerlek hedefi")
         with CONFIG_LOCK:
             state.APP_CONFIG.setdefault("encoder", {})["turn"] = turn
             save_config(state.APP_CONFIG)
@@ -518,9 +579,18 @@ class AppApi:
 
     @classmethod
     def post_volume(cls, body, remote):
-        steps = max(-20, min(20, int(body.get("steps", 0))))
+        steps = body.get("steps", 0)
+        # 2.7.1: adım sayı olmalı (null/liste 500 veriyordu); bool da sayı sayılmaz
+        if isinstance(steps, bool) or not isinstance(steps, (int, float, str)):
+            raise ValueError("Geçersiz adım")
+        try:
+            steps = max(-20, min(20, int(steps)))
+        except (TypeError, ValueError, OverflowError):
+            raise ValueError("Geçersiz adım")
         win = state.MAIN_WINDOW
-        target = str(body.get("target") or "")
+        target = body.get("target") or ""
+        if target and not is_valid_turn_target(target):
+            raise ValueError("Geçersiz tekerlek hedefi")
         if win and steps and target:
             # 2.7.0: ekstra tekerlek kendi hedefini (ör. app_volume:Discord.exe) ayarlar
             run_on_ui(lambda: win.apply_volume_steps(target, steps))
@@ -534,7 +604,13 @@ class AppApi:
     @classmethod
     def post_profile(cls, body, remote):
         op = body.get("op")
-        name = str(body.get("name", "")).strip()[:40]
+        name = body.get("name", "")
+        if not isinstance(name, str):   # 2.7.1: nesne/liste profil adı olmasın
+            raise ValueError("Geçersiz profil adı")
+        name = name.strip()[:40]
+        source = body.get("source")     # 2.7.1: "copy" için kopyalanacak profil (yoksa aktif profil)
+        if source is not None and not isinstance(source, str):
+            raise ValueError("Profil bulunamadı")
         win = state.MAIN_WINDOW
         if op == "switch":
             if name not in (state.APP_CONFIG.get("profiles") or {}):
@@ -545,6 +621,13 @@ class AppApi:
             raise PermissionError("Profil oluşturma/silme sadece bilgisayardan yapılabilir.")
 
         def _apply():
+            with CONFIG_LOCK:   # 2.7.1: config değişikliği kilit altında (arayüz yenilemesi kilit dışında)
+                _apply_locked()
+            win.refresh_current_ui_state()
+            win.refresh_profile_combo()
+            QTimer.singleShot(300, win.sync_nextion_texts)
+
+        def _apply_locked():
             ensure_profiles(win.config, update_active=True)
             profiles = win.config["profiles"]
             current = win.config.get("active_profile")
@@ -553,18 +636,30 @@ class AppApi:
                     raise ValueError("Profil adı boş olamaz")
                 if name in profiles:
                     raise ValueError("Bu isimde bir profil zaten var")
-                profiles[name] = (copy.deepcopy(profiles.get(current, snapshot_profile_data(win.config))) if op == "copy" else
+                src = current
+                if op == "copy" and source is not None:
+                    if source.strip() not in profiles:
+                        raise ValueError("Profil bulunamadı")
+                    src = source.strip()
+                profiles[name] = (copy.deepcopy(profiles.get(src, snapshot_profile_data(win.config))) if op == "copy" else
                                   {"buttons": copy.deepcopy(FACTORY_DEFAULT_BUTTONS), "encoder": {"turn": "general_volume"},
                                    "page_names": {}, "screen_bg": ""})
                 win.config["active_profile"] = name
             elif op == "rename":
-                new_name = str(body.get("new_name", "")).strip()[:40]
+                new_name = body.get("new_name", "")
+                if not isinstance(new_name, str):
+                    raise ValueError("Geçersiz ya da kullanılan profil adı")
+                new_name = new_name.strip()[:40]
+                if name not in profiles:
+                    raise ValueError("Profil bulunamadı")
                 if not new_name or new_name in profiles:
                     raise ValueError("Geçersiz ya da kullanılan profil adı")
                 profiles[new_name] = profiles.pop(name)
                 if current == name:
                     win.config["active_profile"] = new_name
             elif op == "delete":
+                if name not in profiles:
+                    raise ValueError("Profil bulunamadı")
                 if len(profiles) <= 1:
                     raise ValueError("En az bir profil kalmalı")
                 profiles.pop(name, None)
@@ -574,9 +669,6 @@ class AppApi:
                 raise ValueError("Bilinmeyen profil işlemi")
             apply_active_profile(win.config)
             save_config(win.config)
-            win.refresh_current_ui_state()
-            win.refresh_profile_combo()
-            QTimer.singleShot(300, win.sync_nextion_texts)
 
         call_on_ui_sync(_apply)
         return {"ok": True}
@@ -589,6 +681,14 @@ class AppApi:
         if key not in ("start_with_win", "run_in_bg", "auto_connect", "key_send_mode", "language", "app_mode", "welcome_done", "dev_mode", "web_access_mode", "web_known_only", "update_check",
                        "web_layout", "web_grid", "extra_wheels"):
             raise ValueError("Bilinmeyen ayar")
+        # 2.7.1: tür kontrolleri (ör. "false" metni açık sayılıyordu)
+        if key in ("start_with_win", "run_in_bg", "auto_connect", "welcome_done", "dev_mode", "web_known_only",
+                   "update_check") and not isinstance(value, bool):
+            raise ValueError("Geçersiz ayar değeri")
+        if key == "key_send_mode" and value not in ("auto", "software"):
+            raise ValueError("Geçersiz ayar değeri")
+        if key == "language" and not isinstance(value, str):
+            raise ValueError("Bu dil yüklü değil")
         if key == "app_mode":
             call_on_ui_sync(lambda: win.set_app_mode(value))
             return {"ok": True}
@@ -601,18 +701,25 @@ class AppApi:
             except (KeyError, TypeError, ValueError):
                 raise ValueError("Geçersiz ızgara")
         if key == "extra_wheels":
-            if not isinstance(value, list) or len(value) > 6:
+            if not isinstance(value, list):
+                raise ValueError("Tekerlek listesi geçersiz")
+            if len(value) > 6:
                 raise ValueError("En fazla 6 ekstra tekerlek eklenebilir")
-            value = [{"id": str(w.get("id", ""))[:20] or secrets.token_hex(4), "target": str(w.get("target", "general_volume"))[:120]}
+            # 2.7.1: id/hedef None ya da metin değilse varsayılan kullanılır ("None" metni yazılmaz)
+            value = [{"id": (w.get("id") if isinstance(w.get("id"), str) else "")[:20] or secrets.token_hex(4),
+                      "target": (w.get("target") if isinstance(w.get("target"), str) else "")[:120] or "general_volume"}
                      for w in value if isinstance(w, dict)]
+            if not all(is_valid_turn_target(w["target"]) for w in value):   # 2.7.1: sadece bilinen hedefler
+                raise ValueError("Geçersiz tekerlek hedefi")
         if key == "web_access_mode" and value not in ("pin", "approve", "pin_approve"):
             raise ValueError("Bilinmeyen erişim modu")
         if key == "language" and value not in load_language_packs():
             raise ValueError("Bu dil yüklü değil")
 
         def _apply():
-            win.config[key] = value
-            save_config(win.config)
+            with CONFIG_LOCK:   # 2.7.1: başka thread config'i kaydederken (json.dumps) değiştirilmesin; RLock, save_config de alır
+                win.config[key] = value
+                save_config(win.config)
             if key == "start_with_win":
                 win.apply_startup_setting()
             if key == "language":
@@ -801,10 +908,14 @@ class LocalAppHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         return
 
+    def _cookie_name(self):
+        # 2.7.1: çerez adı porta özel; 127.0.0.1'deki iki örnek birbirinin oturumunu kapatmaz
+        return f"nex_app_{self.server.server_address[1]}"
+
     def _authorized(self):
         cookie = self.headers.get("Cookie", "") or ""
         header = self.headers.get("X-Nex-Token", "")
-        return header == APP_API_TOKEN or f"nex_app={APP_API_TOKEN}" in cookie
+        return header == APP_API_TOKEN or f"{self._cookie_name()}={APP_API_TOKEN}" in cookie
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
@@ -812,7 +923,7 @@ class LocalAppHandler(BaseHTTPRequestHandler):
         if parsed.path == "/app" and params.get("t", [""])[0] == APP_API_TOKEN:
             # Anahtarı çereze yazıp adres çubuğundan temizle
             self.send_response(302)
-            self.send_header("Set-Cookie", f"nex_app={APP_API_TOKEN}; Path=/; HttpOnly; SameSite=Strict")
+            self.send_header("Set-Cookie", f"{self._cookie_name()}={APP_API_TOKEN}; Path=/; HttpOnly; SameSite=Strict")
             self.send_header("Location", "/app")
             self.end_headers()
             return

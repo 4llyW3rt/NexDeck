@@ -132,6 +132,16 @@ def web_client_info_text(ip, user_agent, include_known_name=True):
     return base
 
 
+_GENERIC_WEB_MODELS = ("", "Android cihaz", "Model algılanamadı")
+
+
+def default_web_device_name(info):
+    """2.7.1: varsayılan cihaz adında model gösterilir (ör. "Pixel 8 - Chrome"); model bilinmiyorsa tür ("Telefon - Chrome")."""
+    model = str(info.get("device_model") or "")
+    first = model if model not in _GENERIC_WEB_MODELS else (info.get("device_type") or "Cihaz")
+    return f"{first} - {info.get('browser') or 'Tarayıcı'}"
+
+
 def ensure_known_web_device(ip, user_agent):
     """Başarılı PIN girişinden sonra cihazı tanınan cihaz listesine ekler."""
     try:
@@ -142,7 +152,7 @@ def ensure_known_web_device(ip, user_agent):
         info = parse_web_client_info(user_agent)
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         if device_id not in known:
-            default_name = f"{info['device_type']} - {info['browser']}"
+            default_name = default_web_device_name(info)   # 2.7.1: model adıyla
             known[device_id] = {
                 "name": default_name,
                 "allowed": True,
@@ -208,37 +218,77 @@ def find_trusted_web_device_by_token(token):
     return "", {}
 
 
-def create_trusted_web_device(ip, user_agent, name=""):
-    """Kullanıcı onay verirse cihazı güvenli token ile tanınan cihaz listesine ekler."""
+def create_trusted_web_device(ip, user_agent, name="", device_id=""):
+    """Kullanıcı onay verirse cihazı güvenli token ile tanınan cihaz listesine ekler.
+    2.7.1: güven anahtarı ayrı bir "TRUST-..." kaydına değil, cihazın kendi kaydına (oturumların ve
+    "şu an bağlı" satırının kullandığı kimlik) yazılır. Böylece tek satır olur ve
+    bağlantıyı kes / unut / engelle / izni kaldır güveni de kaldırır."""
     try:
-        if "known_web_devices" not in state.APP_CONFIG or not isinstance(state.APP_CONFIG.get("known_web_devices"), dict):
-            state.APP_CONFIG["known_web_devices"] = {}
         info = parse_web_client_info(user_agent)
         trust_token = secrets.token_urlsafe(32)
         trust_hash = make_web_trust_hash(trust_token)
-        device_id = "TRUST-" + hashlib.sha256((trust_hash + "|" + str(user_agent)).encode("utf-8", errors="ignore")).hexdigest()[:16]
+        device_id = device_id or make_web_device_id(ip, user_agent)
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         clean_name = str(name or "").strip()
-        if not clean_name:
-            clean_name = f"{info.get('device_type', 'Cihaz')} - {info.get('browser', 'Tarayıcı')}"
-        state.APP_CONFIG["known_web_devices"][device_id] = {
-            "name": clean_name,
-            "allowed": True,
-            "trusted": True,
-            "trust_hash": trust_hash,
-            "first_seen": now,
-            "last_seen": now,
-            "ip": ip,
-            "user_agent": user_agent,
-            "device_type": info.get("device_type", ""),
-            "device_model": info.get("device_model", ""),
-            "os_name": info.get("os_name", ""),
-            "browser": info.get("browser", ""),
-        }
-        save_config(state.APP_CONFIG)
-        return trust_token, device_id, state.APP_CONFIG["known_web_devices"][device_id]
+        with CONFIG_LOCK:
+            known = state.APP_CONFIG.get("known_web_devices")
+            if not isinstance(known, dict):
+                known = state.APP_CONFIG["known_web_devices"] = {}
+            rec = known.get(device_id)
+            if not isinstance(rec, dict):
+                rec = known[device_id] = {"first_seen": now, "allowed": True}
+            if clean_name or not rec.get("name"):
+                rec["name"] = clean_name or default_web_device_name(info)
+            rec.setdefault("allowed", True)   # izni kaldırılmış cihaza kendiliğinden izin verilmez
+            rec.update({
+                "trusted": True,
+                "trust_hash": trust_hash,
+                "last_seen": now,
+                "ip": ip,
+                "user_agent": user_agent,
+                "device_type": info.get("device_type", ""),
+                "device_model": info.get("device_model", ""),
+                "os_name": info.get("os_name", ""),
+                "browser": info.get("browser", ""),
+            })
+            save_config(state.APP_CONFIG)
+        return trust_token, device_id, rec
     except Exception:
         return "", "", {}
+
+
+def migrate_trusted_web_devices():
+    """2.7.1: eski sürümlerin ayrı "TRUST-..." kayıtlarını cihazın kendi kaydıyla birleştirir.
+    IP + tarayıcı bilgisi olmayan (eşleştirilemeyen) kayıt listede kalır; satırından kaldırılabilir."""
+    try:
+        with CONFIG_LOCK:
+            known = state.APP_CONFIG.get("known_web_devices")
+            if not isinstance(known, dict):
+                return
+            legacy = [(k, v) for k, v in known.items() if str(k).startswith("TRUST-") and isinstance(v, dict)]
+            legacy.sort(key=lambda kv: str(kv[1].get("first_seen", "")))   # en yeni anahtar kazanır
+            changed = False
+            for old_id, old in legacy:
+                if not old.get("ip") or not old.get("user_agent"):
+                    continue
+                raw_id = make_web_device_id(old["ip"], old["user_agent"])
+                rec = known.get(raw_id)
+                if not isinstance(rec, dict):
+                    known[raw_id] = old
+                else:
+                    if old.get("trust_hash") and not rec.get("blocked"):
+                        rec["trust_hash"] = old["trust_hash"]
+                        rec["trusted"] = True
+                        rec["auto_approve"] = True
+                    info = parse_web_client_info(rec.get("user_agent", ""))
+                    if old.get("name") and rec.get("name") in ("", None, f"{info.get('device_type')} - {info.get('browser')}"):
+                        rec["name"] = old["name"]
+                known.pop(old_id, None)
+                changed = True
+            if changed:
+                save_config(state.APP_CONFIG)
+    except Exception:
+        write_error_log("Tanınan cihaz kayıtları birleştirilemedi:\n" + traceback.format_exc())
 
 
 def update_trusted_web_device_seen(device_id, ip, user_agent):
@@ -282,8 +332,9 @@ def add_web_history(event_type, ip, user_agent, detail="", device_id_override=""
             "os_name": info.get("os_name", ""),
             "browser": info.get("browser", ""),
         }
-        state.APP_CONFIG["web_access_history"].insert(0, entry)
-        state.APP_CONFIG["web_access_history"] = state.APP_CONFIG["web_access_history"][:WEB_HISTORY_LIMIT]
+        with CONFIG_LOCK:   # 2.7.1: başka thread kaydederken değişmesin
+            state.APP_CONFIG["web_access_history"].insert(0, entry)
+            state.APP_CONFIG["web_access_history"] = state.APP_CONFIG["web_access_history"][:WEB_HISTORY_LIMIT]
         try: save_config(state.APP_CONFIG)
         except Exception: pass
         try:
@@ -449,6 +500,7 @@ WEB_SESSIONS = {}          # oturum anahtarı -> {"device", "ip", "ua", "created
 WEB_APPROVED = set()       # bu çalışmada onaylanan cihazlar
 WEB_PENDING = {}           # cihaz -> {"id", "name", "info", "since", "decision", "remember", "notified"}
 SESSION_COOKIE = "nexstudio_sess"
+WEB_TOKEN_CHANGED_TEXT = "Bağlantı kodu değişti. QR kodu yeniden okut."   # 2.7.1
 APPROVAL_TIMEOUT = 60
 WEB_ACCESS_MODES = ("pin", "approve", "pin_approve")
 _WEB_LOCK = threading.Lock()
@@ -480,12 +532,17 @@ def touch_web_device(device_id, ip, user_agent, allowed_default=True):
         if not isinstance(rec, dict):
             info = parse_web_client_info(user_agent)
             rec = known[device_id] = {
-                "name": f"{info.get('device_type', 'Cihaz')} - {info.get('browser', 'Tarayıcı')}",
+                "name": default_web_device_name(info),   # 2.7.1: model adıyla (ör. "Pixel 8 - Chrome")
                 "allowed": bool(allowed_default), "first_seen": now_text, "user_agent": user_agent,
                 "device_type": info.get("device_type", ""), "device_model": info.get("device_model", ""),
                 "os_name": info.get("os_name", ""), "browser": info.get("browser", ""),
             }
             is_new = True
+        else:
+            # 2.7.1: eski varsayılan ad ("Telefon - Chrome") modelli ada güncellenir; kullanıcının verdiği ad korunur
+            info = parse_web_client_info(rec.get("user_agent") or user_agent)
+            if rec.get("name") == f"{info.get('device_type')} - {info.get('browser')}":
+                rec["name"] = default_web_device_name(info)
         rec["last_seen"] = now_text
         rec["ip"] = ip
     # Her istekte diske yazmamak için: yeni cihazda hemen, sonra en fazla dakikada bir
@@ -571,6 +628,13 @@ def decide_web_approval(device_id, allow, remember=False):
             return False
         req["decision"] = "allow" if allow else "deny"
         req["remember"] = bool(remember)
+    if allow:
+        # 2.7.1: bilgisayardan onay sahibin açık izni sayılır; "Sadece izin verdiğim cihazlar" açıkken de cihaz izinli olur
+        with CONFIG_LOCK:
+            rec = (state.APP_CONFIG.get("known_web_devices") or {}).get(device_id)
+            if isinstance(rec, dict) and not rec.get("allowed"):
+                rec["allowed"] = True
+                save_config(state.APP_CONFIG)
     ui_log(f"{'✅' if allow else '⛔'} Web: '{req['name']}' {'onaylandı' if allow else 'reddedildi'}")
     return True
 
@@ -632,6 +696,21 @@ class MobileHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _send_notice_page(self, title, text, status=200):
+        """2.7.1: telefonda düz metin yerine bilgi sayfası (ör. bağlantı kodu değişti)."""
+        html = f"""<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NexStudio</title>
+<style>body{{margin:0;min-height:100vh;display:grid;place-items:center;background:#171A21;color:#ECEEF3;font-family:Segoe UI,system-ui,sans-serif;text-align:center;padding:24px}}
+.b{{max-width:360px}}p{{color:#9097A8;line-height:1.5}}</style></head>
+<body><div class="b"><h2>{html_escape(title)}</h2><p>{html_escape(text)}</p></div></body></html>"""
+        data = html.encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
     def _send_with_cookies(self, data, content_type, cookies, status=200, location=""):
         self.send_response(status)
         if location:
@@ -670,8 +749,11 @@ class MobileHandler(BaseHTTPRequestHandler):
             if trusted_device_id:
                 update_trusted_web_device_seen(trusted_device_id, ip, ua)
                 record_web_event("Web girişi yapıldı", ip, ua, "Tanınan cihaz ile PIN'siz giriş", "✅", device_id_override=trusted_device_id)
-            else:
+            elif auth_method == "PIN girişi":
                 record_web_event("Web girişi yapıldı", ip, ua, "Başarılı PIN girişi - cihaz otomatik tanınmadı", "✅")
+            else:
+                # 2.7.1: onay modunda "Başarılı PIN girişi" yazmasın
+                record_web_event("Web girişi yapıldı", ip, ua, auth_method, "✅")
         except Exception:
             pass
 
@@ -928,7 +1010,8 @@ class MobileHandler(BaseHTTPRequestHandler):
             prefix = f"/{token}/api2/"
             if not token or not path.startswith(prefix):
                 record_web_event("Yetkisiz Web Girişi", ip, ua, f"POST {path}", "🚫")
-                return self._send_json({"ok": False, "error": "Yetkisiz"}, status=403)
+                # 2.7.1: eski bağlantı kodu (Kodu yenile / yeniden başlatma): 401 -> arayüz sayfayı yenileyip girişe düşer
+                return self._send_json({"ok": False, "error": WEB_TOKEN_CHANGED_TEXT}, status=401)
             trusted = self._trusted_device_id() or self._session_device()
             if is_web_device_blocked(trusted, make_web_device_id(ip, ua)):
                 return self._send_json({"ok": False, "error": "Bu cihazın erişimi engellendi."}, status=401)
@@ -958,17 +1041,15 @@ class MobileHandler(BaseHTTPRequestHandler):
             self.send_response(204)
             self.end_headers()
             return
-        if not self.path.startswith(f"/{token}"):
-            record_web_event("Yetkisiz Web Girişi", self._client_ip(), self._client_user_agent(), f"Yol: {self.path}", "🚫")
-            body = "Yetkisiz Erisim! Lutfen NexStudio Web Kontrolu icindeki dogru URL/QR kodu kullanin.".encode("utf-8")
-            self.send_response(403)
-            self.send_header('Content-type', 'text/plain; charset=utf-8')
-            self.send_header('Content-Length', str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-            return
-
         parsed_path = urllib.parse.urlparse(self.path).path
+        # 2.7.1: kod tam eşleşmeli ("/<kod>xyz" geçmez)
+        if not token or not (parsed_path == f"/{token}" or parsed_path.startswith(f"/{token}/")):
+            record_web_event("Yetkisiz Web Girişi", self._client_ip(), self._client_user_agent(), f"Yol: {parsed_path}", "🚫")
+            # 2.7.1: eski kodla açık kalan arayüzün API istekleri 401 JSON alır (arayüz yenilenip bu sayfaya düşer);
+            # sayfa isteğine düz metin yerine anlaşılır bir sayfa gösterilir
+            if re.match(r"^/[^/]*/(api2?|icons|exec)(/|$)", parsed_path):
+                return self._send_json({"ok": False, "error": WEB_TOKEN_CHANGED_TEXT}, status=401)
+            return self._send_notice_page("Bağlantı kodu değişti.", "QR kodu yeniden okut. Güncel QR kod ve adres bilgisayardaki NexStudio'da görünür.", status=403)
         if parsed_path == f"/{token}/assets/logo.png":
             return self._send_static_file(find_nexstudio_logo_path(), "image/png")
 
@@ -1000,6 +1081,8 @@ class MobileHandler(BaseHTTPRequestHandler):
             blocked_remaining = get_pin_block_remaining(self._client_ip())
             if blocked_remaining > 0:
                 record_web_event("Geçici engelli web denemesi", self._client_ip(), self._client_user_agent(), f"Kalan süre: {blocked_remaining} sn", "⛔")
+                if pin and not is_api_path:   # 2.7.1: PIN adres çubuğunda kalmasın
+                    return self._send_with_cookies(b"", "text/plain", [], status=302, location=f"/{token}")
                 return self._send_login_page(token, error_message="Çok fazla hatalı giriş yapıldı", sub_message="Güvenlik nedeniyle PIN girişi geçici olarak kilitlendi.", blocked_remaining=blocked_remaining, status=429)
 
             if pin != correct_pin:
@@ -1010,7 +1093,15 @@ class MobileHandler(BaseHTTPRequestHandler):
                     record_web_event("Hatalı PIN denemesi", self._client_ip(), self._client_user_agent(), "Yanlış PIN girildi", "🔐")
                     if blocked_now:
                         record_web_event("Cihaz geçici engellendi", self._client_ip(), self._client_user_agent(), f"{WEB_PIN_FAIL_LIMIT} hatalı PIN", "⛔")
+                        if not is_api_path:   # 2.7.1: temiz adrese git; orada kilit sayfası gösterilir
+                            return self._send_with_cookies(b"", "text/plain", [], status=302, location=f"/{token}")
                         return self._send_login_page(token, error_message="Çok fazla hatalı giriş yapıldı", sub_message="Güvenlik nedeniyle PIN girişi geçici olarak kilitlendi.", blocked_remaining=get_pin_block_remaining(self._client_ip()), status=429)
+                    if not is_api_path:
+                        # 2.7.1: yanlış PIN adres çubuğunda kalmasın: hata işaretiyle temiz adrese yönlendir
+                        return self._send_with_cookies(b"", "text/plain", [], status=302, location=f"/{token}?e=pin")
+                elif params.get("e", [""])[0] == "pin":
+                    pin = "-"   # 2.7.1: yönlendirmeden sonra hata mesajını göster (deneme sayısı sunucudan)
+                    attempts_remaining = get_pin_attempts_remaining(self._client_ip())
                 return self._send_login_page(token, error_message=("Hatalı PIN kodu" if pin else ""), sub_message=("Lütfen bilgisayar ekranındaki güncel PIN kodunu kontrol edin." if pin else ""), attempts_remaining=attempts_remaining, status=200)
         else:
             reset_pin_failures(self._client_ip())
@@ -1030,7 +1121,8 @@ class MobileHandler(BaseHTTPRequestHandler):
                         msg = "Bağlantı isteği reddedildi." if decision[0] == "deny" else "Onay zamanında gelmedi. Tekrar denemek için sayfayı yenileyin."
                         return self._send_plain_text(msg, status=403)
                     if decision[1]:  # "hatırla" seçildi: kalıcı tanınan cihaz çerezi
-                        trust_token, trusted_id, _data = create_trusted_web_device(client_ip, client_ua, web_device_record(raw_device).get("name", ""))
+                        # 2.7.1: güven anahtarı cihazın kendi kaydına yazılır (ayrı TRUST- satırı yok)
+                        trust_token, trusted_id, _data = create_trusted_web_device(client_ip, client_ua, web_device_record(raw_device).get("name", ""), device_id=raw_device)
                         if trust_token:
                             extra_cookies.append(f"nexstudio_trust={urllib.parse.quote(trust_token)}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax")
                             with CONFIG_LOCK:
@@ -1041,6 +1133,14 @@ class MobileHandler(BaseHTTPRequestHandler):
                 extra_cookies.append(f"{SESSION_COOKIE}={new_session}; Path=/; HttpOnly; SameSite=Lax")
         else:
             touch_web_device(trusted_device_id or session_device, client_ip, client_ua)
+            if trusted_device_id and not session_device and not is_api_path:
+                # 2.7.1: tanınan cihaz çereziyle gelene de oturum açılır; "şu an bağlı" görünür, "Bağlantıyı kes" çalışır
+                new_session = create_web_session(trusted_device_id, client_ip, client_ua)
+                extra_cookies.append(f"{SESSION_COOKIE}={new_session}; Path=/; HttpOnly; SameSite=Lax")
+
+        # 2.7.1: "Sadece izin verdiğim cihazlar" eski API uçlarında (/api/..., /exec) da geçerli
+        if is_api_path and not is_known_web_device_allowed(client_ip, client_ua, trusted_device_id or session_device):
+            return self._send_json({"ok": False, "error": "Bu cihaz tanınan cihazlar listesinde değil."}, status=403)
 
         if self.path.startswith(f'/{token}/api/trust_device'):
             raw_name = params.get('name', [''])[0]
@@ -1080,33 +1180,18 @@ class MobileHandler(BaseHTTPRequestHandler):
             browser = params.get('browser', ['default'])[0]
             app_action = params.get('app_action', ['open'])[0]
             btn_text = params.get('btn_text', [''])[0]
-            
-            all_macros = get_all_macros()
-            if cat in all_macros and act in all_macros[cat]:
-                action_data = all_macros[cat][act].copy()
-                if action_data.get("type") in ["custom_web", "custom_app", "custom_hotkey", "type_text"]:
-                    action_data["custom_arg"] = arg
-                if action_data.get("type") in ["custom_web", "web"]:
-                    action_data["browser"] = browser
-                if action_data.get("type") == "custom_app":
-                    action_data["app_action"] = app_action
-                
-                if "buttons" not in state.APP_CONFIG:
-                    state.APP_CONFIG["buttons"] = {}
-                state.APP_CONFIG["buttons"][sig] = {"name": act, "action": action_data}
-                if sig.startswith("NEX:P3_") or sig.startswith("NEX:P4_"):
-                    state.APP_CONFIG["buttons"][sig]["btn_text"] = btn_text
-                save_config(state.APP_CONFIG)
-                if state.MAIN_WINDOW:
-                    run_on_ui(lambda: state.MAIN_WINDOW.refresh_screen_buttons())
-                    if sig.startswith("NEX:P3_") or sig.startswith("NEX:P4_"):
-                        run_on_ui(lambda: state.MAIN_WINDOW.sync_nextion_texts())
-                
+            # 2.7.1: eski arayüzün atama ucu da yeni API'den geçer: tuş biçimi kontrolü, telefondan
+            # "Özel uygulama" atanamaz, emoji/ikon/kategori korunur
+            status, payload = _lazy('app_api', 'AppApi').dispatch("POST", "assign", {
+                "sig": sig, "cat": cat, "act": act, "arg": arg, "browser": browser,
+                "app_action": app_action, "btn_text": btn_text}, remote=True)
+            if status != 200:
+                return self._send_json(payload, status=status)
             self.send_response(200)
             self.end_headers()
             self.wfile.write(b"OK")
             return
-            
+
         if self.path.startswith(f'/{token}/api/save_page_name'):
             page = params.get('page', [''])[0]
             name = params.get('name', [''])[0]
@@ -1139,7 +1224,7 @@ class MobileHandler(BaseHTTPRequestHandler):
             mode = params.get('mode', [''])[0]
             if "encoder" not in state.APP_CONFIG:
                 state.APP_CONFIG["encoder"] = {}
-            if mode:
+            if mode and _lazy('app_api', 'is_valid_turn_target')(mode):   # 2.7.1: sadece bilinen hedefler
                 state.APP_CONFIG["encoder"]["turn"] = mode
                 save_config(state.APP_CONFIG)
             self.send_response(200)
@@ -1192,7 +1277,12 @@ class MobileHandler(BaseHTTPRequestHandler):
             record_web_event("Tanınmayan cihaz engellendi", self._client_ip(), self._client_user_agent(), "Sadece tanınan cihazlar modu açık", "⛔")
             return self._send_plain_text("Bu cihaz tanınan cihazlar listesinde olmadığı için Web Kontrolü kullanılamaz.", status=403)
 
-        self._log_web_login_once("Tanınan cihaz" if trusted_auth else "PIN girişi", trusted_device_id)
+        # 2.7.1: giriş türü doğru yazılsın (onay modunda "Başarılı PIN girişi" değil)
+        if trusted_auth:
+            login_method = "Tanınan cihaz" if trusted_device_id else "Oturum çerezi ile giriş"
+        else:
+            login_method = {"approve": "Onaylı giriş", "pin_approve": "PIN + onaylı giriş"}.get(access_mode, "PIN girişi")
+        self._log_web_login_once(login_method, trusted_device_id)
         # 2.5: Telefonda da yeni arayüz (NexStudio Web). Eski web arayüzü: adresin sonuna ?classic=1
         if params.get("classic", [""])[0] != "1" and os.path.exists(os.path.join(_lazy('app_api', 'WEB_UI_DIR'), "app.html")):
             if "pin" in params:
@@ -3317,6 +3407,7 @@ class MobileServerThread(QThread):
 
     def run(self):
         try:
+            migrate_trusted_web_devices()   # 2.7.1: eski TRUST- kayıtlarını cihaz kaydıyla birleştir
             self.server = NexStudioHTTPServer(('0.0.0.0', self.port), MobileHandler)
             self.is_running = True
             self.server_started.emit(self.port)

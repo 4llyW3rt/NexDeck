@@ -5,7 +5,55 @@ Uygulama içindeki "Güncelleme Rehberi" kartı da aynı bilgiyi kısaca göster
 
 ---
 
-## 2.7.0 — 28.11.2026 (Ekstra ses tekerlekleri, web modu ızgara seçimi)
+## 2.7.1 — 27.11.2026 (Çoklu ajan testi düzeltmeleri)
+
+### Nasıl test edildi
+Arayüz dört ayrı test ajanına bölündü (düzen/katmanlar, cihaz modu, web/telefon, ayarlar/diller). Her ajan kendi
+yalıtılmış çekirdeğini (`NEXSTUDIO_DATA_DIR`) çalıştırıp tarayıcıda baştan sona denedi; bulunan hatalar arayüz,
+arka uç, çeviri ve web güvenliği ajanlarına dosya bazında dağıtıldı, son olarak bir doğrulama ajanı hepsini yeniden denedi.
+
+### Arayüz (`app.html`)
+- Düzen menüsü panellerin arkasında açılıyordu: üst çubuk `backdrop-filter` yüzünden kendi katmanını açıyor. Katman sırası
+  düzenlendi (üst çubuk 35 < Düzen 45 < Yenilikler 50 < karşılama 70 < pencere 80 < onay 90 < bağlantı yok 95 < bildirim 100).
+- Düzen menüsü `<body>`'ye taşındı; üst çubuk gizliyken sağ alttaki "Düzen" düğmesi menüyü açar, "Tümünü göster" eklendi.
+  Düzen ve Yenilikler aynı anda açık kalmaz, Esc ikisini de kapatır; karşılama ekranındayken F11 çalışmaz.
+- `dialog()` içindeki yerel `esc` değişkeni genel HTML kaçış fonksiyonunu gölgeliyordu: seçim listeli her pencere
+  (ekstra tekerlek ekle/düzenle) `ReferenceError` ile açılmıyordu.
+- Dar pencerede gizlenen sol menü tüm ekranı kaplıyordu; görev listesi/tuş ayarları gizlenince ızgarada boş sütun kalıyordu.
+- Açılır pencereler şeffaflık ayarından bağımsız opak; uzun metin (güncelleme notları) kaydırılır, satır sonları korunur.
+- Sayfa adı boş bırakılınca varsayılana döner (en fazla 20 karakter); profil adları en fazla 40 karakter;
+  başka profili kopyalamak artık önce o profile geçmez (`source`).
+- 1. sayfadaki ekran butonlarının numarası yanlıştı (◀ olmayan sayfa).
+- "Güncellemeleri otomatik denetle" anahtarı hemen dönmüyordu.
+- Serbest ızgara telefonda taşıyordu; Web sayfasında QR'a tıklayınca cihaz listesi güncellenmeyi bırakıyordu; "Sanal" rozeti görünmüyordu.
+- Telefonda "Özel Uygulama" görevi listede gösterilmez.
+
+### Arka uç (`app_api.py`)
+- Dict olmayan gövde ve tür hataları 500 yerine 400; ayarlar, profil, sayfa adı, tekerlek hedefi, ses adımı ve resim
+  girdileri doğrulanıyor (`_SIG_RE`, `is_valid_turn_target`). Yeni test: `tests/api_validation_test.py`.
+- Seçilen emoji aynı görevin ayarı değişince korunur.
+- Oturum çerezi porta göre adlandırılır (`nex_app_<port>`): iki kopya birbirinin oturumunu kapatmaz.
+- Yapılandırma değişiklikleri `CONFIG_LOCK` altında yapılır.
+
+### Web (`webserver.py`)
+- "Hatırlanan" cihazlar ayrı bir `TRUST-xxxx` kaydı açıyordu; bu yüzden atma/unutma/engelleme işe yaramıyordu.
+  Artık tek kayıt; eski kayıtlar açılışta birleştirilir.
+- Eski bağlantı koduyla gelen istekler 401 JSON / açıklayıcı sayfa alır: telefon kilitlenmek yerine yeniden giriş ister.
+- "Sadece izin verdiğim cihazlar" açıkken bilgisayardan onaylanan cihaz izinli olur.
+- Güvenlik: telefondan `custom_app` ataması reddedilir; uzaktan girilen web adresleri komut enjeksiyonuna karşı denetlenir;
+  eski `/api/save` uç noktası da aynı doğrulamadan geçer.
+- Yanlış PIN adres çubuğunda kalmaz; cihazlar model adıyla listelenir (ör. "Pixel 8 - Chrome").
+
+### Çeviri
+- `L()` en uzun kalıbı önce dener ve yer tutucuları da çevirir; İngilizce → Almanca geçişte sayfa yenilenir;
+  ~45 sunucu/güncelleme mesajı eklendi; kullanıcı adları (profil, sayfa) çevrilmez.
+
+### Tarih düzeltmesi
+- 2.6.1–2.7.0 sürümleri yanlışlıkla 28.11.2026 tarihli yazılmıştı; doğrusu 27.11.2026.
+
+---
+
+## 2.7.0 — 27.11.2026 (Ekstra ses tekerlekleri, web modu ızgara seçimi)
 
 - **Ekstra ses tekerlekleri** (`config.json > extra_wheels`, en fazla 6): cihazın altında, hem cihazlı hem web modunda.
   Her tekerlek kendi hedefini kontrol eder: genel ses, aktif pencere, parlaklık ya da bir uygulama (`app_volume:Discord.exe`).
@@ -20,7 +68,7 @@ Uygulama içindeki "Güncelleme Rehberi" kartı da aynı bilgiyi kısaca göster
 
 ---
 
-## 2.6.4 — 28.11.2026 (Otomatik güncelleme, yönetici izni istemeyen kurulum)
+## 2.6.4 — 27.11.2026 (Otomatik güncelleme, yönetici izni istemeyen kurulum)
 
 ### Neden
 Kurulum `Program Files`'a yapıldığı için her güncellemede Windows yönetici izni (UAC) soruyordu; bu, otomatik
@@ -47,7 +95,7 @@ güncellemeyi ve gece kurulumlarını imkânsız kılıyordu.
 
 ---
 
-## 2.6.3 — 28.11.2026 (Bağlanan cihazlar, engelleme, onay)
+## 2.6.3 — 27.11.2026 (Bağlanan cihazlar, engelleme, onay)
 
 ### Düzeltilen eksik
 Bağlanan cihazlar listede görünmüyordu: cihazı kaydeden `ensure_known_web_device` hiçbir yerden çağrılmıyordu ve
@@ -70,7 +118,7 @@ telefondan yasak işlem). Her "telefon" ayrı çerez kavanozu ve tarayıcı kiml
 
 ---
 
-## 2.6.2 — 28.11.2026 (Odak modu, bütünleşik başlık çubuğu)
+## 2.6.2 — 27.11.2026 (Odak modu, bütünleşik başlık çubuğu)
 
 - **Odak modu (F11):** sol menü, üst çubuk, görev listesi ve tuş ayarları gizlenir; ekranda sadece cihaz kalır.
   Sağ alttaki yarı saydam "Menüleri göster" butonu ya da F11 ile geri açılır.
@@ -84,7 +132,7 @@ telefondan yasak işlem). Her "telefon" ayrı çerez kavanozu ve tarayıcı kiml
 
 ---
 
-## 2.6.1 — 28.11.2026 (Arayüz düzenlemeleri, geliştirici modu)
+## 2.6.1 — 27.11.2026 (Arayüz düzenlemeleri, geliştirici modu)
 
 - Sol üstte "N" yerine NexStudio logosu (96 px'e küçültülüp sayfaya gömülür).
 - "Telefon" sekmesi **Web** oldu; metinler telefon, tablet ve başka bilgisayarı kapsayacak şekilde genelleştirildi.

@@ -52,6 +52,8 @@ button { -webkit-tap-highlight-color: transparent; }
 .logo { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: var(--accent); color: var(--accent-ink); font-family: var(--font-hw); font-weight: 700; font-size: 22px; margin-bottom: 14px; }
 .rail button { width: 56px; padding: 9px 0 7px; border: 0; border-radius: 12px; background: transparent; color: var(--muted); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; }
 .rail button svg { width: 22px; height: 22px; }
+/* 2.7.1: Almanca uzun kelimeler ("Einstellungen") 56px butona sığsın; tr/en etkilenmez */
+html[lang="de"] .rail button { font-size: 9px; letter-spacing: -.2px; line-height: 1.15; text-align: center; hyphens: auto; overflow-wrap: anywhere; }
 .rail button[aria-current="page"] { color: var(--text); background: rgba(127,127,127,.14); }
 .rail button[aria-current="page"] svg { color: var(--accent); }
 .rail .spacer { flex: 1; }
@@ -61,7 +63,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .topbar { display: flex; align-items: center; gap: 12px; padding: 10px 14px; flex-wrap: wrap; }
 .profiles { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .profiles .label { color: var(--muted); margin-right: 4px; }
-.chip { border: 1px solid var(--line); background: transparent; border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+.chip { border: 1px solid var(--line); background: transparent; border-radius: 999px; padding: 6px 14px; cursor: pointer; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
 .chip.add { color: var(--muted); }
 .topbar .grow { flex: 1; }
@@ -101,6 +103,7 @@ h2 { font-family: var(--font-hw); font-weight: 600; font-size: 18px; margin: 0; 
 .deck-top > * { min-width: 0; }
 .brand { font-family: var(--font-hw); font-weight: 700; letter-spacing: .04em; font-size: 15px; margin: 0 0 10px 2px; }
 .brand span { color: var(--accent); }
+.brand .virtual-tag { color: var(--accent-ink); }   /* 2.7.1: turuncu üstüne turuncu görünmüyordu */
 .screen { background: var(--screen); border-radius: 10px; padding: 10px; aspect-ratio: 3 / 2; box-shadow: inset 0 0 0 3px #000, inset 0 0 22px rgba(0,0,0,.8); display: grid; grid-template-rows: auto 1fr; gap: 8px; }
 .screen-tabs { display: flex; gap: 4px; }
 .screen-tabs button { flex: 1; min-width: 0; border: 0; border-radius: 6px; padding: 4px 2px; background: #1A1F29; color: #8B93A5; font-family: var(--font-hw); font-size: 12px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -265,7 +268,9 @@ body.hide-lib.hide-insp #page-device { grid-template-columns: 1fr; }
 .edge.left { left: 0; top: 0; bottom: 0; width: 10px; }
 .restore { position: fixed; right: 16px; bottom: 16px; z-index: 26; display: flex; gap: 6px; align-items: center; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: rgba(var(--panel-rgb), .55); backdrop-filter: blur(12px); color: var(--muted); cursor: pointer; opacity: .55; transition: opacity .15s; font-size: 12px; }
 .restore:hover { opacity: 1; color: var(--text); }
-.viewmenu { position: absolute; right: 0; top: calc(100% + 8px); z-index: 40; width: 250px; padding: 10px; display: flex; flex-direction: column; gap: 2px; }
+/* 2.7.1: üst çubuk backdrop-filter yüzünden kendi katmanını açar; menü alttaki panellerin arkasında kalıyordu */
+.topbar { position: relative; z-index: 35; }
+.viewmenu { position: fixed; z-index: 45; width: 250px; background: rgba(var(--panel-rgb), .97); box-shadow: 0 12px 40px rgba(0,0,0,.45); padding: 10px; display: flex; flex-direction: column; gap: 2px; }
 .viewmenu label { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
 .viewmenu label:hover { background: rgba(127,127,127,.1); }
 .viewmenu .hint { color: var(--muted); font-size: 12px; padding: 6px 10px 2px; }
@@ -339,6 +344,34 @@ body.hide-lib.hide-insp #page-device { grid-template-columns: 1fr; }
   .settings { padding: 18px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+/* 2.7.1: katman sırası (QA): üst çubuk 35 < Düzen menüsü 45 < Yenilikler 50 < karşılama 70 < pencere 80 < onay 90 < bağlantı yok 95 < bildirim 100 */
+.drawer { z-index: 50; }
+body.hide-rail .rail { z-index: 36; }
+.offline { z-index: 95; }
+.toast { z-index: 100; }
+/* Açılır pencereler şeffaflık ayarından etkilenmez, uzun metinde kaydırılır */
+.modal .box, .approve .box, .welcome .box { background: rgba(var(--panel-rgb), .97); max-height: calc(100vh - 40px); overflow: auto; }
+#modal-text { white-space: pre-wrap; max-height: 50vh; overflow: auto; }
+.topbar.panel { background: rgba(var(--panel-rgb), max(.45, calc(var(--glass) * .55))); }
+.viewmenu .btn { margin-top: 6px; }
+/* Parça gizleme dar ekranda ızgarayı bozmasın */
+@media (max-width: 1180px) {
+  body.hide-lib #page-device, body.hide-lib.hide-insp #page-device { grid-template-columns: 1fr; }
+  body.hide-insp #page-device { grid-template-columns: 240px 1fr; }
+}
+@media (max-width: 760px) {
+  body.hide-insp #page-device { grid-template-columns: 1fr; }
+  body.hide-rail .rail { top: auto; bottom: 12px; left: 12px; right: 12px; margin: 0; transform: none; z-index: 20; box-shadow: none; }
+  .restore { bottom: 96px; }
+}
+/* 2.7.1: serbest ızgara telefonda taşmasın: ekran daralabilir, çok sütunda tekerlek ekranın altına iner, sekmeler yana kayar */
+.screen { grid-template-columns: minmax(0, 1fr); }
+.screen-tabs { overflow-x: auto; scrollbar-width: none; }
+.screen.free .screen-tabs button { flex: 0 0 auto; min-width: 56px; }
+@media (max-width: 760px) {
+  .deck-top:has(.screen.free) { grid-template-columns: minmax(0, 1fr); }
+  .deck-top:has(.screen.free) .knob-wrap { justify-self: center; }
+}
 </style>
 </head>
 <body>
@@ -385,6 +418,7 @@ body.hide-lib.hide-insp #page-device { grid-template-columns: 1fr; }
           <label>Üst çubuk<button class="switch" role="switch" data-part="top" aria-checked="true"></button></label>
           <label>Görev listesi<button class="switch" role="switch" data-part="lib" aria-checked="true"></button></label>
           <label>Tuş ayarları<button class="switch" role="switch" data-part="insp" aria-checked="true"></button></label>
+          <button class="btn" id="view-all">Tümünü göster</button>
         </div>
       </div>
       <div class="modeswitch remote-only" role="group" aria-label="Mod">
@@ -464,7 +498,7 @@ body.hide-lib.hide-insp #page-device { grid-template-columns: 1fr; }
   </div>
 </div>
 <div class="edge left" id="edge-left" hidden></div>
-<button class="restore" id="restore" hidden title="Gizlenen menüleri göster (F11)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>Menüleri göster</button>
+<button class="restore" id="restore" hidden title="Düzen (F11: odak modu)" aria-haspopup="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>Düzen</button>
 <div class="approve" id="approve" hidden>
   <div class="box panel">
     <h3>Bağlantı isteği</h3>
@@ -526,15 +560,18 @@ let I18N = {}, I18N_PATTERNS = [];
 function setDictionary(dict) {
   I18N = dict || {};
   const esc_re = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // 2.7.1: sabit metni en uzun kalıp önce denenir ("Tuş {0}: {1}", "Tuş {0}"dan önce gelsin)
   I18N_PATTERNS = Object.keys(I18N).filter(k => /\{\d\}/.test(k)).map(k => ({
     re: new RegExp("^" + esc_re(k).replace(/\\\{(\d)\\\}/g, "(.+?)") + "$"), out: I18N[k],
-  }));
+    lit: k.replace(/\{\d\}/g, "").length,
+  })).sort((a, b) => b.lit - a.lit);
 }
 function L(text) {
   if (text == null) return text;
   const k = String(text);
   if (Object.prototype.hasOwnProperty.call(I18N, k)) return I18N[k];
-  for (const p of I18N_PATTERNS) { const m = k.match(p.re); if (m) return p.out.replace(/\{(\d)\}/g, (_, i) => m[+i + 1]); }
+  // 2.7.1: yer tutucuya düşen parçalar da çevrilir (Tuş 1: boş -> Key 1: empty); parça girdiyle aynıysa tekrar denenmez
+  for (const p of I18N_PATTERNS) { const m = k.match(p.re); if (m) return p.out.replace(/\{(\d)\}/g, (_, i) => { const c = m[+i + 1]; return c === undefined ? "" : c === k ? c : L(c); }); }
   return k;
 }
 const I18N_ATTRS = ["placeholder", "title", "aria-label"];
@@ -563,7 +600,10 @@ new MutationObserver(list => list.forEach(m => {
   else m.addedNodes.forEach(translateTree);
 })).observe(document.documentElement, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: I18N_ATTRS });
 async function loadLanguage(code) {
+  // 2.7.1: ekrandaki metin önceki dile çevrilmiş olabilir (en -> de); Türkçe asıl metne dönmek için sayfa yenilenir
+  const prev = document.documentElement.lang || "tr";
   document.documentElement.lang = code || "tr";
+  if (Object.keys(I18N).length && prev !== "tr" && prev !== (code || "tr")) { location.reload(); return; }
   if (!code || code === "tr") { const had = Object.keys(I18N).length; setDictionary({}); if (had) location.reload(); return; }
   try { const r = await api(`lang?code=${encodeURIComponent(code)}`); setDictionary(r.ui); translateTree(document.body); } catch (e) {}
 }
@@ -571,7 +611,7 @@ async function loadLanguage(code) {
 /* ---------- yardımcılar ---------- */
 const $ = s => document.querySelector(s);
 // 2.6.1: Tarayıcının hazır soru kutuları ("127.0.0.1:xxxx diyor ki") yerine uygulamanın kendi penceresi
-function dialog({ title, text = "", input = null, ok = "Tamam", danger = false, choices = null, value = "" }) {
+function dialog({ title, text = "", input = null, ok = "Tamam", danger = false, choices = null, value = "", allowEmpty = false, maxlength = 0 }) {
   return new Promise(resolve => {
     const m = $("#modal"), inp = $("#modal-input"), okBtn = $("#modal-ok"), sel = $("#modal-select");
     sel.hidden = !choices;
@@ -579,20 +619,21 @@ function dialog({ title, text = "", input = null, ok = "Tamam", danger = false, 
     $("#modal-title").textContent = title;
     $("#modal-text").textContent = text; $("#modal-text").hidden = !text;
     inp.hidden = input === null; inp.value = input ?? "";
+    if (maxlength) inp.maxLength = maxlength; else inp.removeAttribute("maxlength");
     okBtn.textContent = ok; okBtn.classList.toggle("danger-bg", danger);
     okBtn.style.background = danger ? "#E5484D" : ""; okBtn.style.borderColor = danger ? "#E5484D" : "";
-    const done = v => { m.hidden = true; $("#modal-form").onsubmit = null; $("#modal-cancel").onclick = null; m.onclick = null; document.removeEventListener("keydown", esc); resolve(v); };
-    const esc = e => { if (e.key === "Escape") done(input === null ? false : null); };
-    $("#modal-form").onsubmit = e => { e.preventDefault(); done(choices ? sel.value : input === null ? true : inp.value.trim() || null); };
+    const done = v => { m.hidden = true; $("#modal-form").onsubmit = null; $("#modal-cancel").onclick = null; m.onclick = null; document.removeEventListener("keydown", onKey); resolve(v); };
+    const onKey = e => { if (e.key === "Escape") done(input === null ? false : null); };
+    $("#modal-form").onsubmit = e => { e.preventDefault(); done(choices ? sel.value : input === null ? true : allowEmpty ? inp.value.trim() : inp.value.trim() || null); };
     $("#modal-cancel").onclick = () => done(input === null ? false : null);
     m.onclick = e => { if (e.target === m) done(input === null ? false : null); };
-    document.addEventListener("keydown", esc);
+    document.addEventListener("keydown", onKey);
     m.hidden = false;
     setTimeout(() => (input === null ? okBtn : inp).focus(), 30);
     if (input !== null) inp.select();
   });
 }
-const ask = (title, def = "") => dialog({ title, input: def });
+const ask = (title, def = "", opts = {}) => dialog({ title, input: def, ...opts });
 const sure = (title, text, ok = "Sil") => dialog({ title, text, ok, danger: true });
 const esc = t => String(t ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 function toast(msg, err) {
@@ -605,13 +646,13 @@ function glyph(cfg, cls = "em") {
   return `<span class="${cls}">${esc(cfg.emoji || "✨")}</span>`;
 }
 const baseSig = s => s.replace(":LONG", "");
-const pageName = n => (S.page_names && S.page_names[n]) || `Sayfa ${n}`;
+const pageName = n => (S.page_names && S.page_names[n]) || L("Sayfa {0}").replace("{0}", n);   // 2.7.1: hazır ad da çevrilsin
 function sigLabel(sig) {
   if (PHYS_LABEL[sig]) return PHYS_LABEL[sig];
   if (sig.startsWith("BTN:")) return `Tuş ${sig.split(":")[1]}`;
   const wm = sig.match(/^WEB:P(\d+)_B(\d+)$/);
   if (wm) return `${(S.page_names && S.page_names["w" + wm[1]]) || L("Sayfa {0}").replace("{0}", wm[1])} · ${wm[2]}. buton`;
-  for (const [p, list] of Object.entries(S.slots)) { const i = list.indexOf(sig); if (i >= 0) return `${pageName(p)} · ${i < 4 ? i + 1 : i}. buton`; }
+  for (const [p, list] of Object.entries(S.slots)) { const i = list.indexOf(sig); if (i >= 0) return `${pageName(p)} · ${list.slice(0, i).filter(Boolean).length + 1}. buton`; }
   return sig;
 }
 function findCat(name) { for (const c of S.library) if (c.items.some(i => i.name === name)) return c.cat; return ""; }
@@ -661,7 +702,8 @@ function renderAll() {
 function renderTop() {
   const box = $("#profile-chips"); box.innerHTML = "";
   S.profiles.forEach(p => {
-    const b = document.createElement("button"); b.className = "chip"; b.textContent = p; b.setAttribute("aria-pressed", p === S.active_profile);
+    const b = document.createElement("button"); b.className = "chip"; b.textContent = p; b.title = p; b.setAttribute("aria-pressed", p === S.active_profile);
+    if (p !== "Varsayılan") b.dataset.noI18n = "";   // 2.7.1: profil adı çevrilmez (hazır "Varsayılan" profili hariç)
     b.onclick = () => p !== S.active_profile && act("profile", { op: "switch", name: p }, `Profil: ${p}`);
     box.append(b);
   });
@@ -681,7 +723,8 @@ function renderLibrary() {
   if (key === ui.libKey) return; ui.libKey = key;
   const box = $("#library"); box.innerHTML = "";
   S.library.forEach(({ cat, items }) => {
-    const hits = items.filter(i => !q || i.name.toLocaleLowerCase("tr").includes(q) || cat.toLocaleLowerCase("tr").includes(q));
+    // 2.7.1: "Özel uygulama" yalnızca bilgisayardan atanabilir; telefonda listede gösterilmez
+    const hits = items.filter(i => !(REMOTE && i.needs === "app")).filter(i => !q || i.name.toLocaleLowerCase("tr").includes(q) || cat.toLocaleLowerCase("tr").includes(q));
     if (!hits.length) return;
     const h = document.createElement("div"); h.className = "cat"; h.textContent = cat; box.append(h);
     hits.forEach(it => {
@@ -705,18 +748,19 @@ function renderFreeGrid() {
   const tabs = $("#screen-tabs"); tabs.innerHTML = "";
   for (let n = 1; n <= g.pages; n++) {
     const b = document.createElement("button"); b.textContent = name(n); b.setAttribute("role", "tab"); b.setAttribute("aria-selected", n === ui.page);
+    if (S.page_names && S.page_names["w" + n]) b.dataset.noI18n = "";   // 2.7.1: kullanıcının verdiği ad çevrilmez
     b.onclick = () => { ui.page = n; renderScreen(); };
-    if (!REMOTE) b.ondblclick = async () => { const v = await ask("Sayfa adı", name(n)); if (v !== null) act("page_name", { page: "w" + n, name: v }, "Sayfa adı kaydedildi"); };
+    if (!REMOTE) b.ondblclick = async () => { const v = await ask("Sayfa adı", name(n), { allowEmpty: true, maxlength: 20 }); if (v !== null) act("page_name", { page: "w" + n, name: v }, "Sayfa adı kaydedildi"); };
     tabs.append(b);
   }
   $(".screen").classList.add("free");
   const slots = $("#slots"); slots.innerHTML = "";
-  slots.style.gridTemplateColumns = `repeat(${g.cols}, 1fr)`;
+  slots.style.gridTemplateColumns = `repeat(${g.cols}, minmax(0, 1fr))`;
   slots.style.gridTemplateRows = `repeat(${g.rows}, 1fr)`;
   for (let i = 1; i <= g.cols * g.rows; i++) {
     const sig = `WEB:P${ui.page}_B${i}`, cfg = S.buttons[sig];
     const s = document.createElement("button"); s.className = "slot dropzone" + (cfg ? "" : " empty"); s.dataset.sig = sig;
-    s.innerHTML = cfg ? `${glyph(cfg)}<span class="lbl">${esc(cfg.btn_text || cfg.name)}</span>` : `<span class="em">＋</span><span class="lbl">Boş</span>`;
+    s.innerHTML = cfg ? `${glyph(cfg)}<span class="lbl"${cfg.btn_text ? " data-no-i18n" : ""}>${esc(cfg.btn_text || cfg.name)}</span>` : `<span class="em">＋</span><span class="lbl">Boş</span>`;
     wireTarget(s); slots.append(s);
   }
   markSelected();
@@ -729,9 +773,10 @@ function renderScreen() {
   const tabs = $("#screen-tabs"); tabs.innerHTML = "";
   [1, 2, 3, 4].forEach(n => {
     const b = document.createElement("button"); b.textContent = pageName(n); b.setAttribute("role", "tab"); b.setAttribute("aria-selected", n === ui.page);
-    b.title = REMOTE ? "" : "Adını değiştirmek için çift tıkla";
+    if (S.page_names && S.page_names[n]) b.dataset.noI18n = "";   // 2.7.1: kullanıcının verdiği ad çevrilmez
+    b.title = REMOTE ? "" : L("Adını değiştirmek için çift tıkla");   // 2.7.1: kullanıcı adlı sekmede çevirmen title'ı atlıyor
     b.onclick = () => { ui.page = n; renderScreen(); };
-    if (!REMOTE) b.ondblclick = async () => { const name = await ask("Sayfa adı", pageName(n)); if (name !== null) act("page_name", { page: String(n), name }, "Sayfa adı kaydedildi"); };
+    if (!REMOTE) b.ondblclick = async () => { const name = await ask("Sayfa adı", pageName(n), { allowEmpty: true, maxlength: 20 }); if (name !== null) act("page_name", { page: String(n), name }, "Sayfa adı kaydedildi"); };
     tabs.append(b);
   });
   const slots = $("#slots"); slots.innerHTML = "";
@@ -745,7 +790,7 @@ function renderScreen() {
     }
     const cfg = S.buttons[sig];
     const s = document.createElement("button"); s.className = "slot dropzone" + (cfg ? "" : " empty"); s.dataset.sig = sig;
-    s.innerHTML = cfg ? `${glyph(cfg)}<span class="lbl">${esc(cfg.btn_text || cfg.name)}</span>` : `<span class="em">＋</span><span class="lbl">Boş</span>`;
+    s.innerHTML = cfg ? `${glyph(cfg)}<span class="lbl"${cfg.btn_text ? " data-no-i18n" : ""}>${esc(cfg.btn_text || cfg.name)}</span>` : `<span class="em">＋</span><span class="lbl">Boş</span>`;
     wireTarget(s); slots.append(s);
   });
   markSelected();
@@ -768,7 +813,7 @@ function renderKeys() {
 }
 /* 2.7.0: ekstra ses tekerlekleri (cihazlı ve web modunda) */
 function wheelLabel(target) {
-  return (ui.audio || []).find(o => o.value === target)?.label
+  return L((ui.audio || []).find(o => o.value === target)?.label)   // 2.7.1: sunucudan gelen Türkçe ad ("Genel ses") da çevrilsin
     || { general_volume: L("Genel ses"), active_window: L("Aktif pencere"), brightness: L("Parlaklık") }[target]
     || String(target).replace("app_volume:", "").replace(/\.exe$/i, "");
 }
@@ -946,7 +991,8 @@ async function renderWeb() {
           <button class="btn ghost" data-ren="${esc(d.id)}">Adlandır</button><button class="btn ghost" data-forget="${esc(d.id)}">Unut</button></div></div>`).join("") : `<p class="muted" style="margin:0">Henüz bağlanan cihaz yok.</p>`}
     </div>`;
   const q = id => box.querySelector(id);
-  if (q("#qr")) q("#qr").onclick = () => { const on = q("#qr").classList.toggle("blur"); q("#pin").textContent = on ? "••••••" : w.pin; q("#url").hidden = on; };
+  if (q("#qr") && renderWeb._shown) { q("#qr").classList.remove("blur"); q("#pin").textContent = w.pin; q("#url").hidden = false; }
+  if (q("#qr")) q("#qr").onclick = () => { q("#qr").blur(); const on = q("#qr").classList.toggle("blur"); renderWeb._shown = !on; q("#pin").textContent = on ? "••••••" : w.pin; q("#url").hidden = on; };
   if (q("#web-start")) q("#web-start").onclick = async () => { await act("web", { op: "start" }, "Web kontrolü başladı"); renderWeb(); };
   if (q("#web-stop")) q("#web-stop").onclick = async () => { await act("web", { op: "stop" }, "Web kontrolü durdu"); renderWeb(); };
   if (q("#web-reset")) q("#web-reset").onclick = async () => { await act("web", { op: "reset" }, "Yeni QR ve PIN oluşturuldu; eski bağlantılar kapandı"); renderWeb(); };
@@ -960,7 +1006,9 @@ async function renderWeb() {
   box.querySelectorAll("[data-amode]").forEach(b => b.onclick = async () => { await act("settings", { key: "web_access_mode", value: b.dataset.amode }, "Kaydedildi"); renderWeb(); });
   q("#known-only").onclick = async () => { await act("settings", { key: "web_known_only", value: !w.known_only }, "Kaydedildi"); renderWeb(); };
   clearTimeout(renderWeb._t);
-  renderWeb._t = setTimeout(() => { if ($("#page-web").classList.contains("active") && !box.contains(document.activeElement)) renderWeb(); }, 5000);
+  // 2.7.1: odak paneldeyken yenileme atlanır ama zamanlayıcı durmaz (eskiden QR'a tıklayınca liste donuyordu)
+  const tick = () => { if (!$("#page-web").classList.contains("active")) return; if (box.contains(document.activeElement) && document.activeElement.matches("input, select, textarea")) renderWeb._t = setTimeout(tick, 5000); else renderWeb(); };
+  renderWeb._t = setTimeout(tick, 5000);
   box.querySelectorAll("[data-ren]").forEach(b => b.onclick = async () => { const n = await ask("Cihaz adı"); if (n) { await act("known_device", { op: "rename", id: b.dataset.ren, name: n }, "Cihaz adı kaydedildi"); renderWeb(); } });
 }
 
@@ -1002,12 +1050,12 @@ function renderSettings() {
       <div class="set-row"><div>Cihazsız kullan<div class="desc">Telefonun sanal NexDeck olur; NexDeck'e bağlanılmaz.</div></div><button class="btn" id="to-web">Web moduna geç</button></div>
     </div>`}
     <div class="set-group"><h3>Profiller</h3>
-      ${S.profiles.map(p => `<div class="set-row"><div>${esc(p)}${p === S.active_profile ? ' <span class="small">· aktif</span>' : ""}</div><div class="row"><button class="btn ghost" data-pren="${esc(p)}">Adlandır</button><button class="btn ghost" data-pcopy="${esc(p)}">Kopyala</button>${S.profiles.length > 1 ? `<button class="btn ghost danger" data-pdel="${esc(p)}">Sil</button>` : ""}</div></div>`).join("")}
+      ${S.profiles.map(p => `<div class="set-row"><div><span ${p === "Varsayılan" ? "" : "data-no-i18n"}>${esc(p)}</span>${p === S.active_profile ? ' <span class="small">· aktif</span>' : ""}</div><div class="row"><button class="btn ghost" data-pren="${esc(p)}">Adlandır</button><button class="btn ghost" data-pcopy="${esc(p)}">Kopyala</button>${S.profiles.length > 1 ? `<button class="btn ghost danger" data-pdel="${esc(p)}">Sil</button>` : ""}</div></div>`).join("")}
     </div>
     <div class="set-group"><h3>Genel</h3>
       <div class="set-row"><div>NexStudio ${esc(S.version)}<div class="desc" id="upd-desc">${updateText()}</div></div>
         <div class="row" id="upd-actions">${updateButtons()}</div></div>
-      <div class="set-row"><div>Güncellemeleri otomatik denetle<div class="desc">Günde bir kez GitHub'daki son sürüme bakar; yeni sürüm olunca haber verir.</div></div>${sw("update_check", upd.auto_check !== false)}</div>
+      <div class="set-row"><div>Güncellemeleri otomatik denetle<div class="desc">Günde bir kez GitHub'daki son sürüme bakar; yeni sürüm olunca haber verir.</div></div>${sw("update_check", ((S.settings || {}).update_check ?? upd.auto_check) !== false)}</div>
       ${(upd.legacy || []).length ? `<div class="mode-card"><span class="big">🧹</span><div class="grow"><h4>Eski kurulum bulundu</h4><p>Bilgisayarda eski bir NexStudio kopyası duruyor (Program Files). Kaldırmak için Windows bir kez yönetici izni sorar; ayarların ve tuş atamaların silinmez.</p></div><button class="btn" id="remove-legacy">Kaldır</button></div>` : ""}
       <div class="set-row"><div>Dil<div class="desc">Yeni dil eklemek için dil dosyasını Gelişmiş &gt; Diller klasörüne koy.</div></div>
         <select class="inp" id="lang-select" data-no-i18n>${(S.languages || []).map(l => `<option value="${esc(l.code)}" ${l.code === S.lang ? "selected" : ""}>${esc(l.name)}</option>`).join("")}</select></div>
@@ -1037,14 +1085,17 @@ function renderSettings() {
   if (q("#bg-clear")) q("#bg-clear").onclick = async () => { await api("bg_image", {}).catch(() => {}); await setTheme({ bg_color: "" }); };
   q("#glass").oninput = e => document.documentElement.style.setProperty("--glass", e.target.value / 100);
   q("#glass").onchange = e => setTheme({ glass: e.target.value / 100 });
-  box.querySelectorAll("[data-set]").forEach(b => b.onclick = () => act("settings", { key: b.dataset.set, value: b.getAttribute("aria-checked") !== "true" }, "Kaydedildi"));
+  box.querySelectorAll("[data-set]").forEach(b => b.onclick = () => {
+    const value = b.getAttribute("aria-checked") !== "true";
+    if (b.dataset.set === "update_check") { upd.auto_check = value; if (S.settings) S.settings.update_check = value; }   // 2.7.1: anahtar hemen dönsün
+    act("settings", { key: b.dataset.set, value }, "Kaydedildi");
+  });
   if (q("#dev-on")) q("#dev-on").onclick = () => act("device", { op: "connect", port: q("#dev-port")?.value || "" }, "Bağlanılıyor…");
   if (q("#dev-off")) q("#dev-off").onclick = () => act("device", { op: "disconnect" }, "Bağlantı kesildi");
-  box.querySelectorAll("[data-pren]").forEach(b => b.onclick = async () => { const n = await ask("Yeni profil adı", b.dataset.pren); if (n && n !== b.dataset.pren) act("profile", { op: "rename", name: b.dataset.pren, new_name: n }, "Profil adı değişti"); });
+  box.querySelectorAll("[data-pren]").forEach(b => b.onclick = async () => { const n = await ask("Yeni profil adı", b.dataset.pren, { maxlength: 40 }); if (n && n !== b.dataset.pren) act("profile", { op: "rename", name: b.dataset.pren, new_name: n }, "Profil adı değişti"); });
   box.querySelectorAll("[data-pcopy]").forEach(b => b.onclick = async () => {
-    const n = await ask("Kopyanın adı", b.dataset.pcopy + " kopya"); if (!n) return;
-    if (b.dataset.pcopy !== S.active_profile) await api("profile", { op: "switch", name: b.dataset.pcopy }).catch(() => {});
-    act("profile", { op: "copy", name: n }, `Profil kopyalandı: ${n}`);
+    const n = await ask("Kopyanın adı", (b.dataset.pcopy + L(" kopya")).slice(0, 40), { maxlength: 40 }); if (!n) return;
+    act("profile", { op: "copy", name: n, source: b.dataset.pcopy }, `Profil kopyalandı: ${n}`);
   });
   box.querySelectorAll("[data-pdel]").forEach(b => b.onclick = async () => (await sure(`"${b.dataset.pdel}" profili silinsin mi?`, "Bu profildeki tüm tuş atamaları silinir.")) && act("profile", { op: "delete", name: b.dataset.pdel }, "Profil silindi"));
   if (q("#key-mode")) q("#key-mode").onchange = e => act("settings", { key: "key_send_mode", value: e.target.value }, "Kaydedildi");
@@ -1083,17 +1134,31 @@ function toggleFocus(force) {
   PARTS.forEach(p => view[p] = on);
   applyView();
 }
-$("#view-btn").onclick = e => { e.stopPropagation(); $("#view-menu").hidden = !$("#view-menu").hidden; };
-$("#view-menu").onclick = e => e.stopPropagation();
-document.addEventListener("click", () => { $("#view-menu").hidden = true; });
+const VM = $("#view-menu");
+document.body.appendChild(VM);   // 2.7.1: üst çubuk gizlense de menü açılabilsin
+function openViewMenu(anchor) {
+  $("#drawer").classList.remove("open");
+  const r = anchor.getBoundingClientRect();
+  VM.style.right = Math.max(8, innerWidth - r.right) + "px";
+  if (r.top > innerHeight / 2) { VM.style.top = ""; VM.style.bottom = (innerHeight - r.top + 8) + "px"; }
+  else { VM.style.bottom = ""; VM.style.top = (r.bottom + 8) + "px"; }
+  VM.hidden = false;
+}
+const toggleViewMenu = e => { e.stopPropagation(); if (VM.hidden) openViewMenu(e.currentTarget); else VM.hidden = true; };
+$("#view-btn").onclick = toggleViewMenu;
+VM.onclick = e => e.stopPropagation();
+document.addEventListener("click", () => { VM.hidden = true; });
+addEventListener("resize", () => { VM.hidden = true; });
 document.querySelectorAll("[data-part]").forEach(b => b.onclick = () => { view[b.dataset.part] = !view[b.dataset.part]; applyView(); });
 document.querySelector("[data-focus]").onclick = () => toggleFocus();
-$("#restore").onclick = () => toggleFocus(false);
+$("#restore").onclick = toggleViewMenu;
+$("#view-all").onclick = () => { toggleFocus(false); VM.hidden = true; };
 // Sol kenara gelince menü geçici açılır, menüden çıkınca kapanır
 $("#edge-left").addEventListener("mouseenter", () => document.body.classList.add("peek-rail"));
 document.querySelector(".rail").addEventListener("mouseleave", () => document.body.classList.remove("peek-rail"));
+addEventListener("resize", () => document.body.classList.remove("peek-rail"));
 document.addEventListener("keydown", e => {
-  if (e.key === "F11" && !REMOTE) { e.preventDefault(); toggleFocus(); }
+  if (e.key === "F11" && !REMOTE && $("#welcome").hidden) { e.preventDefault(); toggleFocus(); }
 });
 if (!REMOTE) applyView();
 
@@ -1138,7 +1203,7 @@ function updateText() {
     case "ready": return L("İndirildi ve doğrulandı; kuruluyor…");
     case "installing": return L("Kuruluyor; NexStudio yeniden açılacak…");
     case "uptodate": return L("Güncel");
-    case "error": return upd.error || L("Güncelleme denetlenemedi");
+    case "error": return L(upd.error) || L("Güncelleme denetlenemedi");   // 2.7.1: sunucu hata metni de çevrilsin
     default: return L("Güncellemeleri denetlemek için butona bas.");
   }
 }
@@ -1315,12 +1380,12 @@ async function pollLive() {
   } catch (e) {}
 }
 setInterval(pollLive, REMOTE ? 600 : 300);
-$("#open-changelog").onclick = e => { e.stopPropagation(); $("#drawer").classList.toggle("open"); };
+$("#open-changelog").onclick = e => { e.stopPropagation(); VM.hidden = true; $("#drawer").classList.toggle("open"); };
 document.addEventListener("click", e => { const d = $("#drawer"); if (d.classList.contains("open") && !d.contains(e.target)) d.classList.remove("open"); });
 $("#close-changelog").onclick = () => $("#drawer").classList.remove("open");
 $("#search").oninput = () => { ui.libKey = ""; renderLibrary(); };
-$("#add-profile").onclick = async () => { const n = await ask("Yeni profil adı"); if (n) act("profile", { op: "create", name: n }, `Profil oluşturuldu: ${n}`); };
-document.addEventListener("keydown", e => { if (e.key === "Escape") $("#drawer").classList.remove("open"); });
+$("#add-profile").onclick = async () => { const n = await ask("Yeni profil adı", "", { maxlength: 40 }); if (n) act("profile", { op: "create", name: n }, `Profil oluşturuldu: ${n}`); };
+document.addEventListener("keydown", e => { if (e.key === "Escape") { $("#drawer").classList.remove("open"); VM.hidden = true; } });
 
 /* ---------- veri ---------- */
 async function refresh() {

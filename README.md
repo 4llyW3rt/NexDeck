@@ -22,8 +22,9 @@
 
 | Sürüm | Tarih | Özet |
 |---|---|---|
-| [2.7](../../releases/tag/nexstudio-v2.7.0) | 28.11.2026 | Ekstra ses tekerlekleri, web modunda serbest ızgara |
-| [2.6.1 – 2.6.4](../../releases) | 28.11.2026 | Logo, odak modu, geliştirici modu, bağlanan cihazlar + engelleme + onay, otomatik güncelleme (UAC'siz kurulum) |
+| [2.7.1](../../releases/tag/nexstudio-v2.7.1) | 27.11.2026 | Çoklu ajan testiyle bulunan 30+ hata: Düzen menüsü, ekstra tekerlek penceresi, web cihaz güvenliği, çeviriler |
+| [2.7](../../releases/tag/nexstudio-v2.7.0) | 27.11.2026 | Ekstra ses tekerlekleri, web modunda serbest ızgara |
+| [2.6.1 – 2.6.4](../../releases) | 27.11.2026 | Logo, odak modu, geliştirici modu, bağlanan cihazlar + engelleme + onay, otomatik güncelleme (UAC'siz kurulum) |
 | [2.6](../../releases/tag/nexstudio-v2.6.0) | 27.11.2026 | Web modu (cihazsız kullanım), karşılama ekranı, dil paketleri (EN, DE), donanım rehberi |
 | [2.5.1](../../releases/tag/nexstudio-v2.5.1) | 27.11.2026 | Kod modüllere bölündü, telefon bağlantısı (web portu) düzeltmesi |
 | [2.5](../../releases/tag/nexstudio-v2.5.0) | 27.11.2026 | Yeni arayüz, NexStudio Web, döndürülebilir tekerlek, canlı gösterim |

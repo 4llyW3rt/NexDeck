@@ -172,29 +172,39 @@ NEXSTUDIO_ZERO_WIDTH_WATERMARK = "​‌​‌‍​​‌‌‍‌​‌​‍�
 # =========================================================
 NEXSTUDIO_CHANGELOG = {
     "tr": [
-        ("2.7", "28.11.2026", [
+        ("2.7.1", "27.11.2026", [
+            "Düzen menüsü artık panellerin arkasında açılmıyor; üst çubuk gizliyken sağ alttaki 'Düzen' düğmesinden de açılır, 'Tümünü göster' eklendi.",
+            "Ekstra tekerlek ekleme/düzenleme penceresi açılmıyordu; düzeltildi.",
+            "Yenilikler paneli, gizli sol menü ve açılır pencereler: üst üste binme, dar ekranda taşma ve şeffaflıkta okunmama sorunları giderildi.",
+            "Web: 'hatırlanan' bir cihaz artık atılabiliyor/unutulabiliyor; kod yenilenince telefon kilitlenmek yerine yeniden giriş ister; 'sadece izin verdiğim cihazlar' açıkken onay çalışır; cihazlar model adıyla görünür.",
+            "Güvenlik: telefondan 'Özel Uygulama' görevi atanamaz (yalnızca bilgisayardan), web adresleri denetlenir.",
+            "Serbest ızgara telefonda taşmıyor; cihaz listesi QR'a tıklayınca donmuyor.",
+            "İngilizce/Almanca çeviriler tamamlandı; dil değişince eski dil ekranda kalmıyor.",
+            "Hatalı isteklere sunucu hatası yerine açıklayıcı mesaj; seçilen emoji görev ayarı değişince korunuyor; 1. sayfadaki buton numaraları düzeltildi.",
+        ]),
+        ("2.7.0", "27.11.2026", [
             "Ekstra ses tekerlekleri: cihazın altına 6 taneye kadar sanal tekerlek ekle; her biri ayrı bir uygulamanın (ör. Discord, Spotify) sesini kontrol eder. Telefonda da çevrilebilir.",
             "Web modunda tuş düzeni seçimi: 'Cihazla aynı' (4 sayfa, ileride cihaza birebir geçer) ya da 'Serbest ızgara' (2–6 sütun, 1–4 satır, 8 sayfaya kadar).",
             "Web modunda alttaki fiziksel tuşlar gizlenir; sadece ekran ızgarası görünür.",
         ]),
-        ("2.6.4", "28.11.2026", [
+        ("2.6.4", "27.11.2026", [
             "Otomatik güncelleme: NexStudio günde bir kez yeni sürüme bakar, haber verir; tek tıkla indirir, SHA-256 ile doğrular, kurar ve yeniden açılır.",
             "Kurulum artık kullanıcı klasörüne yapılıyor: kurulum ve güncellemeler yönetici izni (UAC) istemiyor.",
             "Program Files'ta kalan eski kopya için Ayarlar'da tek tıkla kaldırma önerisi.",
         ]),
-        ("2.6.3", "28.11.2026", [
+        ("2.6.3", "27.11.2026", [
             "Web sayfasında bağlanan tüm cihazlar: şu an bağlı olanlar, son görülme, hatırlananlar.",
             "Her cihaz için Bağlantıyı kes, Engelle / Engeli kaldır, İzin ver, Adlandır, Unut.",
             "Erişim modu senin seçimin: sadece PIN, sadece bilgisayardan onay ya da PIN + onay. Onay penceresinde 'Bu cihazı hatırla' seçilebilir; 60 sn içinde cevap gelmezse bağlantı reddedilir.",
             "'Sadece izin verdiğim cihazlar' açıkken izinsiz cihazlar PIN'i bilse de bağlanamaz; denemeleri listede görünür, tek tıkla izin verilir.",
             "Telefonda PIN artık adres çubuğunda kalmıyor; giriş güvenli bir oturum çereziyle sürüyor.",
         ]),
-        ("2.6.2", "28.11.2026", [
+        ("2.6.2", "27.11.2026", [
             "Odak modu (F11): menüler gizlenir, ekranda sadece cihaz kalır; köşedeki butonla ya da F11 ile geri açılır.",
             "Üst çubuktaki Düzen menüsünden sol menü, üst çubuk, görev listesi ve tuş ayarları ayrı ayrı gizlenebilir. Gizli sol menü fare sol kenara gelince açılır.",
             "Pencerenin başlık çubuğu uygulamanın arka plan rengini alır (Windows 11); üst çubuk daha saydam.",
         ]),
-        ("2.6.1", "28.11.2026", [
+        ("2.6.1", "27.11.2026", [
             "Sol üstte NexStudio logosu.",
             "\"Telefon\" sekmesi artık \"Web\": telefon, tablet ya da başka bir bilgisayardan kontrol.",
             "Profil oluşturma, silme ve adlandırma artık uygulamanın kendi pencerelerinde (tarayıcının \"127.0.0.1 diyor ki\" kutusu yok).",
@@ -276,29 +286,39 @@ NEXSTUDIO_CHANGELOG = {
         ]),
     ],
     "en": [
-        ("2.7", "2026-11-28", [
+        ("2.7.1", "2026-11-27", [
+            "The Layout menu no longer opens behind the panels; with the top bar hidden it opens from the 'Layout' button at the bottom right, and 'Show all' was added.",
+            "The add/edit extra wheel dialog did not open; fixed.",
+            "What's new panel, hidden side menu and dialogs: overlapping, overflow on narrow windows and unreadable transparency fixed.",
+            "Web: a 'remembered' device can now be kicked/forgotten; after a new code the phone asks to sign in again instead of freezing; approval works with 'only devices I allow'; devices show their model name.",
+            "Security: the 'Custom app' task cannot be assigned from the phone (computer only), web addresses are validated.",
+            "Free grid fits on phones; the device list no longer freezes after clicking the QR code.",
+            "English/German translations completed; switching language no longer leaves the old language on screen.",
+            "Clear messages instead of server errors for bad requests; a chosen emoji is kept when task settings change; button numbers on page 1 fixed.",
+        ]),
+        ("2.7.0", "2026-11-27", [
             "Extra volume wheels: add up to 6 virtual wheels under the device; each controls its own app (e.g. Discord, Spotify). They turn on the phone too.",
             "Key layout choice in web mode: 'Same as device' (4 pages, carries over to a NexDeck later) or 'Free grid' (2–6 columns, 1–4 rows, up to 8 pages).",
             "In web mode the physical keys row is hidden; only the screen grid is shown.",
         ]),
-        ("2.6.4", "2026-11-28", [
+        ("2.6.4", "2026-11-27", [
             "Automatic updates: NexStudio checks for a new version once a day, lets you know, then downloads, verifies (SHA-256), installs and restarts with one click.",
             "NexStudio now installs into your user folder: installing and updating no longer ask for administrator permission (UAC).",
             "Settings offer a one-click removal of an old copy left in Program Files.",
         ]),
-        ("2.6.3", "2026-11-28", [
+        ("2.6.3", "2026-11-27", [
             "The Web page lists every device that connected: online now, last seen, remembered.",
             "Per device: Disconnect, Block / Unblock, Allow, Rename, Forget.",
             "You choose the access mode: PIN only, approval on this computer only, or PIN + approval. The approval dialog can remember the device; requests are denied after 60 seconds.",
             "With 'Only devices I allow', devices without permission can't connect even with the PIN; their attempts appear in the list and can be allowed with one click.",
             "The PIN no longer stays in the phone's address bar; the session continues with a secure cookie.",
         ]),
-        ("2.6.2", "2026-11-28", [
+        ("2.6.2", "2026-11-27", [
             "Focus mode (F11): menus hide and only the device stays on screen; bring them back with the corner button or F11.",
             "The Layout menu in the top bar hides the side menu, top bar, action list and key settings separately. A hidden side menu opens when the mouse reaches the left edge.",
             "The window title bar takes the app's background color (Windows 11); the top bar is more transparent.",
         ]),
-        ("2.6.1", "2026-11-28", [
+        ("2.6.1", "2026-11-27", [
             "NexStudio logo in the top-left corner.",
             "The \"Phone\" tab is now \"Web\": control from a phone, tablet or another computer.",
             "Creating, deleting and renaming profiles now uses the app's own dialogs.",
@@ -374,7 +394,7 @@ import traceback
 import shutil
 from PyQt5.QtCore import QObject
 
-APP_VERSION = "2.7.0"
+APP_VERSION = "2.7.1"
 ERROR_LOG_FILE = os.path.join(LOGS_DIR, "error.log")
 CONFIG_BACKUP_FILE = CONFIG_FILE + ".bak"
 WEB_HISTORY_LIMIT = 100
