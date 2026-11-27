@@ -294,6 +294,22 @@ body.hide-lib.hide-insp #page-device { grid-template-columns: 1fr; }
 .progress i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .3s; }
 .notes { max-height: 240px; overflow: auto; white-space: pre-wrap; font-size: 13px; line-height: 1.5; color: var(--muted); background: rgba(127,127,127,.08); border-radius: 10px; padding: 10px; margin: 0; }
 
+/* 2.7.0: ekstra tekerlekler ve serbest ızgara */
+.wheels { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 22px; align-items: flex-start; justify-content: center; }
+.wheels:empty { display: none; }
+.wheel { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 92px; position: relative; }
+.wheel .knob { width: 72px; }
+.wheel .knob-label { font-size: 11px; max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wheel .wedit { position: absolute; top: -6px; right: 2px; width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--line); background: #262B36; color: #ECEEF3; cursor: pointer; font-size: 13px; line-height: 1; }
+.wheel.add { justify-content: center; height: 100px; }
+.wheel.add button { width: 72px; height: 72px; border-radius: 50%; border: 2px dashed #3A4150; background: transparent; color: #8B93A5; font-size: 26px; cursor: pointer; }
+.wheel.add button:hover { border-color: var(--accent); color: var(--accent); }
+.screen.free { aspect-ratio: auto; min-height: 280px; }
+.screen.free .slot { font-size: 13px; min-height: 74px; }
+.screen.free .slot .em { font-size: 26px; }
+.modal select { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: rgba(127,127,127,.08); font-size: 15px; }
+.modal select option { color: #1C2130; }
+
 .offline { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(0,0,0,.6); z-index: 60; color: #fff; text-align: center; padding: 24px; }
 
 @media (max-width: 1180px) {
@@ -375,7 +391,7 @@ body.hide-lib.hide-insp #page-device { grid-template-columns: 1fr; }
         <button data-mode="control" aria-pressed="true">Kontrol</button>
         <button data-mode="edit" aria-pressed="false">Düzenle</button>
       </div>
-      <button class="update-chip local-only" id="update-chip" hidden>Güncelleme var</button>
+      <button class="update-chip" id="update-chip" hidden>Güncelleme var</button>
       <div class="status"><span class="dot" id="dev-dot" aria-hidden="true"></span><span id="dev-text">Bağlanıyor…</span></div>
     </header>
 
@@ -405,6 +421,7 @@ body.hide-lib.hide-insp #page-device { grid-template-columns: 1fr; }
             </div>
           </div>
           <div class="keys" id="keys"></div>
+          <div class="wheels" id="wheels"></div>
         </div>
       </div>
       <aside class="inspector panel" id="inspector" aria-live="polite"></aside>
@@ -459,7 +476,7 @@ body.hide-lib.hide-insp #page-device { grid-template-columns: 1fr; }
     <div class="row"><button class="btn danger" id="approve-deny">Reddet</button><button class="btn primary" id="approve-allow">İzin ver</button></div>
   </div>
 </div>
-<div class="modal" id="modal" hidden><form class="box panel" id="modal-form"><h3 id="modal-title"></h3><p id="modal-text" hidden></p><input id="modal-input" hidden autocomplete="off"><div class="row"><button type="button" class="btn ghost" id="modal-cancel">Vazgeç</button><button type="submit" class="btn primary" id="modal-ok">Tamam</button></div></form></div>
+<div class="modal" id="modal" hidden><form class="box panel" id="modal-form"><h3 id="modal-title"></h3><p id="modal-text" hidden></p><input id="modal-input" hidden autocomplete="off"><select id="modal-select" hidden data-no-i18n></select><div class="row"><button type="button" class="btn ghost" id="modal-cancel">Vazgeç</button><button type="submit" class="btn primary" id="modal-ok">Tamam</button></div></form></div>
 <div class="offline" id="offline" hidden><div><h2>NexStudio'ya ulaşılamıyor</h2><p>Uygulama kapalı olabilir ya da web kontrolü durdurulmuş olabilir. Bağlantı gelince sayfa kendini yeniler.</p></div></div>
 <input type="file" id="file-icon" accept="image/*" hidden>
 <input type="file" id="file-bg" accept="image/*" hidden>
@@ -554,9 +571,11 @@ async function loadLanguage(code) {
 /* ---------- yardımcılar ---------- */
 const $ = s => document.querySelector(s);
 // 2.6.1: Tarayıcının hazır soru kutuları ("127.0.0.1:xxxx diyor ki") yerine uygulamanın kendi penceresi
-function dialog({ title, text = "", input = null, ok = "Tamam", danger = false }) {
+function dialog({ title, text = "", input = null, ok = "Tamam", danger = false, choices = null, value = "" }) {
   return new Promise(resolve => {
-    const m = $("#modal"), inp = $("#modal-input"), okBtn = $("#modal-ok");
+    const m = $("#modal"), inp = $("#modal-input"), okBtn = $("#modal-ok"), sel = $("#modal-select");
+    sel.hidden = !choices;
+    if (choices) sel.innerHTML = choices.map(c => `<option value="${esc(c.value)}" ${c.value === value ? "selected" : ""}>${esc(c.label)}</option>`).join("");
     $("#modal-title").textContent = title;
     $("#modal-text").textContent = text; $("#modal-text").hidden = !text;
     inp.hidden = input === null; inp.value = input ?? "";
@@ -564,7 +583,7 @@ function dialog({ title, text = "", input = null, ok = "Tamam", danger = false }
     okBtn.style.background = danger ? "#E5484D" : ""; okBtn.style.borderColor = danger ? "#E5484D" : "";
     const done = v => { m.hidden = true; $("#modal-form").onsubmit = null; $("#modal-cancel").onclick = null; m.onclick = null; document.removeEventListener("keydown", esc); resolve(v); };
     const esc = e => { if (e.key === "Escape") done(input === null ? false : null); };
-    $("#modal-form").onsubmit = e => { e.preventDefault(); done(input === null ? true : inp.value.trim() || null); };
+    $("#modal-form").onsubmit = e => { e.preventDefault(); done(choices ? sel.value : input === null ? true : inp.value.trim() || null); };
     $("#modal-cancel").onclick = () => done(input === null ? false : null);
     m.onclick = e => { if (e.target === m) done(input === null ? false : null); };
     document.addEventListener("keydown", esc);
@@ -590,6 +609,8 @@ const pageName = n => (S.page_names && S.page_names[n]) || `Sayfa ${n}`;
 function sigLabel(sig) {
   if (PHYS_LABEL[sig]) return PHYS_LABEL[sig];
   if (sig.startsWith("BTN:")) return `Tuş ${sig.split(":")[1]}`;
+  const wm = sig.match(/^WEB:P(\d+)_B(\d+)$/);
+  if (wm) return `${(S.page_names && S.page_names["w" + wm[1]]) || L("Sayfa {0}").replace("{0}", wm[1])} · ${wm[2]}. buton`;
   for (const [p, list] of Object.entries(S.slots)) { const i = list.indexOf(sig); if (i >= 0) return `${pageName(p)} · ${i < 4 ? i + 1 : i}. buton`; }
   return sig;
 }
@@ -632,7 +653,8 @@ function renderAll() {
     : "Ayarlamak istediğin tuşa, ekran butonuna ya da tekerleğe tıkla";
   if (!REMOTE && S.first_run) showWelcome();
   $("#stage-hint").style.visibility = ui.selected && ui.mode === "edit" ? "hidden" : "visible";
-  renderTop(); renderLibrary(); renderScreen(); renderKeys(); renderInspector(); renderChangelog();
+  renderTop(); renderLibrary(); renderScreen(); renderKeys(); renderWheels(); renderInspector(); renderChangelog();
+  if ((S.extra_wheels || []).length && !ui.audio && !REMOTE) loadAudio().then(renderWheels);
   if (!REMOTE) { renderSettings(); if ($("#page-web").classList.contains("active")) renderWeb(); }
   else renderSettings();
 }
@@ -675,7 +697,35 @@ function renderLibrary() {
   });
   if (!box.children.length) box.innerHTML = `<p class="lib-hint">Bu aramayla eşleşen görev yok. Ayarlar &gt; Gelişmiş &gt; Eklentiler klasöründen yeni görev ekleyebilirsin.</p>`;
 }
+function isFreeGrid() { return S.app_mode === "web" && S.web_layout === "grid"; }
+function renderFreeGrid() {
+  const g = S.web_grid || { cols: 4, rows: 3, pages: 2 };
+  if (ui.page > g.pages) ui.page = 1;
+  const name = n => (S.page_names && S.page_names["w" + n]) || L("Sayfa {0}").replace("{0}", n);
+  const tabs = $("#screen-tabs"); tabs.innerHTML = "";
+  for (let n = 1; n <= g.pages; n++) {
+    const b = document.createElement("button"); b.textContent = name(n); b.setAttribute("role", "tab"); b.setAttribute("aria-selected", n === ui.page);
+    b.onclick = () => { ui.page = n; renderScreen(); };
+    if (!REMOTE) b.ondblclick = async () => { const v = await ask("Sayfa adı", name(n)); if (v !== null) act("page_name", { page: "w" + n, name: v }, "Sayfa adı kaydedildi"); };
+    tabs.append(b);
+  }
+  $(".screen").classList.add("free");
+  const slots = $("#slots"); slots.innerHTML = "";
+  slots.style.gridTemplateColumns = `repeat(${g.cols}, 1fr)`;
+  slots.style.gridTemplateRows = `repeat(${g.rows}, 1fr)`;
+  for (let i = 1; i <= g.cols * g.rows; i++) {
+    const sig = `WEB:P${ui.page}_B${i}`, cfg = S.buttons[sig];
+    const s = document.createElement("button"); s.className = "slot dropzone" + (cfg ? "" : " empty"); s.dataset.sig = sig;
+    s.innerHTML = cfg ? `${glyph(cfg)}<span class="lbl">${esc(cfg.btn_text || cfg.name)}</span>` : `<span class="em">＋</span><span class="lbl">Boş</span>`;
+    wireTarget(s); slots.append(s);
+  }
+  markSelected();
+}
 function renderScreen() {
+  if (isFreeGrid()) return renderFreeGrid();
+  $(".screen").classList.remove("free");
+  $("#slots").style.gridTemplateColumns = ""; $("#slots").style.gridTemplateRows = "";
+  if (ui.page > 4) ui.page = 1;
   const tabs = $("#screen-tabs"); tabs.innerHTML = "";
   [1, 2, 3, 4].forEach(n => {
     const b = document.createElement("button"); b.textContent = pageName(n); b.setAttribute("role", "tab"); b.setAttribute("aria-selected", n === ui.page);
@@ -702,6 +752,7 @@ function renderScreen() {
 }
 function renderKeys() {
   const box = $("#keys"); box.innerHTML = "";
+  box.hidden = S.app_mode === "web";   // 2.7.0: cihazsız kullanımda sadece ekran ızgarası
   for (let i = 1; i <= 5; i++) {
     const sig = `BTN:${i}`, cfg = S.buttons[sig];
     const k = document.createElement("button"); k.className = "key dropzone"; k.dataset.sig = sig;
@@ -715,6 +766,41 @@ function renderKeys() {
   $("#knob-label").innerHTML = `Çevir: ${esc(turnLabel)}<br>Bas: ${enc ? esc(enc.name) : "—"}`;
   markSelected();
 }
+/* 2.7.0: ekstra ses tekerlekleri (cihazlı ve web modunda) */
+function wheelLabel(target) {
+  return (ui.audio || []).find(o => o.value === target)?.label
+    || { general_volume: L("Genel ses"), active_window: L("Aktif pencere"), brightness: L("Parlaklık") }[target]
+    || String(target).replace("app_volume:", "").replace(/\.exe$/i, "");
+}
+async function chooseWheelTarget(current) {
+  if (!ui.audio) await loadAudio();
+  return dialog({ title: "Bu tekerlek neyi kontrol etsin?", choices: ui.audio && ui.audio.length ? ui.audio : [{ value: "general_volume", label: L("Genel ses") }], value: current, ok: "Kaydet" });
+}
+async function saveWheels(list, msg) { await act("settings", { key: "extra_wheels", value: list }, msg); }
+function renderWheels() {
+  const box = $("#wheels"); box.innerHTML = "";
+  const list = S.extra_wheels || [];
+  const editable = !REMOTE && ui.mode === "edit";
+  list.forEach((w, idx) => {
+    const d = document.createElement("div"); d.className = "wheel";
+    d.innerHTML = `<button class="knob" aria-label="${esc(wheelLabel(w.target))}"><span class="knob-face"></span></button><div class="knob-label" title="${esc(wheelLabel(w.target))}" data-no-i18n>${esc(wheelLabel(w.target))}</div>${editable ? `<button class="wedit" title="Düzenle">⋯</button>` : ""}`;
+    const k = d.querySelector(".knob");
+    makeKnob(k, d.querySelector(".knob-face"), n => api("volume", { steps: n, target: w.target }));
+    if (editable) d.querySelector(".wedit").onclick = async () => {
+      const choice = await dialog({ title: wheelLabel(w.target), choices: [{ value: "change", label: L("Hedefi değiştir") }, { value: "remove", label: L("Tekerleği kaldır") }], value: "change", ok: "Tamam" });
+      if (choice === "change") { const t = await chooseWheelTarget(w.target); if (t) { const n = list.slice(); n[idx] = { ...w, target: t }; saveWheels(n, "Tekerlek güncellendi"); } }
+      if (choice === "remove") { saveWheels(list.filter((_, i) => i !== idx), "Tekerlek kaldırıldı"); }
+    };
+    box.append(d);
+  });
+  if (editable && list.length < 6) {
+    const add = document.createElement("div"); add.className = "wheel add";
+    add.innerHTML = `<button title="Ses tekerleği ekle" aria-label="Ses tekerleği ekle">＋</button><div class="knob-label">Tekerlek ekle</div>`;
+    add.querySelector("button").onclick = async () => { const t = await chooseWheelTarget("general_volume"); if (t) saveWheels([...list, { id: Math.random().toString(36).slice(2, 8), target: t }], "Tekerlek eklendi"); };
+    box.append(add);
+  }
+}
+
 function wireTarget(node, once) {
   if (once && node.dataset.wired) return; node.dataset.wired = "1";
   node.addEventListener("click", () => {
@@ -900,6 +986,12 @@ function renderSettings() {
     ${S.app_mode === "web" ? `
     <div class="set-group"><h3>Cihaz</h3>
       <div class="mode-card"><span class="big">📱</span><div class="grow"><h4>NexDeck olmadan kullanıyorsun</h4><p>Telefonun ya da tabletin sanal NexDeck gibi çalışır: Web sayfasındaki QR'ı okut, tuşlara dokun, görevler bu bilgisayarda çalışsın.</p></div></div>
+      <div class="set-row"><div>Tuş düzeni<div class="desc">${S.web_layout === "grid" ? "Serbest ızgara: istediğin kadar tuş ve sayfa; telefonda kullanması rahat." : "Cihazla aynı: 4 sayfa; ileride NexDeck alınca atamalar birebir cihaza geçer."}</div></div>
+        <div class="seg"><button data-wl="device" aria-pressed="${S.web_layout !== "grid"}">Cihazla aynı</button><button data-wl="grid" aria-pressed="${S.web_layout === "grid"}">Serbest ızgara</button></div></div>
+      ${S.web_layout === "grid" ? `<div class="set-row"><div>Izgara boyutu</div><div class="row">
+        <select class="inp" data-wg="cols" data-no-i18n>${[2, 3, 4, 5, 6].map(v => `<option value="${v}" ${S.web_grid.cols === v ? "selected" : ""}>${v} ${L("sütun")}</option>`).join("")}</select>
+        <select class="inp" data-wg="rows" data-no-i18n>${[1, 2, 3, 4].map(v => `<option value="${v}" ${S.web_grid.rows === v ? "selected" : ""}>${v} ${L("satır")}</option>`).join("")}</select>
+        <select class="inp" data-wg="pages" data-no-i18n>${[1, 2, 3, 4, 5, 6, 7, 8].map(v => `<option value="${v}" ${S.web_grid.pages === v ? "selected" : ""}>${v} ${L("sayfa")}</option>`).join("")}</select></div></div>` : ""}
       <div class="mode-card"><span class="big">🛠️</span><div class="grow"><h4>NexDeck'i kendin yap</h4><p>Devre, kasa ve yazılım açık kaynak. Parça listesi, bağlantılar ve firmware GitHub'da; yaklaşık maliyet Stream Deck'in yarısı.</p></div><button class="btn" id="open-guide">Rehberi aç</button></div>
       <div class="mode-card"><span class="big">🔌</span><div class="grow"><h4>NexDeck'in hazır mı?</h4><p>Cihazı USB ile tak ve cihazlı sürüme geç. Tuş atamaların aynen kalır.</p></div><button class="btn primary" id="to-device">Cihazlı sürüme geç</button></div>
     </div>` : `
@@ -965,6 +1057,8 @@ function renderSettings() {
   if (q("#remove-legacy")) q("#remove-legacy").onclick = async () => { const r = await api("update", { op: "remove_legacy" }).catch(e => toast(e.message, true)); if (r) toast(r.started ? "Kaldırma başladı; Windows'un izin penceresini onayla" : "Kaldırma başlatılamadı (izin verilmedi)"); };
   q("#lang-select").onchange = async e => { await act("settings", { key: "language", value: e.target.value }); await loadLanguage(e.target.value); renderAll(); };
   if (q("#to-device")) q("#to-device").onclick = () => switchMode("device");
+  box.querySelectorAll("[data-wl]").forEach(b => b.onclick = () => { ui.page = 1; act("settings", { key: "web_layout", value: b.dataset.wl }, "Tuş düzeni değişti"); });
+  box.querySelectorAll("[data-wg]").forEach(sel => sel.onchange = () => act("settings", { key: "web_grid", value: { ...S.web_grid, [sel.dataset.wg]: Number(sel.value) } }, "Izgara güncellendi"));
   if (q("#to-web")) q("#to-web").onclick = () => switchMode("web");
   if (q("#open-guide")) q("#open-guide").onclick = () => act("ui", { op: "open_guide" });
 }
@@ -1161,51 +1255,39 @@ document.querySelectorAll(".modeswitch button").forEach(b => b.onclick = () => {
 /* ---------- tekerlek ---------- */
 // Eski web arayüzüyle aynı his: her 14° bir adım; saat yönü = artır. Adımlar 70 ms'de bir toplu gönderilir.
 const KNOB_STEP_DEG = 14;
-const knob = { rot: 0, acc: 0, pending: 0, timer: null };
-function setKnobRot(deg) { knob.rot = deg; $("#knob-face").style.setProperty("--rot", deg + "deg"); }
-function knobStep(n) {
-  knob.pending += n;
-  if (!knob.timer) knob.timer = setTimeout(flushKnob, 70);
-}
-async function flushKnob() {
-  const n = Math.max(-20, Math.min(20, knob.pending)); knob.pending = 0; knob.timer = null;
-  if (n) { try { await api("volume", { steps: n }); } catch (e) { toast(e.message, true); } }
-}
-function turnKnob(steps) { setKnobRot(knob.rot + steps * KNOB_STEP_DEG); knobStep(steps); }
-(function initKnob() {
-  const el = $("#knob");
+/* makeKnob: bir tekerlek düğmesini döndürülebilir yapar. send(steps) adımları sunucuya gönderir (70 ms'de bir toplu). */
+function makeKnob(el, face, send) {
+  const k = { rot: 0, acc: 0, pending: 0, timer: null };
+  k.setRot = deg => { k.rot = deg; face.style.setProperty("--rot", deg + "deg"); };
+  const flush = async () => {
+    const n = Math.max(-20, Math.min(20, k.pending)); k.pending = 0; k.timer = null;
+    if (n) { try { await send(n); } catch (e) { toast(e.message, true); } }
+  };
+  k.step = n => { k.pending += n; if (!k.timer) k.timer = setTimeout(flush, 70); };
+  k.turn = steps => { k.setRot(k.rot + steps * KNOB_STEP_DEG); k.step(steps); };
   const angle = e => { const r = el.getBoundingClientRect(); return Math.atan2(e.clientY - (r.top + r.height / 2), e.clientX - (r.left + r.width / 2)) * 180 / Math.PI; };
   const diff = (a, b) => { let d = a - b; while (d > 180) d -= 360; while (d < -180) d += 360; return d; };
   let drag = null;
-  el.addEventListener("pointerdown", e => {
-    if (e.button !== 0) return;
-    drag = { last: angle(e), moved: 0 };
-    el.setPointerCapture(e.pointerId);
-  });
+  el.addEventListener("pointerdown", e => { if (e.button !== 0) return; drag = { last: angle(e), moved: 0 }; el.setPointerCapture(e.pointerId); });
   el.addEventListener("pointermove", e => {
     if (!drag) return;
     const a = angle(e), d = diff(a, drag.last);
     drag.last = a; drag.moved += Math.abs(d);
-    if (drag.moved < 6) return;               // küçük kıpırdama tıklama sayılır
-    el.classList.add("dragging");
-    setKnobRot(knob.rot + d);
-    knob.acc += d;
-    while (Math.abs(knob.acc) >= KNOB_STEP_DEG) { const s = Math.sign(knob.acc); knob.acc -= s * KNOB_STEP_DEG; knobStep(s); }
+    if (drag.moved < 6) return;
+    el.classList.add("dragging"); k.setRot(k.rot + d); k.acc += d;
+    while (Math.abs(k.acc) >= KNOB_STEP_DEG) { const sgn = Math.sign(k.acc); k.acc -= sgn * KNOB_STEP_DEG; k.step(sgn); }
     e.preventDefault();
   });
-  const end = () => {
-    if (!drag) return;
-    if (drag.moved >= 6) el._dragEnd = performance.now();
-    drag = null; knob.acc = 0; el.classList.remove("dragging");
-  };
+  const end = () => { if (!drag) return; if (drag.moved >= 6) el._dragEnd = performance.now(); drag = null; k.acc = 0; el.classList.remove("dragging"); };
   el.addEventListener("pointerup", end);
   el.addEventListener("pointercancel", end);
-  el.addEventListener("wheel", e => { e.preventDefault(); turnKnob(e.deltaY < 0 ? 1 : -1); }, { passive: false });
-  el.addEventListener("keydown", e => {
-    const map = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1 };
-    if (map[e.key]) { e.preventDefault(); turnKnob(map[e.key]); }
-  });
-})();
+  el.addEventListener("wheel", e => { e.preventDefault(); k.turn(e.deltaY < 0 ? 1 : -1); }, { passive: false });
+  el.addEventListener("keydown", e => { const m = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1 }; if (m[e.key]) { e.preventDefault(); k.turn(m[e.key]); } });
+  return k;
+}
+const knob = makeKnob($("#knob"), $("#knob-face"), n => api("volume", { steps: n }));
+const setKnobRot = deg => knob.setRot(deg);
+const turnKnob = steps => knob.turn(steps);
 document.querySelectorAll("[data-vol]").forEach(b => b.onclick = () => turnKnob(Number(b.dataset.vol)));
 
 /* ---------- canlı: cihazdaki tuş ve tekerlek ekranda görünsün ---------- */

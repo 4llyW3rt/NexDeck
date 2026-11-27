@@ -3062,7 +3062,11 @@ class NexHubApp(QMainWindow):
             return
 
         enc_cfg = self.config.get("encoder", {})
-        turn_action = enc_cfg.get("turn", "general_volume")
+        self.apply_volume_steps(enc_cfg.get("turn", "general_volume"), steps)
+
+    def apply_volume_steps(self, turn_action, steps):
+        """Tekerlek adımlarını hedefe uygular (genel ses, aktif pencere, parlaklık ya da bir uygulama).
+        2.7.0: ekstra sanal tekerlekler de bunu kendi hedefleriyle çağırır."""
         delta = max(-0.20, min(0.20, steps * 0.01))  # her kademe %1, tek pakette en fazla %20
 
         # Ses işlemleri (COM/pycaw) arka thread'de; arayüz takılmaz.

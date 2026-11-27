@@ -157,8 +157,8 @@ NEXSTUDIO_PROVENANCE_MARKERS = [
     "NEXHUB:PROJECT_BRAND",
     "NEXSTUDIO:COMMUNITY_FREE_ONLY",
 ]
-NEXSTUDIO_BUILD_CHANNEL = "Public 2.6"
-NEXSTUDIO_BUILD_ID = "NEX-264-AMT"
+NEXSTUDIO_BUILD_CHANNEL = "Public 2.7"
+NEXSTUDIO_BUILD_ID = "NEX-270-AMT"
 # Zero-width provenance watermark; kişisel e-posta/handle içermez, çalışma akışını etkilemez.
 NEXSTUDIO_ZERO_WIDTH_WATERMARK = "​‌​‌‍​​‌‌‍‌​‌​‍​‌‌​‍‌‌​​"
 
@@ -172,6 +172,11 @@ NEXSTUDIO_ZERO_WIDTH_WATERMARK = "​‌​‌‍​​‌‌‍‌​‌​‍�
 # =========================================================
 NEXSTUDIO_CHANGELOG = {
     "tr": [
+        ("2.7", "28.11.2026", [
+            "Ekstra ses tekerlekleri: cihazın altına 6 taneye kadar sanal tekerlek ekle; her biri ayrı bir uygulamanın (ör. Discord, Spotify) sesini kontrol eder. Telefonda da çevrilebilir.",
+            "Web modunda tuş düzeni seçimi: 'Cihazla aynı' (4 sayfa, ileride cihaza birebir geçer) ya da 'Serbest ızgara' (2–6 sütun, 1–4 satır, 8 sayfaya kadar).",
+            "Web modunda alttaki fiziksel tuşlar gizlenir; sadece ekran ızgarası görünür.",
+        ]),
         ("2.6.4", "28.11.2026", [
             "Otomatik güncelleme: NexStudio günde bir kez yeni sürüme bakar, haber verir; tek tıkla indirir, SHA-256 ile doğrular, kurar ve yeniden açılır.",
             "Kurulum artık kullanıcı klasörüne yapılıyor: kurulum ve güncellemeler yönetici izni (UAC) istemiyor.",
@@ -271,6 +276,11 @@ NEXSTUDIO_CHANGELOG = {
         ]),
     ],
     "en": [
+        ("2.7", "2026-11-28", [
+            "Extra volume wheels: add up to 6 virtual wheels under the device; each controls its own app (e.g. Discord, Spotify). They turn on the phone too.",
+            "Key layout choice in web mode: 'Same as device' (4 pages, carries over to a NexDeck later) or 'Free grid' (2–6 columns, 1–4 rows, up to 8 pages).",
+            "In web mode the physical keys row is hidden; only the screen grid is shown.",
+        ]),
         ("2.6.4", "2026-11-28", [
             "Automatic updates: NexStudio checks for a new version once a day, lets you know, then downloads, verifies (SHA-256), installs and restarts with one click.",
             "NexStudio now installs into your user folder: installing and updating no longer ask for administrator permission (UAC).",
@@ -364,7 +374,7 @@ import traceback
 import shutil
 from PyQt5.QtCore import QObject
 
-APP_VERSION = "2.6.4"
+APP_VERSION = "2.7.0"
 ERROR_LOG_FILE = os.path.join(LOGS_DIR, "error.log")
 CONFIG_BACKUP_FILE = CONFIG_FILE + ".bak"
 WEB_HISTORY_LIMIT = 100

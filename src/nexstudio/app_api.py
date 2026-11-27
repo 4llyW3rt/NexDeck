@@ -293,6 +293,9 @@ class AppApi:
             "theme": {**DEFAULT_UI_THEME, **(cfg.get("ui_theme") or {})},
             "changelog": NEXSTUDIO_CHANGELOG.get(lang, NEXSTUDIO_CHANGELOG["en"]),
             "app_mode": cfg.get("app_mode", "device"),
+            "web_layout": cfg.get("web_layout", "device"),
+            "web_grid": cfg.get("web_grid") or {"cols": 4, "rows": 3, "pages": 2},
+            "extra_wheels": cfg.get("extra_wheels") or [],
             "first_run": bool(state.FIRST_RUN) and not cfg.get("welcome_done"),
             "languages": [{"code": c, "name": p["name"]} for c, p in load_language_packs().items()],
             "web_running": bool(win and win.mobile_thread and win.mobile_thread.is_running),
@@ -494,7 +497,7 @@ class AppApi:
     @classmethod
     def post_page_name(cls, body, remote):
         page = str(body.get("page", ""))
-        if page not in ("1", "2", "3", "4"):
+        if page not in ("1", "2", "3", "4") and page not in {f"w{i}" for i in range(1, 9)}:
             raise ValueError("Geçersiz sayfa")
         with CONFIG_LOCK:
             state.APP_CONFIG.setdefault("page_names", {})[page] = str(body.get("name", "")).strip()[:20]
@@ -517,6 +520,11 @@ class AppApi:
     def post_volume(cls, body, remote):
         steps = max(-20, min(20, int(body.get("steps", 0))))
         win = state.MAIN_WINDOW
+        target = str(body.get("target") or "")
+        if win and steps and target:
+            # 2.7.0: ekstra tekerlek kendi hedefini (ör. app_volume:Discord.exe) ayarlar
+            run_on_ui(lambda: win.apply_volume_steps(target, steps))
+            return {"ok": True}
         if win and steps:
             run_on_ui(lambda: (setattr(win, "encoder_pending_steps", win.encoder_pending_steps + steps),
                                win.process_encoder_pending_steps()))
@@ -578,11 +586,25 @@ class AppApi:
     def post_settings(cls, body, remote):
         key, value = body.get("key"), body.get("value")
         win = state.MAIN_WINDOW
-        if key not in ("start_with_win", "run_in_bg", "auto_connect", "key_send_mode", "language", "app_mode", "welcome_done", "dev_mode", "web_access_mode", "web_known_only", "update_check"):
+        if key not in ("start_with_win", "run_in_bg", "auto_connect", "key_send_mode", "language", "app_mode", "welcome_done", "dev_mode", "web_access_mode", "web_known_only", "update_check",
+                       "web_layout", "web_grid", "extra_wheels"):
             raise ValueError("Bilinmeyen ayar")
         if key == "app_mode":
             call_on_ui_sync(lambda: win.set_app_mode(value))
             return {"ok": True}
+        if key == "web_layout" and value not in ("device", "grid"):
+            raise ValueError("Bilinmeyen düzen")
+        if key == "web_grid":
+            try:
+                value = {"cols": max(2, min(6, int(value["cols"]))), "rows": max(1, min(4, int(value["rows"]))),
+                         "pages": max(1, min(8, int(value["pages"])))}
+            except (KeyError, TypeError, ValueError):
+                raise ValueError("Geçersiz ızgara")
+        if key == "extra_wheels":
+            if not isinstance(value, list) or len(value) > 6:
+                raise ValueError("En fazla 6 ekstra tekerlek eklenebilir")
+            value = [{"id": str(w.get("id", ""))[:20] or secrets.token_hex(4), "target": str(w.get("target", "general_volume"))[:120]}
+                     for w in value if isinstance(w, dict)]
         if key == "web_access_mode" and value not in ("pin", "approve", "pin_approve"):
             raise ValueError("Bilinmeyen erişim modu")
         if key == "language" and value not in load_language_packs():

@@ -5,7 +5,7 @@
 
 ![NexDeck](assets/main.jpg)
 
-## Öne çıkanlar (2.6)
+## Öne çıkanlar (2.7)
 
 - **Stream Deck tarzı arayüz:** cihaz ekranda birebir çizili; görevleri tuşlara sürükleyip bırak.
 - **Gerçek USB klavye modu:** NexDeck tuşları donanım klavyesi gibi basabilir; hile korumalı oyunlarda ve OBS'de güvenilir çalışır.
@@ -22,6 +22,8 @@
 
 | Sürüm | Tarih | Özet |
 |---|---|---|
+| [2.7](../../releases/tag/nexstudio-v2.7.0) | 28.11.2026 | Ekstra ses tekerlekleri, web modunda serbest ızgara |
+| [2.6.1 – 2.6.4](../../releases) | 28.11.2026 | Logo, odak modu, geliştirici modu, bağlanan cihazlar + engelleme + onay, otomatik güncelleme (UAC'siz kurulum) |
 | [2.6](../../releases/tag/nexstudio-v2.6.0) | 27.11.2026 | Web modu (cihazsız kullanım), karşılama ekranı, dil paketleri (EN, DE), donanım rehberi |
 | [2.5.1](../../releases/tag/nexstudio-v2.5.1) | 27.11.2026 | Kod modüllere bölündü, telefon bağlantısı (web portu) düzeltmesi |
 | [2.5](../../releases/tag/nexstudio-v2.5.0) | 27.11.2026 | Yeni arayüz, NexStudio Web, döndürülebilir tekerlek, canlı gösterim |

@@ -5,6 +5,21 @@ Uygulama içindeki "Güncelleme Rehberi" kartı da aynı bilgiyi kısaca göster
 
 ---
 
+## 2.7.0 — 28.11.2026 (Ekstra ses tekerlekleri, web modu ızgara seçimi)
+
+- **Ekstra ses tekerlekleri** (`config.json > extra_wheels`, en fazla 6): cihazın altında, hem cihazlı hem web modunda.
+  Her tekerlek kendi hedefini kontrol eder: genel ses, aktif pencere, parlaklık ya da bir uygulama (`app_volume:Discord.exe`).
+  Düzenle modunda "＋ Tekerlek ekle" ve tekerlek üzerindeki "⋯" (hedefi değiştir / kaldır). Telefonda da sürükleyerek çevrilir.
+  Çekirdek: ses mantığı `NexHubApp.apply_volume_steps(hedef, adım)` olarak ayrıldı; `/api2/volume` artık `target` alabilir.
+- **Web modu tuş düzeni** (`web_layout`): `device` (cihazla aynı, 4 sayfa) ya da `grid` (serbest ızgara, `web_grid`: 2–6 sütun, 1–4 satır,
+  1–8 sayfa). Serbest ızgara tuşları `WEB:P{sayfa}_B{n}` sinyalleriyle saklanır; sayfa adları çift tıklayarak değişir.
+- Web modunda fiziksel tuş sırası gizlenir.
+- Tekerlek kodu `makeKnob()` olarak yeniden kullanılabilir hale getirildi (ana tekerlek + ekstra tekerlekler).
+- Diyalog penceresine seçim listesi desteği.
+- Düzeltilen hata (yayın öncesi): "Güncelleme var" rozeti `local-only` sınıfı yüzünden güncelleme yokken de görünüyordu.
+
+---
+
 ## 2.6.4 — 28.11.2026 (Otomatik güncelleme, yönetici izni istemeyen kurulum)
 
 ### Neden

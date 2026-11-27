@@ -476,7 +476,9 @@ def load_config():
         "web_auto_start": False, "web_private_log": False, "web_known_only": False,
         "key_send_mode": "auto", "last_port_serial": "", "device_names": {},
         "ui_mode": "modern", "ui_theme": {},
-        "update_check": True,  # 2.6.4: günde bir GitHub'dan yeni sürüm kontrolü
+        "update_check": True,
+        # 2.7.0: web modu tuş düzeni ve ekstra ses tekerlekleri
+        "web_layout": "device", "web_grid": {"cols": 4, "rows": 3, "pages": 2}, "extra_wheels": [],  # 2.6.4: günde bir GitHub'dan yeni sürüm kontrolü
         "app_mode": "device",  # 2.6: "device" = NexDeck ile, "web" = cihazsız (telefon sanal NexDeck)
         "known_web_devices": {}, "web_access_history": [],
         "mobile_pin": "", "web_token": "", "logged_in_email": "",
