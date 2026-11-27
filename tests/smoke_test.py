@@ -1,7 +1,7 @@
 """NexStudio 2.0 duman testi: ayrı veri klasörüyle açar, temel akışları dener, ekran görüntüsü alır."""
 import os, sys, time, json, shutil
 
-SRC = sys.argv[1]
+SRC = os.path.abspath(sys.argv[1])
 DATA = sys.argv[2]
 OUT = sys.argv[3]
 os.environ["NEXSTUDIO_DATA_DIR"] = DATA
@@ -12,7 +12,9 @@ from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import QTimer
 
 app = QApplication(sys.argv)
-import nexstudio_ui as m
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _nex
+m = _nex.load()  # 2.5.1: kod nexstudio paketinde; tüm modüller tek ad alanında
 m.init_ui_bridge()
 win = m.NexHubApp()
 win.show()

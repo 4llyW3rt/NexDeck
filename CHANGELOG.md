@@ -5,6 +5,32 @@ Uygulama içindeki "Güncelleme Rehberi" kartı da aynı bilgiyi kısaca göster
 
 ---
 
+## 2.5.1 — 27.11.2026 (Modüllere bölme + port düzeltmesi)
+
+### Düzeltilen hata
+| Şikayet | Kök neden | Çözüm |
+|---|---|---|
+| Telefondan kontrol bazen "Yetkisiz" dönüyor / QR ile açılmıyor | Web sunucusu `SO_REUSEADDR` ile açılıyordu. Windows'ta bu, iki programın (ör. kurulu NexStudio + ikinci bir kopya) **aynı portu** dinlemesine izin veriyor. İstek yanlış programa gidiyordu. Boş port arayan fonksiyon da aynı ayar yüzünden dolu portu "boş" sanıyordu. | Port `SO_EXCLUSIVEADDRUSE` ile özel kullanımda; doluysa bir sonraki port seçilir. |
+
+### Kod yapısı
+`src/nexstudio_ui.py` (9600 satır) `src/nexstudio/` paketine bölündü. Davranış değişmedi; 18 duman testi, canlı olay ve SendInput testleri bölmeden önce ve sonra aynı sonucu verdi.
+
+| Modül | İçerik |
+|---|---|
+| `core` | kütüphaneler, dosya yolları, log, görev kuyruğu, SendInput tuş gönderimi, tek kopya |
+| `i18n` | dil sistemi |
+| `engine` | tuş/sinyal tanımları, hazır görevler, eklentiler, profiller, ayar dosyası, `execute_macro` |
+| `webserver` | telefondan kontrol (LAN) sunucusu |
+| `serial_link` | Arduino seri haberleşme |
+| `app_api` | yeni arayüzün yerel API'si, yerel sunucu, pencere işlemi |
+| `classic_widgets` / `classic_app` | klasik görünüm ve ana uygulama sınıfı `NexHubApp` |
+| `state` | modüller arasında paylaşılan değerler (`state.APP_CONFIG`, `state.MAIN_WINDOW` …) |
+
+Bölme `tools/split_modules.py` ile yapıldı: modüller arası isimler kod analiziyle (AST) bulunup açık import satırları üretildi.
+Bölme sırasında bulunan hata: `app_api.get_state` içindeki yerel `state` değişkeni yeni `state` modülünü gölgeliyordu; adı `result` yapıldı.
+
+---
+
 ## 2.5.0 — 27.11.2026 (Yeni arayüz)
 
 ### Mimari

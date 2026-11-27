@@ -5,7 +5,9 @@ os.environ["NEXSTUDIO_DATA_DIR"] = sys.argv[2]
 sys.path.insert(0, sys.argv[1])
 from PyQt5.QtWidgets import QApplication
 app = QApplication(sys.argv)
-import nexstudio_ui as m
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _nex
+m = _nex.load()  # 2.5.1: kod nexstudio paketinde; tüm modüller tek ad alanında
 
 user32 = ctypes.WinDLL("user32", use_last_error=True)
 kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
