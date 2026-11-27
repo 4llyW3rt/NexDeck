@@ -476,6 +476,7 @@ def load_config():
         "web_auto_start": False, "web_private_log": False, "web_known_only": False,
         "key_send_mode": "auto", "last_port_serial": "", "device_names": {},
         "ui_mode": "modern", "ui_theme": {},
+        "update_check": True,  # 2.6.4: günde bir GitHub'dan yeni sürüm kontrolü
         "app_mode": "device",  # 2.6: "device" = NexDeck ile, "web" = cihazsız (telefon sanal NexDeck)
         "known_web_devices": {}, "web_access_history": [],
         "mobile_pin": "", "web_token": "", "logged_in_email": "",

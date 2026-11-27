@@ -184,6 +184,9 @@ class NexHubApp(QMainWindow):
         self.ui_watch_timer = QTimer(self)
         self.ui_watch_timer.timeout.connect(self.check_ui_process)
         self.local_app = LocalAppServer()
+        # 2.6.4: arka planda güncelleme kontrolü (açılıştan 15 sn sonra, sonra günde bir)
+        from . import updater
+        updater.start_background_checks()
         if hasattr(self, "log_area"):
             self.log_area.document().setMaximumBlockCount(1500)
         flush_pending_ui_logs()

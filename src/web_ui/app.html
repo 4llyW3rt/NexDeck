@@ -288,6 +288,12 @@ body.hide-lib.hide-insp #page-device { grid-template-columns: 1fr; }
 .countdown { height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
 .countdown i { display: block; height: 100%; background: var(--accent); transition: width 1s linear; }
 
+/* 2.6.4: güncelleme */
+.update-chip { border: 0; border-radius: 999px; padding: 6px 12px; background: var(--accent); color: var(--accent-ink); font-weight: 600; cursor: pointer; }
+.progress { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; width: 160px; }
+.progress i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .3s; }
+.notes { max-height: 240px; overflow: auto; white-space: pre-wrap; font-size: 13px; line-height: 1.5; color: var(--muted); background: rgba(127,127,127,.08); border-radius: 10px; padding: 10px; margin: 0; }
+
 .offline { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(0,0,0,.6); z-index: 60; color: #fff; text-align: center; padding: 24px; }
 
 @media (max-width: 1180px) {
@@ -369,6 +375,7 @@ body.hide-lib.hide-insp #page-device { grid-template-columns: 1fr; }
         <button data-mode="control" aria-pressed="true">Kontrol</button>
         <button data-mode="edit" aria-pressed="false">Düzenle</button>
       </div>
+      <button class="update-chip local-only" id="update-chip" hidden>Güncelleme var</button>
       <div class="status"><span class="dot" id="dev-dot" aria-hidden="true"></span><span id="dev-text">Bağlanıyor…</span></div>
     </header>
 
@@ -906,6 +913,10 @@ function renderSettings() {
       ${S.profiles.map(p => `<div class="set-row"><div>${esc(p)}${p === S.active_profile ? ' <span class="small">· aktif</span>' : ""}</div><div class="row"><button class="btn ghost" data-pren="${esc(p)}">Adlandır</button><button class="btn ghost" data-pcopy="${esc(p)}">Kopyala</button>${S.profiles.length > 1 ? `<button class="btn ghost danger" data-pdel="${esc(p)}">Sil</button>` : ""}</div></div>`).join("")}
     </div>
     <div class="set-group"><h3>Genel</h3>
+      <div class="set-row"><div>NexStudio ${esc(S.version)}<div class="desc" id="upd-desc">${updateText()}</div></div>
+        <div class="row" id="upd-actions">${updateButtons()}</div></div>
+      <div class="set-row"><div>Güncellemeleri otomatik denetle<div class="desc">Günde bir kez GitHub'daki son sürüme bakar; yeni sürüm olunca haber verir.</div></div>${sw("update_check", upd.auto_check !== false)}</div>
+      ${(upd.legacy || []).length ? `<div class="mode-card"><span class="big">🧹</span><div class="grow"><h4>Eski kurulum bulundu</h4><p>Bilgisayarda eski bir NexStudio kopyası duruyor (Program Files). Kaldırmak için Windows bir kez yönetici izni sorar; ayarların ve tuş atamaların silinmez.</p></div><button class="btn" id="remove-legacy">Kaldır</button></div>` : ""}
       <div class="set-row"><div>Dil<div class="desc">Yeni dil eklemek için dil dosyasını Gelişmiş &gt; Diller klasörüne koy.</div></div>
         <select class="inp" id="lang-select" data-no-i18n>${(S.languages || []).map(l => `<option value="${esc(l.code)}" ${l.code === S.lang ? "selected" : ""}>${esc(l.name)}</option>`).join("")}</select></div>
       <div class="set-row"><div>Windows açılınca başlat</div>${sw("start_with_win", st.start_with_win)}</div>
@@ -921,7 +932,7 @@ function renderSettings() {
         <div class="set-row"><div>Hata günlüğü</div><button class="btn" id="open-logs">Günlüğü aç</button></div>
         <div class="set-row"><div>Klasik görünüm<div class="desc">Eski NexStudio arayüzü. Oradan Ayarlar &gt; "Yeni görünüme geç" ile geri dönebilirsin.</div></div><button class="btn" id="go-classic">Klasik görünüme geç</button></div>
         <div class="set-row"><div>Geliştirici modu<div class="desc">COM portu, firmware bilgisi ve Günlük sekmesini gösterir.</div></div>${sw("dev_mode", st.dev_mode)}</div>
-        <div class="set-row"><div>Sürüm</div><div class="small">NexStudio ${esc(S.version)}</div></div>
+
       </div>
     </details>`}`;
   const q = id => box.querySelector(id);
@@ -950,6 +961,8 @@ function renderSettings() {
   q("#open-logs").onclick = () => act("ui", { op: "open_logs" });
   q("#go-classic").onclick = () => act("ui", { op: "classic" }, "Klasik görünüm açılıyor…");
   q("#open-langs").onclick = () => act("ui", { op: "open_languages" });
+  wireUpdateButtons(box);
+  if (q("#remove-legacy")) q("#remove-legacy").onclick = async () => { const r = await api("update", { op: "remove_legacy" }).catch(e => toast(e.message, true)); if (r) toast(r.started ? "Kaldırma başladı; Windows'un izin penceresini onayla" : "Kaldırma başlatılamadı (izin verilmedi)"); };
   q("#lang-select").onchange = async e => { await act("settings", { key: "language", value: e.target.value }); await loadLanguage(e.target.value); renderAll(); };
   if (q("#to-device")) q("#to-device").onclick = () => switchMode("device");
   if (q("#to-web")) q("#to-web").onclick = () => switchMode("web");
@@ -1020,6 +1033,55 @@ function startLogs() { pollLogs(true); clearInterval(logs.timer); logs.timer = s
 $("#log-clear").onclick = () => { $("#log-live").textContent = ""; };
 $("#err-refresh").onclick = () => pollLogs(true);
 $("#err-open").onclick = () => act("ui", { op: "open_logs" });
+
+/* ---------- güncelleme (2.6.4) ---------- */
+let upd = {};
+function updateText() {
+  switch (upd.state) {
+    case "checking": return L("Güncellemeler denetleniyor…");
+    case "available": return L("Yeni sürüm var: {0}").replace("{0}", upd.latest);
+    case "downloading": return L("İndiriliyor… %{0}").replace("{0}", upd.progress || 0);
+    case "ready": return L("İndirildi ve doğrulandı; kuruluyor…");
+    case "installing": return L("Kuruluyor; NexStudio yeniden açılacak…");
+    case "uptodate": return L("Güncel");
+    case "error": return upd.error || L("Güncelleme denetlenemedi");
+    default: return L("Güncellemeleri denetlemek için butona bas.");
+  }
+}
+function updateButtons() {
+  if (upd.state === "available") return `<button class="btn ghost" id="upd-notes">Neler yeni?</button><button class="btn primary" id="upd-install">${upd.can_install ? "Güncelle" : "İndir ve doğrula"}</button>`;
+  if (upd.state === "downloading") return `<div class="progress"><i style="width:${upd.progress || 0}%"></i></div>`;
+  if (["ready", "installing", "checking"].includes(upd.state)) return "";
+  return `<button class="btn" id="upd-check">Güncellemeleri denetle</button>`;
+}
+function wireUpdateButtons(root) {
+  const q = id => root.querySelector(id);
+  if (q("#upd-check")) q("#upd-check").onclick = async () => { await api("update", { op: "check" }).catch(() => {}); upd.state = "checking"; paintUpdate(); };
+  if (q("#upd-install")) q("#upd-install").onclick = installUpdate;
+  if (q("#upd-notes")) q("#upd-notes").onclick = showUpdateNotes;
+}
+function paintUpdate() {
+  $("#update-chip").hidden = REMOTE || upd.state !== "available";
+  $("#update-chip").textContent = L("Güncelleme var: {0}").replace("{0}", upd.latest || "");
+  const d = $("#upd-desc"), a = $("#upd-actions");
+  if (d) d.textContent = updateText();
+  if (a) { a.innerHTML = updateButtons(); wireUpdateButtons(a); }
+}
+async function pollUpdate() {
+  if (REMOTE || document.hidden) return;
+  try { upd = await api("update"); paintUpdate(); } catch (e) {}
+}
+async function showUpdateNotes() {
+  const ok = await dialog({ title: L("NexStudio {0}").replace("{0}", upd.latest), text: (upd.notes || "").replace(/\*\*|`/g, "").replace(/SHA-256:.*$/m, "").trim(), ok: upd.can_install ? "Güncelle" : "İndir ve doğrula" });
+  if (ok) installUpdate();
+}
+async function installUpdate() {
+  if (!(await dialog({ title: "Güncelleme kurulsun mu?", text: "NexStudio kapanıp yeni sürüm kurulacak ve yeniden açılacak. Ayarların ve tuş atamaların korunur.", ok: "Güncelle" }))) return;
+  await api("update", { op: "install" }).catch(e => toast(e.message, true));
+  upd.state = "downloading"; upd.progress = 0; paintUpdate();
+}
+$("#update-chip").onclick = showUpdateNotes;
+if (!REMOTE) { pollUpdate(); setInterval(() => { if (["checking", "downloading", "ready", "installing"].includes(upd.state) || Math.random() < .05) pollUpdate(); }, 1000); }
 
 /* ---------- bağlantı onayı (2.6.3) ---------- */
 let approving = null;

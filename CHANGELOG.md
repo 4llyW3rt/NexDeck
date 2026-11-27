@@ -5,6 +5,33 @@ Uygulama içindeki "Güncelleme Rehberi" kartı da aynı bilgiyi kısaca göster
 
 ---
 
+## 2.6.4 — 28.11.2026 (Otomatik güncelleme, yönetici izni istemeyen kurulum)
+
+### Neden
+Kurulum `Program Files`'a yapıldığı için her güncellemede Windows yönetici izni (UAC) soruyordu; bu, otomatik
+güncellemeyi ve gece kurulumlarını imkânsız kılıyordu.
+
+### Kurulum
+- Inno Setup: `PrivilegesRequired=lowest` → `%LOCALAPPDATA%\Programs\NexStudio` (Chrome / Discord / VS Code gibi).
+  Kurulum ve güncelleme UAC sormaz. Ayarlar (`%APPDATA%\NexStudio`) aynı yerde kalır.
+- `UsePreviousAppDir=no`: eski yönetici kurulumunun yolu kullanılmaz.
+- Eski `Program Files` / `Program Files (x86)` kopyası bulunursa Ayarlar'da **Kaldır** kartı çıkar (kaldırıcıyı bir kez yönetici izniyle çalıştırır).
+
+### Otomatik güncelleme (`src/nexstudio/updater.py`)
+- Açılıştan 15 sn sonra ve günde bir kez `releases/latest` sorgulanır (hesap/anahtar gerekmez). Ayarlar'dan kapatılabilir.
+- Yeni sürüm: üst çubukta "Güncelleme var" rozeti + tray bildirimi; "Neler yeni?" sürüm notlarını gösterir.
+- **Güncelle:** kurulum dosyası sadece `https://github.com/4llyW3rt/NexDeck/releases/download/` adresinden indirilir,
+  release'teki `.sha256` dosyasıyla doğrulanır (tutmazsa silinir, kurulmaz), NexStudio kapanır, kurulum
+  `/VERYSILENT` çalışır ve yeni sürüm açılır.
+- Kaynaktan çalışırken sadece indirip doğrular, kurmaz.
+- Yayın betiği her sürüme `NexStudio_Setup_x_y_z.exe.sha256` dosyasını ekler (2.6.1'den beri).
+
+### Test
+`tests/update_test.py` (gerçek GitHub'a karşı): eski sürüm gibi davranıp yeni sürümü bulma, resmi adres kontrolü,
+37 MB indirme + SHA-256 doğrulama, sahte doğrulama kodunun reddi, başka adresten indirmenin engellenmesi — 7/7.
+
+---
+
 ## 2.6.3 — 28.11.2026 (Bağlanan cihazlar, engelleme, onay)
 
 ### Düzeltilen eksik

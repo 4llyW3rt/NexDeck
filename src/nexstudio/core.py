@@ -158,7 +158,7 @@ NEXSTUDIO_PROVENANCE_MARKERS = [
     "NEXSTUDIO:COMMUNITY_FREE_ONLY",
 ]
 NEXSTUDIO_BUILD_CHANNEL = "Public 2.6"
-NEXSTUDIO_BUILD_ID = "NEX-263-AMT"
+NEXSTUDIO_BUILD_ID = "NEX-264-AMT"
 # Zero-width provenance watermark; kişisel e-posta/handle içermez, çalışma akışını etkilemez.
 NEXSTUDIO_ZERO_WIDTH_WATERMARK = "​‌​‌‍​​‌‌‍‌​‌​‍​‌‌​‍‌‌​​"
 
@@ -172,6 +172,11 @@ NEXSTUDIO_ZERO_WIDTH_WATERMARK = "​‌​‌‍​​‌‌‍‌​‌​‍�
 # =========================================================
 NEXSTUDIO_CHANGELOG = {
     "tr": [
+        ("2.6.4", "28.11.2026", [
+            "Otomatik güncelleme: NexStudio günde bir kez yeni sürüme bakar, haber verir; tek tıkla indirir, SHA-256 ile doğrular, kurar ve yeniden açılır.",
+            "Kurulum artık kullanıcı klasörüne yapılıyor: kurulum ve güncellemeler yönetici izni (UAC) istemiyor.",
+            "Program Files'ta kalan eski kopya için Ayarlar'da tek tıkla kaldırma önerisi.",
+        ]),
         ("2.6.3", "28.11.2026", [
             "Web sayfasında bağlanan tüm cihazlar: şu an bağlı olanlar, son görülme, hatırlananlar.",
             "Her cihaz için Bağlantıyı kes, Engelle / Engeli kaldır, İzin ver, Adlandır, Unut.",
@@ -266,6 +271,11 @@ NEXSTUDIO_CHANGELOG = {
         ]),
     ],
     "en": [
+        ("2.6.4", "2026-11-28", [
+            "Automatic updates: NexStudio checks for a new version once a day, lets you know, then downloads, verifies (SHA-256), installs and restarts with one click.",
+            "NexStudio now installs into your user folder: installing and updating no longer ask for administrator permission (UAC).",
+            "Settings offer a one-click removal of an old copy left in Program Files.",
+        ]),
         ("2.6.3", "2026-11-28", [
             "The Web page lists every device that connected: online now, last seen, remembered.",
             "Per device: Disconnect, Block / Unblock, Allow, Rename, Forget.",
@@ -354,7 +364,7 @@ import traceback
 import shutil
 from PyQt5.QtCore import QObject
 
-APP_VERSION = "2.6.3"
+APP_VERSION = "2.6.4"
 ERROR_LOG_FILE = os.path.join(LOGS_DIR, "error.log")
 CONFIG_BACKUP_FILE = CONFIG_FILE + ".bak"
 WEB_HISTORY_LIMIT = 100

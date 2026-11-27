@@ -2,7 +2,11 @@
 
 """Yeni arayüzün yerel API'si (AppApi), yerel sunucu ve arayüz penceresi işlemi."""
 from . import state
+from . import updater
 from .core import (  # noqa: F401
+    threading,
+    sys,
+    run_on_ui,
     ctypes,
     wintypes,
     webbrowser,
@@ -226,7 +230,7 @@ def APP_CONFIG_LANG():
 class AppApi:
     """Yeni arayüzün kullandığı JSON API. remote=True: telefondan (LAN) gelen istek, kısıtlı yetki."""
 
-    LOCAL_ONLY = {"device", "web", "known_device", "ui", "settings", "bg_image", "theme", "logs", "approval"}
+    LOCAL_ONLY = {"device", "web", "known_device", "ui", "settings", "bg_image", "theme", "logs", "approval", "update"}
 
     @classmethod
     def dispatch(cls, method, endpoint, body, remote=False):
@@ -351,6 +355,36 @@ class AppApi:
             except FileNotFoundError:
                 result["errors"] = ""
         return result
+
+    # ----- güncelleme (2.6.4) -----
+    @classmethod
+    def get_update(cls, body, remote):
+        st = updater.status()
+        st["ok"] = True
+        st["legacy"] = updater.legacy_installs() if getattr(sys, "frozen", False) else []
+        st["auto_check"] = bool(state.APP_CONFIG.get("update_check", True))
+        return st
+
+    @classmethod
+    def post_update(cls, body, remote):
+        op = body.get("op")
+        if op == "check":
+            threading.Thread(target=updater.check, kwargs={"manual": True}, daemon=True).start()
+        elif op == "install":
+            def _job():
+                try:
+                    path = updater.download_and_verify()
+                    if getattr(sys, "frozen", False):
+                        updater.install(path, lambda: run_on_ui(state.MAIN_WINDOW.force_quit))
+                except Exception:
+                    pass  # hata STATUS'ta; arayüz gösterir
+            threading.Thread(target=_job, name="NexUpdateInstall", daemon=True).start()
+        elif op == "remove_legacy":
+            started = updater.remove_legacy_installs()
+            return {"ok": True, "started": started}
+        else:
+            raise ValueError("Bilinmeyen işlem")
+        return {"ok": True}
 
     @classmethod
     def get_lang(cls, body, remote):
@@ -544,7 +578,7 @@ class AppApi:
     def post_settings(cls, body, remote):
         key, value = body.get("key"), body.get("value")
         win = state.MAIN_WINDOW
-        if key not in ("start_with_win", "run_in_bg", "auto_connect", "key_send_mode", "language", "app_mode", "welcome_done", "dev_mode", "web_access_mode", "web_known_only"):
+        if key not in ("start_with_win", "run_in_bg", "auto_connect", "key_send_mode", "language", "app_mode", "welcome_done", "dev_mode", "web_access_mode", "web_known_only", "update_check"):
             raise ValueError("Bilinmeyen ayar")
         if key == "app_mode":
             call_on_ui_sync(lambda: win.set_app_mode(value))
