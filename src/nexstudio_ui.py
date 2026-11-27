@@ -36,6 +36,7 @@ import sys
 import os
 import re
 import json
+import copy
 import subprocess
 import time
 import winreg
@@ -48,7 +49,10 @@ import serial.tools.list_ports
 import socket
 import secrets
 import string
-from http.server import BaseHTTPRequestHandler, HTTPServer
+import hashlib
+import base64
+from datetime import datetime, timedelta
+from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 import urllib.parse
 
 from PyQt5.QtWidgets import (
@@ -58,7 +62,7 @@ from PyQt5.QtWidgets import (
     QSystemTrayIcon, QMenu, QAction, QScrollArea, QFrame, QSizePolicy, QFileDialog, QInputDialog, QSplitter, QDialog, QStackedWidget, QGraphicsOpacityEffect
 )
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer, QPropertyAnimation, QEasingCurve, pyqtProperty, QRect, QPoint
-from PyQt5.QtGui import QFont, QCursor, QColor, QIcon, QPixmap, QImage, QPainter, QPen
+from PyQt5.QtGui import QFont, QCursor, QColor, QIcon, QPixmap, QImage, QPainter, QPen, QPalette
 
 # =========================================================
 # 1. EKSTRA KÜTÜPHANE KONTROLLERİ
@@ -103,16 +107,53 @@ def get_resource_path(relative_path):
 
 APP_DIR = get_appdata_path()
 CONFIG_FILE = os.path.join(APP_DIR, "config.json")
+LOGS_DIR = os.path.join(APP_DIR, "logs")
 PLUGINS_DIR = os.path.join(APP_DIR, "plugins")
 LOCALES_DIR = os.path.join(APP_DIR, "locales")
 NIRCMD_PATH = get_resource_path("nircmd.exe")
 APP_ICON_PATH = get_resource_path("app_icon.ico")
+NEXSTUDIO_LOGO_CANDIDATES = ["Logo.png", "logo.png", "nexstudio_logo.png", "app_logo.png", "Logo(1).png"]
+
+def find_nexstudio_logo_path():
+    """Web arayüzü için logo dosyasını birkaç olası isimden güvenli şekilde bulur."""
+    for logo_name in NEXSTUDIO_LOGO_CANDIDATES:
+        try:
+            logo_path = get_resource_path(logo_name)
+            if os.path.exists(logo_path):
+                return logo_path
+        except Exception:
+            pass
+    return ""
+
+def get_nexstudio_logo_data_uri():
+    """Logoyu web HTML içine gömülebilecek data URI olarak döndürür; paketlemede dosya yolu kaybolsa bile çalışır."""
+    try:
+        logo_path = find_nexstudio_logo_path()
+        if not logo_path:
+            return ""
+        ext = os.path.splitext(logo_path)[1].lower().replace(".", "") or "png"
+        if ext == "jpg":
+            ext = "jpeg"
+        with open(logo_path, "rb") as f:
+            encoded = base64.b64encode(f.read()).decode("ascii")
+        return f"data:image/{ext};base64,{encoded}"
+    except Exception:
+        return ""
+
+def get_nexstudio_logo_html():
+    """Web arayüzlerinde logo bulunursa görseli, bulunamazsa sade N işaretini döndürür."""
+    src = get_nexstudio_logo_data_uri()
+    if src:
+        return f'<img src="{src}" alt="NexStudio">'
+    return '<span>N</span>'
+
+NEXSTUDIO_LOGO_PATH = find_nexstudio_logo_path()
 NEXHUB_YOUTUBE_CHANNEL = "https://www.youtube.com/@NexHubCo"
 
 # Gizli sahiplik işaretleri / telif doğrulama notları
 NEXSTUDIO_LICENSE_NAME = "NEXSTUDIO ÖZGÜR YAZILIM LİSANSI (NPL-v2)"
 NEXSTUDIO_COPYRIGHT = "Telif Hakkı (c) 2026 - Ali Mert Taşcı / NexHub"
-NEXSTUDIO_OWNER_SIGNATURE = "Ali Mert Taşcı|@tatarmantan|tatarmantan@gmail.com"
+NEXSTUDIO_OWNER_SIGNATURE = "Ali Mert Taşcı|NexHub|NexStudio"
 NEXSTUDIO_PROVENANCE_MARKERS = [
     "NPL-v2:AMT:CORE",
     "NEXSTUDIO:AUTHOR:ALI_MERT_TASCI",
@@ -120,6 +161,10 @@ NEXSTUDIO_PROVENANCE_MARKERS = [
     "NEXHUB:PROJECT_BRAND",
     "NEXSTUDIO:COMMUNITY_FREE_ONLY",
 ]
+NEXSTUDIO_BUILD_CHANNEL = "Public 1.5 Final"
+NEXSTUDIO_BUILD_ID = "NEX-15-FINAL-AMT"
+# Zero-width provenance watermark; kişisel e-posta/handle içermez, çalışma akışını etkilemez.
+NEXSTUDIO_ZERO_WIDTH_WATERMARK = "​‌​‌‍​​‌‌‍‌​‌​‍​‌‌​‍‌‌​​"
 
 # =========================================================
 # GÜNCELLEME REHBERİ / CHANGELOG
@@ -130,21 +175,32 @@ NEXSTUDIO_PROVENANCE_MARKERS = [
 # =========================================================
 NEXSTUDIO_CHANGELOG = {
     "tr": [
-        ("06.06.2026", "Arayüz düzeni sadeleştirildi; ikonlar, başlıklar ve gezinme yapısı daha okunaklı hale getirildi."),
-        ("06.06.2026", "Tekerlek ayarı yalnızca Tekerlek Butonu panelinden yönetilecek şekilde düzenlendi."),
-        ("06.06.2026", "Ses kontrolü %1 adımlı hale getirildi ve Windows ses karıştırıcısı ile daha uyumlu çalışacak şekilde yenilendi."),
-        ("06.06.2026", "Web Kontrolü ve Hesap özellikleri ayrıştırıldı; geliştirme aşamasındaki bölümler kullanıcı için daha net gösterildi."),
+        ("18.06.2026", "NexStudio 1.5 Final hazırlandı; Web Kontrolü, cihaz güvenliği, günlük yönetimi ve paketleme tarafı yayın adayı seviyesine getirildi."),
+        ("18.06.2026", "Web Kontrolü sayfası sadeleştirildi; PIN, bağlantı ve QR gibi gizli bilgiler ayrı güvenli panelde yönetilecek şekilde düzenlendi."),
+        ("18.06.2026", "QR büyütme, bağlantı kopyalama, PIN yenileme ve QR/link yenileme araçları daha anlaşılır hale getirildi."),
+        ("18.06.2026", "Tanınan cihaz sistemi eklendi; kullanıcı onayıyla kaydedilen cihazlar aynı tarayıcıdan PIN girmeden bağlanabilir."),
+        ("18.06.2026", "Hatalı PIN ekranı yenilendi; 5 hatalı denemeden sonra geri sayımlı geçici kilitleme sistemi eklendi."),
+        ("18.06.2026", "Başarılı girişler, hatalı PIN denemeleri ve yetkisiz web istekleri sistem günlüğüne ve web geçmişine kaydedilecek şekilde geliştirildi."),
+        ("18.06.2026", "Sistem günlüğü gizlenebilir hale getirildi; günlük temizleme, TXT dışa aktarma ve 7 günden eski kayıtları otomatik silme özellikleri eklendi."),
+        ("18.06.2026", "Web Kontrolü ve Ayarlar ekranları ayrıştırıldı; son bağlantı, tanınan cihazlar, IP gizleme ve sadece tanınan cihazlara izin verme seçenekleri düzenlendi."),
+        ("18.06.2026", "Uygulama/tray simgesi, arka plandan geri açılış, tam ekran arka plan davranışı ve PyInstaller/Inno Setup paketleme hazırlıkları iyileştirildi."),
     ],
     "en": [
-        ("2026-06-06", "The interface layout was simplified; icons, headings, and navigation were made easier to read."),
-        ("2026-06-06", "Wheel settings are now managed only from the Wheel Button panel."),
-        ("2026-06-06", "Volume control now works in 1% steps and is better aligned with the Windows volume mixer."),
-        ("2026-06-06", "Web Control and Account features were separated and marked clearly as in-development areas."),
+        ("2026-06-18", "NexStudio 1.5 Final was prepared; Web Control, device security, log management, and packaging were brought to release-candidate quality."),
+        ("2026-06-18", "The Web Control page was simplified; PIN, link, and QR details are now managed in a separate secure panel."),
+        ("2026-06-18", "QR enlarge, link copy, PIN refresh, and QR/link refresh tools were made clearer."),
+        ("2026-06-18", "Trusted devices were added; user-approved devices can reconnect from the same browser without entering the PIN."),
+        ("2026-06-18", "The wrong-PIN screen was improved; a timed lockout starts after 5 failed attempts."),
+        ("2026-06-18", "Successful logins, failed PIN attempts, and unauthorized web requests are now recorded in the system log and web history."),
+        ("2026-06-18", "The system log can now be hidden, cleared, exported as TXT, and old log files are cleaned automatically after 7 days."),
+        ("2026-06-18", "Web Control and Settings were separated more clearly; last connection, trusted devices, IP privacy, and trusted-device-only options were organized."),
+        ("2026-06-18", "App/tray icon handling, background restore behavior, fullscreen background painting, and PyInstaller/Inno Setup packaging were improved."),
     ],
 }
 
 if not os.path.exists(PLUGINS_DIR): os.makedirs(PLUGINS_DIR)
 if not os.path.exists(LOCALES_DIR): os.makedirs(LOCALES_DIR)
+if not os.path.exists(LOGS_DIR): os.makedirs(LOGS_DIR)
 
 # =========================================================
 # 3. DİL SİSTEMİ (ÇEVİRİLER)
@@ -161,7 +217,7 @@ DEFAULT_TRANSLATIONS = {
         "screen_text": "Ekranda Görünecek Yazı:", "save_screen": "💾 Ekran Butonuna Kaydet",
         "appearance": "Görünüm", "accent_color": "Uygulama Vurgu Rengi:",
         "choose_color": "Renk Seç", "reset_color": "Varsayılan renge dön", "system": "Sistem", "start_win": "Windows ile Başlat", "run_bg": "Kapatınca Arka Planda Çalış",
-        "mobile_server": "📱 Mobil Sunucuyu Başlat", "mobile_stop": "📱 Mobil Sunucuyu Durdur", "copy_web_url": "🔗 Web bağlantısını kopyala", "web_url_copied": "Web bağlantısı kopyalandı",
+        "mobile_server": "📱 Mobil Sunucuyu Başlat", "mobile_stop": "📱 Mobil Sunucuyu Durdur",
         "language": "Uygulama Dili:", "plugin_manage": "Eklenti (Plugin) Yönetimi", "open_plugins": "📂 Eklenti Klasörünü Aç",
         "open_locales": "🌍 Dil Klasörünü Aç", "danger_zone": "Tehlikeli Bölge", "factory_reset": "⚠️ Tüm Tuşları Fabrika Ayarlarına Sıfırla",
         "success": "Başarılı", "saved": "Ayarlar başarıyla kaydedildi!", "saved_short": "Kaydedildi",
@@ -281,7 +337,7 @@ DEFAULT_TRANSLATIONS = {
         "screen_text": "Text on Screen:", "save_screen": "💾 Save Screen Button",
         "appearance": "Appearance", "accent_color": "App Accent Color:",
         "choose_color": "Choose Color", "reset_color": "Reset color", "system": "System", "start_win": "Start with Windows", "run_bg": "Run in Background",
-        "mobile_server": "📱 Start Mobile Server", "mobile_stop": "📱 Stop Mobile Server", "copy_web_url": "🔗 Copy web link", "web_url_copied": "Web link copied",
+        "mobile_server": "📱 Start Mobile Server", "mobile_stop": "📱 Stop Mobile Server",
         "language": "App Language:", "plugin_manage": "Plugin Management", "open_plugins": "📂 Open Plugin Folder",
         "open_locales": "🌍 Open Language Folder", "danger_zone": "Danger Zone", "factory_reset": "⚠️ Factory Reset All Keys",
         "success": "Success", "saved": "Settings saved successfully!", "saved_short": "Saved",
@@ -495,10 +551,192 @@ def get_physical_buttons():
         "ENC:BTN": tr("enc_btn")
     }
 
-NEXTION_OBJ_MAP = {
-    3:["b0", "b1", "b2", "b3", "b7", "b4", "b5", "b6"],
-    4:["b1", "b2", "b3", "b4", "b0", "b5", "b7", "b6"]
+# Nextion ekrandan GELEN GERÇEK sinyaller.
+# Bundan sonra dokunmatik görevleri bu sinyal adlarına göre kaydedilir ve çalıştırılır.
+# Fiziksel tuşlar/encoder bu yapıdan bağımsızdır.
+TOUCH_PAGE_SIGNALS = {
+    1: [
+        "NEX:MIC_TOGGLE",
+        "NEX:DESK_TOGGLE",
+        "NEX:CAM_TOGGLE",
+        "NEX:LIVE_TOGGLE",
+        "NEX:SCENE_1",
+        "NEX:SCENE_2",
+        "NEX:SCENE_3",
+    ],
+    2: [
+        "NEX:MEDIA_PREV",
+        "NEX:MEDIA_PP",
+        "NEX:MEDIA_NEXT",
+        "NEX:REC_TOGGLE",
+        "NEX:OPEN_YT",
+        "NEX:OPEN_KICK",
+    ],
+    3: [
+        "NEX:P3_B1",
+        "NEX:P3_B2",
+        "NEX:P3_B3",
+        "NEX:P3_B4",
+        "NEX:P3_B5",
+        "NEX:P3_B6",
+    ],
+    4: [
+        "NEX:P4_B1",
+        "NEX:P4_B2",
+        "NEX:P4_B3",
+        "NEX:P4_B4",
+        "NEX:P4_B5",
+        "NEX:P4_B6",
+    ],
 }
+
+# UI'da 8 slot var; bazı slotlar ileri/geri sayfa tuşu ve görev almaz.
+# Bu eşleşme sadece uygulamadaki görsel slotu gerçek Nextion görev sinyaline bağlar.
+TOUCH_UI_SLOT_TO_SIGNAL = {
+    1: {
+        0: "NEX:MIC_TOGGLE",
+        1: "NEX:DESK_TOGGLE",
+        2: "NEX:CAM_TOGGLE",
+        3: "NEX:LIVE_TOGGLE",
+        4: "NEX:SCENE_1",
+        5: "NEX:SCENE_2",
+        6: "NEX:SCENE_3",
+    },
+    2: {
+        0: "NEX:MEDIA_PREV",
+        1: "NEX:MEDIA_PP",
+        2: "NEX:MEDIA_NEXT",
+        3: "NEX:REC_TOGGLE",
+        # slot 4 geri tuşudur
+        5: "NEX:OPEN_YT",
+        6: "NEX:OPEN_KICK",
+        # slot 7 ileri tuşudur
+    },
+    3: {
+        0: "NEX:P3_B1",
+        1: "NEX:P3_B2",
+        2: "NEX:P3_B3",
+        3: "NEX:P3_B4",
+        # slot 4 geri tuşudur
+        5: "NEX:P3_B5",
+        6: "NEX:P3_B6",
+        # slot 7 ileri tuşudur
+    },
+    4: {
+        0: "NEX:P4_B1",
+        1: "NEX:P4_B2",
+        2: "NEX:P4_B3",
+        3: "NEX:P4_B4",
+        # slot 4 geri tuşudur
+        5: "NEX:P4_B5",
+        6: "NEX:P4_B6",
+        # slot 7 ileri tuşudur / son sayfada pasif
+    },
+}
+
+# Sayfa 3-4'te ekrana yazı göndermek için UI slotundan gerçek Nextion obje adına gideriz.
+# Bu sadece ekran yazısı güncelleme içindir; görev çalıştırma için sinyal çevrilmez.
+NEXTION_TEXT_OBJ_BY_SLOT = {
+    # Sadece Nextion ekranındaki yazıları güncellemek için kullanılır.
+    # Görev çalıştırma tarafı cihazdan gelen gerçek sinyalleri kullanır.
+    3: {
+        0: "b0",
+        1: "b1",
+        2: "b2",
+        3: "b3",
+        5: "b4",  # P3_B5
+        6: "b5",  # P3_B6; b6 ileri tuşu olduğu için buraya yazılmamalı
+    },
+    4: {
+        0: "b1",
+        1: "b2",
+        2: "b3",
+        3: "b4",
+        5: "b5",
+        6: "b7",  # P4_B6 yazısı buraya gitmeli; b6 ileri tuşuna yazıyordu
+    },
+}
+
+# Reset sırasında daha önce yanlışlıkla yazı gitmiş olabilecek tüm b0-b7 objelerini temizliyoruz.
+NEXTION_TEXT_RESET_OBJS = {
+    3: ["b0", "b1", "b2", "b3", "b4", "b5", "b6", "b7"],
+    4: ["b0", "b1", "b2", "b3", "b4", "b5", "b6", "b7"],
+}
+
+def is_valid_user_task(cfg):
+    return bool(isinstance(cfg, dict) and cfg.get("action"))
+
+def should_ignore_serial_signal(data):
+    if not isinstance(data, str):
+        return False
+    data = data.strip()
+    return (
+        not data
+        or data.startswith("DEBUG_NEX_SENT:")
+        or data.startswith("NEXCMD:")
+        or data.startswith("page")
+    )
+
+def resolve_nextion_signal(data, buttons_cfg):
+    """
+    Dokunmatik ekran sinyalinde çeviri yapmaz.
+    Nextion hangi sinyali gönderiyorsa görev o anahtarda aranır.
+    """
+    if not isinstance(data, str):
+        return data
+    return data.strip()
+
+
+
+    data = data.strip()
+
+    # Direkt kayıt her zaman öncelikli.
+    if is_valid_user_task(buttons_cfg.get(data)):
+        return data
+
+    # Sayfa 3-4 obje adı / UI sıra eşleşmesi.
+    match = re.match(r"^NEX:P([34])_B(\d+)$", data)
+    if not match:
+        return data
+
+    page = int(match.group(1))
+    raw_btn = int(match.group(2))
+    obj_name = f"b{raw_btn}"
+
+    candidates = [data]
+    obj_map = NEXTION_OBJ_MAP.get(page, [])
+    if obj_name in obj_map:
+        ui_index = obj_map.index(obj_name) + 1
+        mapped = f"NEX:P{page}_B{ui_index}"
+        if mapped not in candidates:
+            candidates.append(mapped)
+
+    for candidate in candidates:
+        if is_valid_user_task(buttons_cfg.get(candidate)):
+            return candidate
+
+    return data
+
+
+    if data in buttons_cfg:
+        return data
+
+    match = re.match(r"^NEX:P([34])_B(\d+)$", data.strip())
+    if not match:
+        return data
+
+    page = int(match.group(1))
+    raw_btn = int(match.group(2))
+    obj_name = f"b{raw_btn}"
+
+    obj_map = NEXTION_OBJ_MAP.get(page, [])
+    if obj_name in obj_map:
+        ui_index = obj_map.index(obj_name) + 1
+        mapped = f"NEX:P{page}_B{ui_index}"
+        if mapped in buttons_cfg:
+            return mapped
+
+    return data
 
 def get_builtin_macros():
     return {
@@ -571,19 +809,22 @@ def get_builtin_macros():
     }
 
 FACTORY_DEFAULT_BUTTONS = {
-    "NEX:P1_B1": {"name": "F13", "action": {"type": "native", "vk": VK_F13}},
-    "NEX:P1_B2": {"name": "F14", "action": {"type": "native", "vk": VK_F14}},
-    "NEX:P1_B3": {"name": "F15", "action": {"type": "native", "vk": VK_F15}},
-    "NEX:P1_B4": {"name": "F16", "action": {"type": "native", "vk": VK_F16}},
-    "NEX:P1_B5": {"name": "F17", "action": {"type": "native", "vk": VK_F17}},
-    "NEX:P1_B6": {"name": "F18", "action": {"type": "native", "vk": VK_F18}},
-    "NEX:P1_B7": {"name": "F19", "action": {"type": "native", "vk": VK_F19}},
-    "NEX:P2_B1": {"name": "Önceki Şarkı", "action": {"type": "native", "vk": VK_MEDIA_PREV_TRACK}},
-    "NEX:P2_B2": {"name": "Oynat/Duraklat", "action": {"type": "native", "vk": VK_MEDIA_PLAY_PAUSE}},
-    "NEX:P2_B3": {"name": "Sonraki Şarkı", "action": {"type": "native", "vk": VK_MEDIA_NEXT_TRACK}},
-    "NEX:P2_B4": {"name": "F20", "action": {"type": "native", "vk": VK_F20}},
-    "NEX:P2_B6": {"name": "YouTube", "action": {"type": "web", "cmd": "https://www.youtube.com/@NexHubCo/@NexHubCo"}},
-    "NEX:P2_B7": {"name": "Kick", "action": {"type": "web", "cmd": "https://kick.com"}}
+    # Sayfa 1 - cihazdan gelen gerçek klasik sinyaller
+    "NEX:MIC_TOGGLE": {"name": "F13", "action": {"type": "native", "vk": VK_F13}},
+    "NEX:DESK_TOGGLE": {"name": "F14", "action": {"type": "native", "vk": VK_F14}},
+    "NEX:CAM_TOGGLE": {"name": "F15", "action": {"type": "native", "vk": VK_F15}},
+    "NEX:LIVE_TOGGLE": {"name": "F16", "action": {"type": "native", "vk": VK_F16}},
+    "NEX:SCENE_1": {"name": "F17", "action": {"type": "native", "vk": VK_F17}},
+    "NEX:SCENE_2": {"name": "F18", "action": {"type": "native", "vk": VK_F18}},
+    "NEX:SCENE_3": {"name": "F19", "action": {"type": "native", "vk": VK_F19}},
+
+    # Sayfa 2 - cihazdan gelen gerçek klasik sinyaller
+    "NEX:MEDIA_PREV": {"name": "Önceki Şarkı", "action": {"type": "native", "vk": VK_MEDIA_PREV_TRACK}},
+    "NEX:MEDIA_PP": {"name": "Oynat/Duraklat", "action": {"type": "native", "vk": VK_MEDIA_PLAY_PAUSE}},
+    "NEX:MEDIA_NEXT": {"name": "Sonraki Şarkı", "action": {"type": "native", "vk": VK_MEDIA_NEXT_TRACK}},
+    "NEX:REC_TOGGLE": {"name": "F20", "action": {"type": "native", "vk": VK_F20}},
+    "NEX:OPEN_YT": {"name": "YouTube", "action": {"type": "web", "cmd": "https://www.youtube.com/@NexHubCo"}},
+    "NEX:OPEN_KICK": {"name": "Kick", "action": {"type": "web", "cmd": "https://kick.com"}},
 }
 
 LOADED_PLUGINS = {}
@@ -607,45 +848,170 @@ def get_all_macros():
         all_macros[f"🧩 {plugin_name}"] = plugin_data["actions"]
     return all_macros
 
+PROFILE_KEYS = ["buttons", "encoder", "page_names", "screen_bg"]
+DEFAULT_PROFILE_NAME = "Varsayılan"
+DEFAULT_MOBILE_PORT = 45729
+MOBILE_PORT_RANGE = 20
+
+def find_available_port(start_port=DEFAULT_MOBILE_PORT, count=MOBILE_PORT_RANGE):
+    """45729'dan başlayarak gerçekten boş port bulur."""
+    for port in range(start_port, start_port + count):
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                sock.bind(("0.0.0.0", port))
+                return port
+        except OSError:
+            continue
+    return None
+
+
+def snapshot_profile_data(config_data):
+    return {
+        "buttons": copy.deepcopy(config_data.get("buttons", FACTORY_DEFAULT_BUTTONS.copy())),
+        "encoder": copy.deepcopy(config_data.get("encoder", {"turn": "general_volume"})),
+        "page_names": copy.deepcopy(config_data.get("page_names", {})),
+        "screen_bg": config_data.get("screen_bg", "")
+    }
+
+def ensure_profiles(config_data, update_active=False):
+    if "profiles" not in config_data or not isinstance(config_data.get("profiles"), dict):
+        config_data["profiles"] = {}
+
+    active = config_data.get("active_profile") or DEFAULT_PROFILE_NAME
+    config_data["active_profile"] = active
+
+    if not config_data["profiles"]:
+        config_data["profiles"][active] = snapshot_profile_data(config_data)
+
+    if active not in config_data["profiles"]:
+        config_data["profiles"][active] = snapshot_profile_data(config_data)
+
+    if update_active:
+        config_data["profiles"][active] = snapshot_profile_data(config_data)
+
+    return config_data
+
+def apply_active_profile(config_data):
+    ensure_profiles(config_data, update_active=False)
+    active = config_data.get("active_profile", DEFAULT_PROFILE_NAME)
+    pdata = config_data.get("profiles", {}).get(active, {})
+    config_data["buttons"] = copy.deepcopy(pdata.get("buttons", FACTORY_DEFAULT_BUTTONS.copy()))
+    config_data["encoder"] = copy.deepcopy(pdata.get("encoder", {"turn": "general_volume"}))
+    config_data["page_names"] = copy.deepcopy(pdata.get("page_names", {}))
+    config_data["screen_bg"] = pdata.get("screen_bg", "")
+    return config_data
+
 def load_config():
     global APP_CONFIG
     default_cfg = {
         "language": "tr", "last_port": "", "accent_color": "#3B82F6", 
-        "run_in_bg": False, "start_with_win": False, "screen_bg": "", 
+        "run_in_bg": False, "start_with_win": False, "auto_connect": True, "screen_bg": "", 
+        "show_system_log_menu": False,
+        "web_auto_start": False, "web_private_log": False, "web_known_only": False,
+        "known_web_devices": {}, "web_access_history": [],
         "mobile_pin": "", "web_token": "", "logged_in_email": "",
         "encoder": {"turn": "general_volume"},
         "page_names": {},
-        "buttons": FACTORY_DEFAULT_BUTTONS.copy()
+        "buttons": FACTORY_DEFAULT_BUTTONS.copy(),
+        "active_profile": DEFAULT_PROFILE_NAME,
+        "profiles": {}
     }
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, "r", encoding="utf-8") as f: 
                 data = json.load(f)
                 for k, v in data.items():
-                    if isinstance(v, dict) and k in default_cfg:
+                    if isinstance(v, dict) and k in default_cfg and k not in ["buttons", "profiles"]:
                         default_cfg[k].update(v)
                     else:
                         default_cfg[k] = v
         except:
             pass
-    
+
     if not default_cfg.get("web_token"):
         default_cfg["web_token"] = secrets.token_urlsafe(8)
-    
-    # Eski sürümlerde kayıtlı varsayılan sayfa adlarını dile göre yeniden çevrilebilir bırak.
+
     if "page_names" in default_cfg:
         for _n in ["1", "2", "3", "4"]:
             if default_cfg["page_names"].get(_n) in [f"Sayfa {_n}", f"Page {_n}"]:
                 default_cfg["page_names"].pop(_n, None)
+
+    # Eski tek-config kullanıcılarını profile taşı.
+    if not default_cfg.get("profiles"):
+        default_cfg["profiles"] = {
+            default_cfg.get("active_profile", DEFAULT_PROFILE_NAME): snapshot_profile_data(default_cfg)
+        }
+
+    ensure_profiles(default_cfg, update_active=False)
+    apply_active_profile(default_cfg)
 
     APP_CONFIG = default_cfg
     return default_cfg
 
 def save_config(config_data):
     global APP_CONFIG
+    ensure_profiles(config_data, update_active=True)
     APP_CONFIG = config_data
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(config_data, f, indent=4)
+
+def format_action_details(action):
+    """Kullanıcının atanmış görevin detayını hatırlaması için kısa açıklama üretir."""
+    if not isinstance(action, dict):
+        return ""
+
+    atype = action.get("type", "")
+    browser = action.get("browser", "")
+    app_action = action.get("app_action", "")
+    custom_arg = str(action.get("custom_arg", "") or "").strip()
+    cmd = str(action.get("cmd", "") or "").strip()
+
+    if atype in ["custom_web", "web"]:
+        target = custom_arg or cmd
+        if target:
+            suffix = f" • {browser}" if browser and browser != "default" else ""
+            return f"{target}{suffix}"
+
+    if atype == "custom_app":
+        if custom_arg:
+            mode_map = {"open": "Aç", "close": "Kapat", "force_close": "Zorla kapat"}
+            return f"{mode_map.get(app_action, app_action or 'Aç')} • {custom_arg}"
+
+    if atype == "custom_hotkey":
+        if custom_arg:
+            return custom_arg
+
+    if atype == "type_text":
+        if custom_arg:
+            preview = custom_arg.replace("\n", " ")
+            return preview[:60] + ("..." if len(preview) > 60 else "")
+
+    if atype == "nircmd":
+        if cmd:
+            return cmd
+
+    if atype == "cmd":
+        if cmd:
+            return cmd
+
+    if atype == "native":
+        vk = action.get("vk")
+        if vk:
+            return f"VK: {vk}"
+
+    return ""
+
+def format_assignment_label(cfg):
+    if not isinstance(cfg, dict):
+        return ""
+    name = cfg.get("name", "") or ""
+    details = cfg.get("details", "")
+    if not details:
+        details = format_action_details(cfg.get("action", {}))
+    if details:
+        return f"{name} — {details}"
+    return name
 
 def execute_macro(action):
     try:
@@ -705,80 +1071,584 @@ def get_local_ip():
     except:
         return "127.0.0.1"
 
+
+def cleanup_old_log_files(days=7):
+    """APPDATA/NexStudio/logs içindeki 7 günden eski günlük dosyalarını temizler."""
+    try:
+        cutoff = time.time() - (days * 24 * 60 * 60)
+        for file_path in glob.glob(os.path.join(LOGS_DIR, "*.txt")):
+            try:
+                if os.path.getmtime(file_path) < cutoff:
+                    os.remove(file_path)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+
+def _today_log_file():
+    return os.path.join(LOGS_DIR, f"nexstudio_log_{datetime.now().strftime('%Y-%m-%d')}.txt")
+
+
+def write_log_file(message):
+    try:
+        if not os.path.exists(LOGS_DIR):
+            os.makedirs(LOGS_DIR)
+        line = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {str(message)}\n"
+        with open(_today_log_file(), "a", encoding="utf-8") as f:
+            f.write(line)
+    except Exception:
+        pass
+
+
+def append_system_log(message):
+    """Web sunucusu gibi arka threadlerden gelen güvenlik/servis olaylarını UI'a ve günlük dosyasına yazar."""
+    try:
+        text = str(message)
+        write_log_file(text)
+        if MAIN_WINDOW and hasattr(MAIN_WINDOW, "log_area"):
+            MAIN_WINDOW.log_area.append(text)
+    except Exception:
+        pass
+
+
+WEB_ACCESS_SESSIONS = {}
+WEB_PIN_FAILURES = {}
+WEB_BLOCKED_CLIENTS = {}
+WEB_PIN_FAIL_LIMIT = 5
+WEB_PIN_FAIL_WINDOW_SECONDS = 5 * 60
+WEB_PIN_BLOCK_SECONDS = 5 * 60
+
+
+def mask_ip_for_log(ip):
+    try:
+        if not APP_CONFIG.get("web_private_log", False):
+            return ip
+        parts = str(ip).split(".")
+        if len(parts) == 4:
+            return ".".join(parts[:3] + ["xxx"])
+        return "gizli-ip"
+    except Exception:
+        return ip
+
+
+def make_web_device_id(ip, user_agent):
+    raw = f"{ip}|{user_agent or ''}"
+    return hashlib.sha256(raw.encode("utf-8", errors="ignore")).hexdigest()[:16]
+
+
+def web_client_info_text(ip, user_agent, include_known_name=True):
+    info = parse_web_client_info(user_agent)
+    device_id = make_web_device_id(ip, user_agent)
+    known = APP_CONFIG.get("known_web_devices", {}) if isinstance(APP_CONFIG, dict) else {}
+    known_data = known.get(device_id, {}) if isinstance(known, dict) else {}
+    known_name = known_data.get("name", "") if isinstance(known_data, dict) else ""
+    base = f"{info['device_type']} / {info['device_model']} / {info['os_name']} / {info['browser']}"
+    if include_known_name and known_name:
+        return f"{known_name} | {base}"
+    return base
+
+
+def ensure_known_web_device(ip, user_agent):
+    """Başarılı PIN girişinden sonra cihazı tanınan cihaz listesine ekler."""
+    try:
+        if "known_web_devices" not in APP_CONFIG or not isinstance(APP_CONFIG.get("known_web_devices"), dict):
+            APP_CONFIG["known_web_devices"] = {}
+        device_id = make_web_device_id(ip, user_agent)
+        known = APP_CONFIG["known_web_devices"]
+        info = parse_web_client_info(user_agent)
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if device_id not in known:
+            default_name = f"{info['device_type']} - {info['browser']}"
+            known[device_id] = {
+                "name": default_name,
+                "allowed": True,
+                "first_seen": now,
+                "last_seen": now,
+                "ip": ip,
+                "user_agent": user_agent,
+                "device_type": info.get("device_type", ""),
+                "device_model": info.get("device_model", ""),
+                "os_name": info.get("os_name", ""),
+                "browser": info.get("browser", ""),
+            }
+        else:
+            known[device_id]["last_seen"] = now
+            known[device_id]["ip"] = ip
+            known[device_id]["user_agent"] = user_agent
+            known[device_id]["device_type"] = info.get("device_type", known[device_id].get("device_type", ""))
+            known[device_id]["device_model"] = info.get("device_model", known[device_id].get("device_model", ""))
+            known[device_id]["os_name"] = info.get("os_name", known[device_id].get("os_name", ""))
+            known[device_id]["browser"] = info.get("browser", known[device_id].get("browser", ""))
+        return device_id
+    except Exception:
+        return make_web_device_id(ip, user_agent)
+
+
+def is_known_web_device_allowed(ip, user_agent, trusted_device_id=""):
+    try:
+        if not APP_CONFIG.get("web_known_only", False):
+            return True
+        known = APP_CONFIG.get("known_web_devices", {})
+        if trusted_device_id and isinstance(known, dict):
+            return bool(known.get(trusted_device_id, {}).get("allowed", False))
+        return False
+    except Exception:
+        return True
+
+
+def make_web_trust_hash(token):
+    try:
+        return hashlib.sha256(str(token or "").encode("utf-8", errors="ignore")).hexdigest()
+    except Exception:
+        return ""
+
+
+def find_trusted_web_device_by_token(token):
+    """Tarayıcıda saklanan güven anahtarını tanınan cihaz kaydıyla eşleştirir."""
+    try:
+        token_hash = make_web_trust_hash(token)
+        if not token_hash:
+            return "", {}
+        known = APP_CONFIG.get("known_web_devices", {})
+        if not isinstance(known, dict):
+            return "", {}
+        for device_id, data in known.items():
+            if isinstance(data, dict) and data.get("trust_hash") == token_hash and data.get("allowed", False):
+                return device_id, data
+    except Exception:
+        pass
+    return "", {}
+
+
+def create_trusted_web_device(ip, user_agent, name=""):
+    """Kullanıcı onay verirse cihazı güvenli token ile tanınan cihaz listesine ekler."""
+    try:
+        if "known_web_devices" not in APP_CONFIG or not isinstance(APP_CONFIG.get("known_web_devices"), dict):
+            APP_CONFIG["known_web_devices"] = {}
+        info = parse_web_client_info(user_agent)
+        trust_token = secrets.token_urlsafe(32)
+        trust_hash = make_web_trust_hash(trust_token)
+        device_id = "TRUST-" + hashlib.sha256((trust_hash + "|" + str(user_agent)).encode("utf-8", errors="ignore")).hexdigest()[:16]
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        clean_name = str(name or "").strip()
+        if not clean_name:
+            clean_name = f"{info.get('device_type', 'Cihaz')} - {info.get('browser', 'Tarayıcı')}"
+        APP_CONFIG["known_web_devices"][device_id] = {
+            "name": clean_name,
+            "allowed": True,
+            "trusted": True,
+            "trust_hash": trust_hash,
+            "first_seen": now,
+            "last_seen": now,
+            "ip": ip,
+            "user_agent": user_agent,
+            "device_type": info.get("device_type", ""),
+            "device_model": info.get("device_model", ""),
+            "os_name": info.get("os_name", ""),
+            "browser": info.get("browser", ""),
+        }
+        save_config(APP_CONFIG)
+        return trust_token, device_id, APP_CONFIG["known_web_devices"][device_id]
+    except Exception:
+        return "", "", {}
+
+
+def update_trusted_web_device_seen(device_id, ip, user_agent):
+    try:
+        known = APP_CONFIG.get("known_web_devices", {})
+        if not isinstance(known, dict) or device_id not in known:
+            return
+        info = parse_web_client_info(user_agent)
+        known[device_id]["last_seen"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        known[device_id]["ip"] = ip
+        known[device_id]["user_agent"] = user_agent
+        known[device_id]["device_type"] = info.get("device_type", known[device_id].get("device_type", ""))
+        known[device_id]["device_model"] = info.get("device_model", known[device_id].get("device_model", ""))
+        known[device_id]["os_name"] = info.get("os_name", known[device_id].get("os_name", ""))
+        known[device_id]["browser"] = info.get("browser", known[device_id].get("browser", ""))
+        APP_CONFIG["known_web_devices"] = known
+        save_config(APP_CONFIG)
+    except Exception:
+        pass
+
+
+def add_web_history(event_type, ip, user_agent, detail="", device_id_override="", device_name_override=""):
+    """Web giriş geçmişine kısa kayıt ekler; listede son 250 kayıt tutulur."""
+    try:
+        if "web_access_history" not in APP_CONFIG or not isinstance(APP_CONFIG.get("web_access_history"), list):
+            APP_CONFIG["web_access_history"] = []
+        info = parse_web_client_info(user_agent)
+        device_id = device_id_override or make_web_device_id(ip, user_agent)
+        known = APP_CONFIG.get("known_web_devices", {}) if isinstance(APP_CONFIG.get("known_web_devices"), dict) else {}
+        known_name = device_name_override or (known.get(device_id, {}).get("name", "Bilinmeyen cihaz") if isinstance(known, dict) else "Bilinmeyen cihaz")
+        entry = {
+            "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "event": str(event_type),
+            "device_id": device_id,
+            "device_name": known_name,
+            "ip": str(ip),
+            "ip_display": mask_ip_for_log(ip),
+            "detail": str(detail or ""),
+            "device_type": info.get("device_type", ""),
+            "device_model": info.get("device_model", ""),
+            "os_name": info.get("os_name", ""),
+            "browser": info.get("browser", ""),
+        }
+        APP_CONFIG["web_access_history"].insert(0, entry)
+        APP_CONFIG["web_access_history"] = APP_CONFIG["web_access_history"][:250]
+        try: save_config(APP_CONFIG)
+        except Exception: pass
+        try:
+            if MAIN_WINDOW and hasattr(MAIN_WINDOW, "refresh_web_security_panel"):
+                QTimer.singleShot(0, MAIN_WINDOW.refresh_web_security_panel)
+        except Exception: pass
+        return entry
+    except Exception:
+        return None
+
+
+def record_web_event(event_type, ip, user_agent, detail="", icon="ℹ️", add_to_history=True, device_id_override=""):
+    try:
+        known = APP_CONFIG.get("known_web_devices", {}) if isinstance(APP_CONFIG.get("known_web_devices", {}), dict) else {}
+        device_name = ""
+        if device_id_override and isinstance(known, dict):
+            device_name = known.get(device_id_override, {}).get("name", "")
+        client_text = web_client_info_text(ip, user_agent)
+        if device_name:
+            client_text = f"{device_name} | {client_text}"
+        line = f"{icon} {event_type}: {mask_ip_for_log(ip)} | {client_text}"
+        if detail: line += f" | {detail}"
+        append_system_log(line)
+        if add_to_history:
+            add_web_history(event_type, ip, user_agent, detail, device_id_override=device_id_override, device_name_override=device_name)
+        return line
+    except Exception:
+        append_system_log(f"{icon} {event_type}: {detail}")
+        return ""
+
+
+def get_pin_block_remaining(ip):
+    try:
+        until = WEB_BLOCKED_CLIENTS.get(ip, 0)
+        remaining = int(until - time.time())
+        if remaining > 0:
+            return remaining
+        WEB_BLOCKED_CLIENTS.pop(ip, None)
+        return 0
+    except Exception:
+        return 0
+
+
+def register_pin_failure(ip):
+    try:
+        now = time.time()
+        bucket = WEB_PIN_FAILURES.get(ip, [])
+        bucket = [t for t in bucket if now - t <= WEB_PIN_FAIL_WINDOW_SECONDS]
+        bucket.append(now)
+        WEB_PIN_FAILURES[ip] = bucket
+        if len(bucket) >= WEB_PIN_FAIL_LIMIT:
+            WEB_BLOCKED_CLIENTS[ip] = now + WEB_PIN_BLOCK_SECONDS
+            WEB_PIN_FAILURES[ip] = []
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def reset_pin_failures(ip):
+    try:
+        WEB_PIN_FAILURES.pop(ip, None)
+        WEB_BLOCKED_CLIENTS.pop(ip, None)
+    except Exception:
+        pass
+
+
+def get_pin_attempts_remaining(ip):
+    try:
+        now = time.time()
+        bucket = WEB_PIN_FAILURES.get(ip, [])
+        bucket = [t for t in bucket if now - t <= WEB_PIN_FAIL_WINDOW_SECONDS]
+        WEB_PIN_FAILURES[ip] = bucket
+        return max(0, WEB_PIN_FAIL_LIMIT - len(bucket))
+    except Exception:
+        return WEB_PIN_FAIL_LIMIT
+
+
+def html_escape(text):
+    try:
+        return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+    except Exception:
+        return ""
+
+
+def parse_web_client_info(user_agent):
+    """Tarayıcı User-Agent bilgisinden cihaz türü, işletim sistemi, tarayıcı ve mümkünse model tahmini üretir."""
+    ua = str(user_agent or "")
+    ua_l = ua.lower()
+
+    if "ipad" in ua_l:
+        device_type = "Tablet"
+        device_model = "iPad"
+    elif "iphone" in ua_l:
+        device_type = "Telefon"
+        device_model = "iPhone"
+    elif "android" in ua_l:
+        if "mobile" in ua_l:
+            device_type = "Telefon"
+        else:
+            device_type = "Tablet"
+        model_match = re.search(r"Android[^;)]*(?:;\s*[^;)]*)?;\s*([^;)]*?)(?:\s+Build|\)|;)", ua, re.I)
+        device_model = model_match.group(1).strip() if model_match else "Android cihaz"
+        # Bazı tarayıcılar gerçek modeli "K", "wv" gibi anlamsız kısa değerlerle saklıyor.
+        if not device_model or len(device_model) <= 2 or device_model.lower() in ["wv", "mobile", "k"]:
+            device_model = "Android cihaz"
+    elif "windows" in ua_l:
+        device_type = "PC"
+        device_model = "Windows PC"
+    elif "mac os" in ua_l or "macintosh" in ua_l:
+        device_type = "PC"
+        device_model = "Mac"
+    elif "linux" in ua_l:
+        device_type = "PC"
+        device_model = "Linux PC"
+    else:
+        device_type = "Bilinmeyen cihaz"
+        device_model = "Model algılanamadı"
+
+    if "edg/" in ua_l or "edga/" in ua_l or "edgios/" in ua_l:
+        browser = "Microsoft Edge"
+    elif "opr/" in ua_l or "opera" in ua_l:
+        browser = "Opera"
+    elif "firefox/" in ua_l:
+        browser = "Firefox"
+    elif "chrome/" in ua_l or "crios/" in ua_l:
+        browser = "Chrome"
+    elif "safari/" in ua_l:
+        browser = "Safari"
+    else:
+        browser = "Bilinmeyen tarayıcı"
+
+    if "windows" in ua_l:
+        os_name = "Windows"
+    elif "android" in ua_l:
+        android_match = re.search(r"Android\s*([0-9.]+)", ua, re.I)
+        os_name = "Android" + (f" {android_match.group(1)}" if android_match else "")
+    elif "iphone" in ua_l or "ipad" in ua_l or "cpu os" in ua_l:
+        ios_match = re.search(r"OS\s*([0-9_]+)", ua, re.I)
+        os_name = "iOS" + (f" {ios_match.group(1).replace('_', '.')}" if ios_match else "")
+    elif "mac os" in ua_l or "macintosh" in ua_l:
+        os_name = "macOS"
+    elif "linux" in ua_l:
+        os_name = "Linux"
+    else:
+        os_name = "Bilinmeyen sistem"
+
+    return {
+        "device_type": device_type,
+        "device_model": device_model,
+        "browser": browser,
+        "os_name": os_name,
+    }
+
 class MobileHandler(BaseHTTPRequestHandler):
-    server_version = "NexDeckWeb"
-    sys_version = ""
     def log_message(self, format, *args):
-        # PyInstaller windowed modda konsol olmayacağı için sessiz çalışsın.
+        # PyInstaller --windowed modunda gereksiz konsol çıktısı üretmesin.
         return
 
-    def send_html(self, html, code=200):
-        # Bu handler'da header satırları bazı ortamlarda HTML gövdesine karışabildiği için
-        # web panelinde yalnızca HTML gövdesini yazıyoruz.
-        # Tarayıcı HTML'i yine doğru şekilde render eder; üstte HTTP/1.1 yazısı görünmez.
-        data = html.encode("utf-8", errors="replace")
+    def _client_ip(self):
         try:
-            self.wfile.write(data)
-            self.wfile.flush()
+            return self.client_address[0]
+        except Exception:
+            return "bilinmeyen-ip"
+
+    def _client_user_agent(self):
+        try:
+            return self.headers.get("User-Agent", "")
+        except Exception:
+            return ""
+
+    def _get_cookie_value(self, name):
+        try:
+            cookie_header = self.headers.get("Cookie", "") or ""
+            for part in cookie_header.split(";"):
+                if "=" not in part:
+                    continue
+                key, value = part.strip().split("=", 1)
+                if key == name:
+                    return urllib.parse.unquote(value)
         except Exception:
             pass
-        self.close_connection = True
+        return ""
 
-    def do_GET(self):
-        token = APP_CONFIG.get("web_token", "")
-        if self.path == "/favicon.ico":
-            self.send_response(204)
-            self.end_headers()
-            return
-        if not self.path.startswith(f"/{token}"):
-            self.send_html("<h2>Yetkisiz erişim</h2><p>Lütfen NexDeck QR kodunu tekrar okutun.</p>", 403)
-            return
+    def _trusted_device_id(self):
+        try:
+            token_value = self._get_cookie_value("nexstudio_trust")
+            if not token_value:
+                query = urllib.parse.urlparse(self.path).query
+                params = urllib.parse.parse_qs(query)
+                token_value = params.get("trust", [""])[0]
+            device_id, _data = find_trusted_web_device_by_token(token_value)
+            return device_id
+        except Exception:
+            return ""
 
-        query = urllib.parse.urlparse(self.path).query
-        params = urllib.parse.parse_qs(query)
-        pin = params.get('pin', [''])[0]
-        correct_pin = APP_CONFIG.get("mobile_pin", "")
+    def _log_web_login_once(self, auth_method="PIN girişi", trusted_device_id=""):
+        try:
+            ip = self._client_ip()
+            ua = self._client_user_agent()
+            session_key = f"{ip}|{ua}|{trusted_device_id or 'pin'}"
+            now = time.time()
+            last_seen = WEB_ACCESS_SESSIONS.get(session_key, 0)
+            if now - last_seen < 60:
+                return
+            WEB_ACCESS_SESSIONS[session_key] = now
+            reset_pin_failures(ip)
+            if trusted_device_id:
+                update_trusted_web_device_seen(trusted_device_id, ip, ua)
+                record_web_event("Web girişi yapıldı", ip, ua, "Tanınan cihaz ile PIN'siz giriş", "✅", device_id_override=trusted_device_id)
+            else:
+                record_web_event("Web girişi yapıldı", ip, ua, "Başarılı PIN girişi - cihaz otomatik tanınmadı", "✅")
+        except Exception:
+            pass
 
-        if pin != correct_pin:
-            login_html = f"""
-            <html><head><meta name="viewport" content="width=device-width, initial-scale=1">
+    def _send_static_file(self, path, content_type):
+        try:
+            if not path or not os.path.exists(path):
+                self.send_response(404); self.end_headers(); return
+            with open(path, "rb") as f:
+                data = f.read()
+            self.send_response(200)
+            self.send_header('Content-type', content_type)
+            self.send_header('Cache-Control', 'no-store')
+            self.send_header('Content-Length', str(len(data)))
+            self.end_headers(); self.wfile.write(data)
+        except Exception as e:
+            self._send_plain_text(f"Asset okunamadı: {e}", status=500)
+
+    def _send_json(self, payload, status=200, trust_cookie=""):
+        data = json.dumps(payload, ensure_ascii=False).encode('utf-8', errors='replace')
+        self.send_response(status)
+        self.send_header('Content-type', 'application/json; charset=utf-8')
+        self.send_header('Cache-Control', 'no-store')
+        if trust_cookie:
+            cookie_val = urllib.parse.quote(trust_cookie)
+            self.send_header('Set-Cookie', f'nexstudio_trust={cookie_val}; Path=/; Max-Age=31536000; SameSite=Lax')
+        self.send_header('Content-Length', str(len(data)))
+        self.end_headers(); self.wfile.write(data)
+
+
+    def _send_login_page(self, token, error_message="", sub_message="", attempts_remaining=None, blocked_remaining=0, status=200):
+        accent = APP_CONFIG.get('accent_color', '#3B82F6')
+        logo_html = get_nexstudio_logo_html()
+        error_message = html_escape(error_message)
+        sub_message = html_escape(sub_message)
+        blocked_remaining = max(0, int(blocked_remaining or 0))
+        locked = blocked_remaining > 0
+        attempts_html = ""
+        if attempts_remaining is not None and not locked:
+            attempts_html = f"<div class='attempts'>Kalan deneme: <b>{int(attempts_remaining)}</b> / {WEB_PIN_FAIL_LIMIT}</div>"
+        alert_html = ""
+        if error_message:
+            alert_html = f"<div class='alert {'locked' if locked else 'error'}'><strong>{error_message}</strong><span>{sub_message}</span>{attempts_html}</div>"
+        disabled = "disabled" if locked else ""
+        timer_script = ""
+        if locked:
+            timer_script = f"""
+            <script>
+            let remaining = {blocked_remaining};
+            const timerEl = document.getElementById('lock-timer');
+            const formEl = document.getElementById('pin-form');
+            function fmt(sec) {{
+                const m = Math.floor(sec / 60).toString().padStart(2, '0');
+                const s = Math.max(0, sec % 60).toString().padStart(2, '0');
+                return `${{m}}:${{s}}`;
+            }}
+            function tick() {{
+                if (timerEl) timerEl.textContent = fmt(remaining);
+                remaining -= 1;
+                if (remaining < 0) {{
+                    location.href = '/{token}';
+                }} else {{
+                    setTimeout(tick, 1000);
+                }}
+            }}
+            if (formEl) formEl.classList.add('locked');
+            tick();
+            </script>
+            """
+        html = f"""
+        <!DOCTYPE html>
+        <html lang="tr">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>NexStudio Web Kontrolü</title>
             <style>
             :root {{
-                --accent: {APP_CONFIG.get('accent_color', '#3B82F6')};
+                --accent: {accent};
                 --bg: #070B14;
-                --card: rgba(15, 23, 42, .78);
+                --card: rgba(15, 23, 42, .82);
                 --border: rgba(148, 163, 184, .18);
                 --text: #F8FAFC;
                 --muted: #94A3B8;
+                --danger: #EF4444;
+                --warning: #F97316;
             }}
             * {{ box-sizing: border-box; }}
             body {{
                 min-height: 100vh; margin: 0; color: var(--text);
                 font-family: Inter, 'Segoe UI', Roboto, Arial, sans-serif;
                 background:
-                    radial-gradient(circle at 20% 10%, rgba(59,130,246,.24), transparent 34%),
+                    radial-gradient(circle at 20% 10%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 34%),
                     radial-gradient(circle at 80% 0%, rgba(139, 92, 246, .22), transparent 32%),
                     linear-gradient(145deg, #050814 0%, #0B1220 50%, #111827 100%);
                 display: grid; place-items: center; padding: 22px;
             }}
             .login-card {{
-                width: min(420px, 100%);
+                width: min(430px, 100%);
                 background: var(--card);
                 border: 1px solid var(--border);
-                border-radius: 28px;
+                border-radius: 30px;
                 padding: 28px;
                 box-shadow: 0 26px 90px rgba(0,0,0,.42);
                 backdrop-filter: blur(22px);
+                animation: cardIn .24s ease both;
             }}
+            @keyframes cardIn {{ from {{ opacity: 0; transform: translateY(10px) scale(.99); }} to {{ opacity: 1; transform: none; }} }}
             .brand {{ display:flex; align-items:center; gap:14px; margin-bottom: 22px; }}
             .logo {{
-                width: 48px; height: 48px; border-radius: 16px;
-                display:grid; place-items:center; font-weight: 900; font-size: 22px;
-                background: var(--accent); color: white;
-                box-shadow: 0 12px 38px rgba(59,130,246,.32);
+                width: 58px; height: 58px; border-radius: 18px;
+                display:grid; place-items:center;
+                background: rgba(255,255,255,.08);
+                border: 1px solid rgba(255,255,255,.14);
+                overflow:hidden;
+                box-shadow: 0 16px 42px rgba(0,0,0,.28);
             }}
+            .logo img {{ width:100%; height:100%; object-fit:cover; display:block; }}
+            .logo span {{ display:grid; place-items:center; width:100%; height:100%; font-size:22px; font-weight:950; color:#fff; }}
             h2 {{ margin:0; font-size:26px; letter-spacing:-.02em; }}
             p {{ color: var(--muted); margin: 8px 0 24px; line-height:1.55; }}
+            .alert {{
+                border-radius: 18px;
+                padding: 13px 14px;
+                margin: 0 0 14px;
+                border: 1px solid rgba(239,68,68,.42);
+                background: rgba(239,68,68,.12);
+                color: #FECACA;
+                animation: shake .28s ease;
+            }}
+            .alert.locked {{
+                border-color: rgba(249,115,22,.46);
+                background: rgba(249,115,22,.13);
+                color: #FED7AA;
+                animation: none;
+            }}
+            .alert strong {{ display:block; font-size:14px; margin-bottom:4px; }}
+            .alert span, .attempts {{ display:block; font-size:12px; color: rgba(255,255,255,.78); line-height:1.45; }}
+            @keyframes shake {{
+                0%,100% {{ transform: translateX(0); }} 25% {{ transform: translateX(-5px); }} 50% {{ transform: translateX(5px); }} 75% {{ transform: translateX(-3px); }}
+            }}
             input {{
                 width:100%; padding: 18px 16px; border-radius: 18px;
                 background: rgba(2, 6, 23, .58); color: white;
@@ -786,35 +1656,160 @@ class MobileHandler(BaseHTTPRequestHandler):
                 text-align:center; font-size:22px; letter-spacing: 8px; font-weight: 900;
                 text-transform: uppercase; margin-bottom: 14px;
             }}
-            input:focus {{ border-color: var(--accent); box-shadow: 0 0 0 4px rgba(59,130,246,.18); }}
+            input:focus {{ border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); }}
+            input:disabled {{ opacity:.45; cursor:not-allowed; }}
             button {{
                 width:100%; border:0; border-radius:18px; padding: 17px 18px;
                 background: var(--accent); color:#fff; font-size:16px; font-weight:900;
-                cursor:pointer; box-shadow: 0 16px 44px rgba(59,130,246,.30);
-                transition: transform .18s ease, filter .18s ease;
+                cursor:pointer; box-shadow: 0 16px 44px color-mix(in srgb, var(--accent) 30%, transparent);
+                transition: transform .18s ease, filter .18s ease, opacity .18s ease;
             }}
             button:active {{ transform: scale(.98); }}
+            button:disabled {{ opacity:.45; cursor:not-allowed; transform:none; }}
             .hint {{ font-size: 13px; margin-top: 14px; text-align:center; color: var(--muted); }}
-            </style></head><body>
+            .timer {{ font-weight: 950; color:#FDBA74; }}
+            </style>
+        </head>
+        <body>
             <main class="login-card">
                 <div class="brand">
-                    <div class="logo">N</div>
+                    <div class="logo">{logo_html}</div>
                     <div>
                         <h2>NexStudio</h2>
                         <p style="margin:3px 0 0;">Web Kontrolü</p>
                     </div>
                 </div>
                 <p>Lütfen bilgisayar ekranındaki 6 haneli PIN kodunu girin.</p>
-                <form action="/{token}" method="GET">
-                    <input type="text" name="pin" placeholder="PIN" maxlength="6" required autocomplete="off"><br>
-                    <button type="submit">Giriş Yap</button>
+                {alert_html}
+                <form id="pin-form" action="/{token}" method="GET">
+                    <input type="text" name="pin" placeholder="PIN" maxlength="6" required autocomplete="off" autocapitalize="characters" {disabled} oninput="this.value=this.value.toUpperCase()" autofocus><br>
+                    <button type="submit" {disabled}>{'Kilitli · ' if locked else ''}<span id="lock-timer" class="timer"></span>{' sonra tekrar dene' if locked else 'Giriş Yap'}</button>
                 </form>
                 <div class="hint">Güvenli bağlantı için QR kodu tekrar okutabilirsin.</div>
             </main>
-            </body></html>
-            """
-            self.send_html(login_html)
+            {timer_script}
+        </body>
+        </html>
+        """
+        data = html.encode('utf-8', errors='replace')
+        self.send_response(status)
+        self.send_header('Content-type', 'text/html; charset=utf-8')
+        self.send_header('Content-Length', str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _send_plain_text(self, text, status=200):
+        data = str(text).encode('utf-8', errors='replace')
+        self.send_response(status)
+        self.send_header('Content-type', 'text/plain; charset=utf-8')
+        self.send_header('Content-Length', str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _send_error_page(self, error_text):
+        safe_error = str(error_text).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+        html = f"""
+        <!DOCTYPE html>
+        <html lang="tr">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>NexStudio Web Hatası</title>
+            <style>
+                body {{ margin:0; min-height:100vh; display:grid; place-items:center; padding:22px; background:#070B14; color:#F8FAFC; font-family:'Segoe UI',Arial,sans-serif; }}
+                .card {{ max-width:720px; width:100%; background:#0B1220; border:1px solid #263244; border-radius:24px; padding:22px; box-shadow:0 20px 70px rgba(0,0,0,.35); }}
+                h1 {{ margin:0 0 10px; font-size:24px; }}
+                p {{ color:#94A3B8; line-height:1.55; }}
+                pre {{ white-space:pre-wrap; background:#020617; border:1px solid #1E293B; border-radius:16px; padding:14px; color:#FCA5A5; overflow:auto; }}
+            </style>
+        </head>
+        <body>
+            <main class="card">
+                <h1>NexStudio Web Kontrolü açılırken hata oluştu</h1>
+                <p>Bu ekran boş sayfa yerine gerçek hatayı göstermek için eklendi. Aşağıdaki mesajı bana gönderirsen doğrudan düzeltebiliriz.</p>
+                <pre>{safe_error}</pre>
+            </main>
+        </body>
+        </html>
+        """
+        data = html.encode('utf-8', errors='replace')
+        try:
+            self.send_response(500)
+            self.send_header('Content-type', 'text/html; charset=utf-8')
+            self.send_header('Content-Length', str(len(data)))
+            self.end_headers()
+        except Exception:
+            pass
+        try:
+            self.wfile.write(data)
+        except Exception:
+            pass
+
+    def do_GET(self):
+        try:
+            return self._do_GET_safe()
+        except Exception as e:
+            if MAIN_WINDOW and hasattr(MAIN_WINDOW, 'log_area'):
+                try:
+                    MAIN_WINDOW.log_area.append(f"⚠️ Web arayüz hatası: {e}")
+                except Exception:
+                    pass
+            return self._send_error_page(e)
+
+    def _do_GET_safe(self):
+        token = APP_CONFIG.get("web_token", "")
+        if self.path == "/favicon.ico":
+            self.send_response(204)
+            self.end_headers()
             return
+        if not self.path.startswith(f"/{token}"):
+            record_web_event("Yetkisiz Web Girişi", self._client_ip(), self._client_user_agent(), f"Yol: {self.path}", "🚫")
+            body = "Yetkisiz Erisim! Lutfen NexStudio Web Kontrolu icindeki dogru URL/QR kodu kullanin.".encode("utf-8")
+            self.send_response(403)
+            self.send_header('Content-type', 'text/plain; charset=utf-8')
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
+        parsed_path = urllib.parse.urlparse(self.path).path
+        if parsed_path == f"/{token}/assets/logo.png":
+            return self._send_static_file(find_nexstudio_logo_path(), "image/png")
+
+        query = urllib.parse.urlparse(self.path).query
+        params = urllib.parse.parse_qs(query)
+        pin = params.get('pin', [''])[0].strip().upper()
+        correct_pin = APP_CONFIG.get("mobile_pin", "").strip().upper()
+        trusted_device_id = self._trusted_device_id()
+        trusted_auth = bool(trusted_device_id)
+
+        if not trusted_auth:
+            blocked_remaining = get_pin_block_remaining(self._client_ip())
+            if blocked_remaining > 0:
+                record_web_event("Geçici engelli web denemesi", self._client_ip(), self._client_user_agent(), f"Kalan süre: {blocked_remaining} sn", "⛔")
+                return self._send_login_page(token, error_message="Çok fazla hatalı giriş yapıldı", sub_message="Güvenlik nedeniyle PIN girişi geçici olarak kilitlendi.", blocked_remaining=blocked_remaining, status=429)
+
+            if pin != correct_pin:
+                attempts_remaining = None
+                if pin:
+                    blocked_now = register_pin_failure(self._client_ip())
+                    attempts_remaining = get_pin_attempts_remaining(self._client_ip())
+                    record_web_event("Hatalı PIN denemesi", self._client_ip(), self._client_user_agent(), f"Girilen PIN: {pin}", "🔐")
+                    if blocked_now:
+                        record_web_event("Cihaz geçici engellendi", self._client_ip(), self._client_user_agent(), f"{WEB_PIN_FAIL_LIMIT} hatalı PIN", "⛔")
+                        return self._send_login_page(token, error_message="Çok fazla hatalı giriş yapıldı", sub_message="Güvenlik nedeniyle PIN girişi geçici olarak kilitlendi.", blocked_remaining=get_pin_block_remaining(self._client_ip()), status=429)
+                return self._send_login_page(token, error_message=("Hatalı PIN kodu" if pin else ""), sub_message=("Lütfen bilgisayar ekranındaki güncel PIN kodunu kontrol edin." if pin else ""), attempts_remaining=attempts_remaining, status=200)
+        else:
+            reset_pin_failures(self._client_ip())
+
+        if self.path.startswith(f'/{token}/api/trust_device'):
+            raw_name = params.get('name', [''])[0]
+            name = urllib.parse.unquote_plus(raw_name).strip()
+            trust_token, device_id, data = create_trusted_web_device(self._client_ip(), self._client_user_agent(), name)
+            if not trust_token:
+                return self._send_json({"ok": False, "error": "Cihaz tanınan listeye eklenemedi."}, status=500)
+            record_web_event("Cihaz tanındı", self._client_ip(), self._client_user_agent(), f"Ad: {data.get('name', '')}", "✅", device_id_override=device_id)
+            return self._send_json({"ok": True, "device_id": device_id, "name": data.get("name", ""), "trust_token": trust_token}, trust_cookie=trust_token)
 
         if self.path.startswith(f'/{token}/exec'):
             sig = params.get('sig', [''])[0]
@@ -827,7 +1822,7 @@ class MobileHandler(BaseHTTPRequestHandler):
             self.wfile.write(b"OK")
             return
 
-        if self.path.startswith(f'/{token}/api/save'):
+        if self.path == f'/{token}/api/save' or self.path.startswith(f'/{token}/api/save?'):
             sig = params.get('sig', [''])[0]
             cat = params.get('cat', [''])[0]
             act = params.get('act', [''])[0]
@@ -869,6 +1864,23 @@ class MobileHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(b"OK")
             return
+
+        if self.path.startswith(f'/{token}/api/save_accent'):
+            color = params.get('color', [''])[0].strip()
+            if re.match(r'^#[0-9A-Fa-f]{6}$', color):
+                APP_CONFIG["accent_color"] = color.upper()
+                save_config(APP_CONFIG)
+                if MAIN_WINDOW:
+                    try:
+                        MAIN_WINDOW.config["accent_color"] = color.upper()
+                        MAIN_WINDOW.setStyleSheet(get_stylesheet(color.upper()))
+                    except Exception:
+                        pass
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"OK")
+            return
+
         if self.path.startswith(f'/{token}/api/encoder'):
             mode = params.get('mode', [''])[0]
             if "encoder" not in APP_CONFIG:
@@ -919,6 +1931,11 @@ class MobileHandler(BaseHTTPRequestHandler):
             return
 
 
+        if not is_known_web_device_allowed(self._client_ip(), self._client_user_agent(), trusted_device_id):
+            record_web_event("Tanınmayan cihaz engellendi", self._client_ip(), self._client_user_agent(), "Sadece tanınan cihazlar modu açık", "⛔")
+            return self._send_plain_text("Bu cihaz tanınan cihazlar listesinde olmadığı için Web Kontrolü kullanılamaz.", status=403)
+
+        self._log_web_login_once("Tanınan cihaz" if trusted_auth else "PIN girişi", trusted_device_id)
         self.send_response(200)
         self.send_header('Content-type', 'text/html; charset=utf-8')
         self.end_headers()
@@ -928,12 +1945,22 @@ class MobileHandler(BaseHTTPRequestHandler):
         translations_json = json.dumps(TRANSLATIONS, ensure_ascii=False)
         page_names_json = json.dumps(APP_CONFIG.get("page_names", {}), ensure_ascii=False)
         encoder_json = json.dumps(APP_CONFIG.get("encoder", {}), ensure_ascii=False)
+        touch_map_json = json.dumps(TOUCH_UI_SLOT_TO_SIGNAL, ensure_ascii=False)
+        device_connected_json = json.dumps(bool(MAIN_WINDOW and getattr(MAIN_WINDOW, "serial_thread", None) and MAIN_WINDOW.serial_thread.is_running))
         
         try:
             audio_apps_json = json.dumps(MAIN_WINDOW.get_audio_mixer_apps() if MAIN_WINDOW else [], ensure_ascii=False)
         except Exception:
             audio_apps_json = json.dumps([], ensure_ascii=False)
         
+        user_agent = self.headers.get("User-Agent", "")
+        is_mobile_client = bool(re.search(r"Android|iPhone|iPad|iPod|Mobile|Windows Phone", user_agent, re.I))
+        logo_html = get_nexstudio_logo_html()
+        known_for_page = APP_CONFIG.get("known_web_devices", {}) if isinstance(APP_CONFIG.get("known_web_devices", {}), dict) else {}
+        trusted_name_for_page = known_for_page.get(trusted_device_id, {}).get("name", "") if trusted_device_id else ""
+        trusted_json = json.dumps(bool(trusted_device_id))
+        trusted_name_json = json.dumps(trusted_name_for_page, ensure_ascii=False)
+
         dashboard_html = f"""
         <!DOCTYPE html>
         <html lang="tr">
@@ -984,10 +2011,14 @@ class MobileHandler(BaseHTTPRequestHandler):
                 .brandline {{ display:flex; align-items:center; gap: 13px; }}
                 .brandmark {{
                     width: 48px; height: 48px; border-radius: 16px;
-                    display:grid; place-items:center; background: var(--accent); color:white;
+                    display:grid; place-items:center; background: rgba(255,255,255,.08); color:white;
+                    border: 1px solid rgba(255,255,255,.14);
+                    overflow: hidden;
                     font-weight: 950; font-size: 22px;
-                    box-shadow: 0 16px 44px rgba(59,130,246,.28);
+                    box-shadow: 0 16px 44px rgba(0,0,0,.28);
                 }}
+                .brandmark img {{ width:100%; height:100%; object-fit:cover; display:block; }}
+                .brandmark span {{ display:grid; place-items:center; width:100%; height:100%; }}
                 .header h1 {{ margin: 0; font-size: 27px; letter-spacing: -.04em; line-height:1; }}
                 .header p {{ margin: 6px 0 0; color: var(--text-muted); font-size: 13px; }}
                 .status-pill {{
@@ -1138,6 +2169,150 @@ class MobileHandler(BaseHTTPRequestHandler):
                     pointer-events: none;
                     z-index: 0;
                 }}
+                /* Mobil web için daha modern ve hafif görünüm */
+                @media (max-width: 760px) {{
+                    body {{
+                        padding: 12px 10px 98px;
+                        background:
+                            radial-gradient(circle at 20% 0%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 38%),
+                            linear-gradient(155deg, #050814, #0B1220 52%, #111827);
+                    }}
+                    body::before,
+                    body::after {{
+                        display: none;
+                    }}
+                    .app-shell {{
+                        max-width: 520px;
+                    }}
+                    .header {{
+                        align-items: flex-start;
+                        margin-bottom: 12px;
+                    }}
+                    .brandline {{
+                        gap: 10px;
+                    }}
+                    .brandmark {{
+                        width: 42px;
+                        height: 42px;
+                        border-radius: 15px;
+                        font-size: 18px;
+                    }}
+                    .header h1 {{
+                        font-size: 24px;
+                    }}
+                    .header p {{
+                        font-size: 12px;
+                    }}
+                    .status-pill {{
+                        padding: 8px 10px;
+                        font-size: 11px;
+                    }}
+                    .panel {{
+                        border-radius: 24px;
+                        padding: 15px;
+                        backdrop-filter: none;
+                        -webkit-backdrop-filter: none;
+                        box-shadow: 0 14px 38px rgba(0,0,0,.28);
+                    }}
+                    .section-title {{
+                        display: block;
+                        padding-bottom: 10px;
+                        margin-bottom: 12px;
+                    }}
+                    h3 {{
+                        font-size: 19px;
+                    }}
+                    .grid-list {{
+                        grid-template-columns: 1fr !important;
+                        gap: 9px;
+                    }}
+                    .btn-ctrl {{
+                        min-height: 66px;
+                        padding: 14px;
+                        border-radius: 18px;
+                        transition: none;
+                    }}
+                    .btn-ctrl:hover,
+                    .btn-ctrl:focus {{
+                        transform: none;
+                        box-shadow: none;
+                    }}
+                    .touch-preview-card,
+                    .touch-device,
+                    .wheel-card,
+                    .mixer-card {{
+                        border-radius: 22px;
+                        backdrop-filter: none;
+                        -webkit-backdrop-filter: none;
+                        box-shadow: none;
+                    }}
+                    .touch-grid {{
+                        grid-template-columns: repeat(2, minmax(0, 1fr));
+                        gap: 8px;
+                    }}
+                    .touch-btn {{
+                        min-height: 72px;
+                        border-radius: 16px;
+                        padding: 10px;
+                        transition: none;
+                    }}
+                    .touch-btn .top {{
+                        font-size: 13px;
+                    }}
+                    .touch-btn .sub {{
+                        font-size: 11px;
+                    }}
+                    .nav {{
+                        bottom: 10px;
+                        width: calc(100% - 18px);
+                        border-radius: 22px;
+                        padding: 7px;
+                        backdrop-filter: none;
+                        -webkit-backdrop-filter: none;
+                    }}
+                    .nav button {{
+                        font-size: 12px;
+                        padding: 11px 6px;
+                    }}
+                }}
+
+                .accent-preview {{
+                    border: 1px solid var(--border);
+                    border-radius: 16px;
+                    padding: 14px;
+                    background: color-mix(in srgb, var(--accent) 14%, rgba(15,23,42,.72));
+                    font-weight: 900;
+                    color: white;
+                    margin: 8px 0 12px;
+                }}
+                .accent-palette {{
+                    display: grid;
+                    grid-template-columns: repeat(6, 1fr);
+                    gap: 9px;
+                    margin: 10px 0 14px;
+                }}
+                .accent-chip {{
+                    height: 38px;
+                    border-radius: 14px;
+                    border: 2px solid rgba(255,255,255,.16);
+                    cursor: pointer;
+                    box-shadow: inset 0 0 0 1px rgba(0,0,0,.18);
+                }}
+                .accent-chip.active {{
+                    border-color: #FFFFFF;
+                    box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 28%, transparent);
+                }}
+                .custom-accent-row {{
+                    display: grid;
+                    grid-template-columns: 1fr auto;
+                    gap: 8px;
+                    align-items: center;
+                    margin-bottom: 12px;
+                }}
+                .custom-accent-row input {{
+                    margin: 0;
+                }}
+
                 .touch-preview-card {{
                     margin-top: 14px;
                     border: 1px solid var(--border);
@@ -1418,9 +2593,16 @@ class MobileHandler(BaseHTTPRequestHandler):
             </style>
         </head>
         <body>
-        
+        <main class="app-shell">
         <div class="header">
-            <h1>NexStudio</h1>
+            <div class="brandline">
+                <div class="brandmark">{logo_html}</div>
+                <div>
+                    <h1>NexStudio</h1>
+                    <p>Web Kontrolü</p>
+                </div>
+            </div>
+            <div class="status-pill">NexDeck Remote</div>
         </div>
         
         <div id="p-ctrl" class="panel active">
@@ -1528,7 +2710,23 @@ class MobileHandler(BaseHTTPRequestHandler):
                 <option value="tr">Türkçe</option>
                 <option value="en">English</option>
             </select>
+
+            <h3 style="margin-top:24px;">Bu Cihaz</h3>
+            <div class="assign-summary" id="trust-status">Cihaz durumu kontrol ediliyor...</div>
+            <input type="text" id="trust-device-name" placeholder="Örn: Ali Telefon, Eski Tablet, PCM">
+            <button class="btn-save" onclick="trustThisDevice()" id="btn_trust_device">✅ Bu Cihazı Tanı</button>
+            <p class="hint">Bu cihaz tanınırsa aynı tarayıcıdan sonraki girişlerde PIN istenmez. Tarayıcı verileri temizlenirse tekrar PIN gerekir.</p>
             
+            <h3 style="margin-top:24px;">Web Genel Rengi</h3>
+            <div class="accent-preview" id="accent-preview">NexStudio vurgu rengi</div>
+            <div class="accent-palette" id="accent-palette"></div>
+            <div class="custom-accent-row">
+                <input type="text" id="web-accent-color" value="{APP_CONFIG.get('accent_color', '#3B82F6')}" placeholder="#3B82F6" maxlength="7">
+                <button class="btn-save" style="margin-top:0;" onclick="applyCustomAccent()">Uygula</button>
+            </div>
+            <button class="btn-save" onclick="saveAccentColor()" id="btn_save_accent">🎨 Rengi Kaydet</button>
+            <p id="save-msg-accent" style="color:#10B981; display:none; text-align:center; font-weight:bold; margin-top:15px; font-size:18px;">Başarılı!</p>
+
             <h3 id="lbl_page_names" style="margin-top:30px;">Sayfa İsimlerini Düzenle</h3>
             <label>Sayfa 1:</label><input type="text" id="pn-1">
             <label>Sayfa 2:</label><input type="text" id="pn-2">
@@ -1552,6 +2750,41 @@ class MobileHandler(BaseHTTPRequestHandler):
         <script>
             const pin = "{correct_pin}";
             const token = "{token}";
+            const isTrustedDevice = {trusted_json};
+            const trustedDeviceName = {trusted_name_json};
+            if (window.location.search.includes('pin=')) {{
+                history.replaceState(null, '', '/' + token);
+            }}
+            function updateTrustStatus() {{
+                const box = document.getElementById('trust-status');
+                const btn = document.getElementById('btn_trust_device');
+                if (!box || !btn) return;
+                if (isTrustedDevice) {{
+                    box.innerHTML = '✅ Bu cihaz tanınıyor' + (trustedDeviceName ? ': <b>' + trustedDeviceName + '</b>' : '') + '<br><span style="color:#94A3B8">Sonraki girişlerde PIN istenmez.</span>';
+                    btn.innerText = '✅ Cihaz Zaten Tanınıyor';
+                    btn.disabled = true;
+                    btn.style.opacity = '.65';
+                }} else {{
+                    box.innerHTML = '⚠️ Bu cihaz henüz tanınmıyor.<br><span style="color:#94A3B8">İstersen bu tarayıcıya güven kaydı bırakabiliriz.</span>';
+                    btn.innerText = '✅ Bu Cihazı Tanı';
+                    btn.disabled = false;
+                    btn.style.opacity = '1';
+                }}
+            }}
+            async function trustThisDevice() {{
+                const input = document.getElementById('trust-device-name');
+                let name = (input && input.value.trim()) || '';
+                if (!name) {{ name = prompt('Bu cihaz için bir ad gir:', 'Benim Cihazım') || ''; }}
+                name = name.trim();
+                if (!name) return;
+                const res = await fetch(`/${{token}}/api/trust_device?pin=${{encodeURIComponent(pin)}}&name=${{encodeURIComponent(name)}}`);
+                const data = await res.json().catch(() => ({{ok:false}}));
+                if (data.ok) {{
+                    try {{ localStorage.setItem('nexstudio_trust_token', data.trust_token || ''); }} catch(e) {{}}
+                    alert('Cihaz tanındı. Sonraki girişlerde bu tarayıcıdan PIN istenmeyecek.');
+                    location.href = '/' + token;
+                }} else {{ alert(data.error || 'Cihaz tanınamadı.'); }}
+            }}
             const macros = {macros_json};
             const physBtns = {buttons_json};
             const i18n = {translations_json};
@@ -1559,11 +2792,27 @@ class MobileHandler(BaseHTTPRequestHandler):
             let encoderConfig = {encoder_json};
             let audioApps = {audio_apps_json};
             let currentConfig = {json.dumps(APP_CONFIG.get("buttons", {}), ensure_ascii=False)};
+            const touchMap = {touch_map_json};
+            const deviceConnected = {device_connected_json};
             let currentLang = localStorage.getItem('nex_lang') || '{APP_CONFIG.get("language", "tr")}';
             
             function t(key) {{
                 if (i18n[currentLang] && i18n[currentLang][key]) return i18n[currentLang][key];
                 return i18n['tr'][key] || key;
+            }}
+
+            function getTouchSignal(page, slotIndex) {{
+                const pageMap = touchMap[String(page)] || touchMap[page] || {{}};
+                return pageMap[String(slotIndex)] || pageMap[slotIndex] || "";
+            }}
+
+            function getTouchVisualNo(page, slotIndex) {{
+                const pageMap = touchMap[String(page)] || touchMap[page] || {{}};
+                return Object.keys(pageMap)
+                    .map(x => parseInt(x))
+                    .filter(x => !Number.isNaN(x))
+                    .sort((a,b) => a-b)
+                    .filter(x => x <= slotIndex).length;
             }}
             
             function applyLang() {{
@@ -1633,6 +2882,16 @@ class MobileHandler(BaseHTTPRequestHandler):
                 idx = (idx + delta + total) % total;
                 sel.selectedIndex = idx;
                 renderControlList();
+            }}
+
+            function cfgDetail(cfg) {{
+                if (!cfg) return '';
+                if (cfg.details) return cfg.details;
+                const a = cfg.action || {{}};
+                if (a.custom_arg) return a.custom_arg;
+                if (a.cmd) return a.cmd;
+                if (a.vk) return 'VK: ' + a.vk;
+                return '';
             }}
 
             function saveEncoderMode() {{
@@ -1795,26 +3054,29 @@ class MobileHandler(BaseHTTPRequestHandler):
             function renderControlList() {{
                 let htmlPhys = "";
                 for (let sig in physBtns) {{
-                    let name = currentConfig[sig] ? currentConfig[sig].name : t('empty');
-                    htmlPhys += `<button class="btn-ctrl" onclick="fetch('/${{token}}/exec?sig=${{sig}}&pin=${{pin}}')"><b>${{physBtns[sig]}}</b><span>${{name}}</span></button>`;
+                    let cfg = currentConfig[sig] || {{}};
+                    let name = cfg.name || t('empty');
+                    let detail = cfgDetail(cfg);
+                    htmlPhys += `<button class="btn-ctrl" onclick="fetch('/${{token}}/exec?sig=${{encodeURIComponent(sig)}}&pin=${{pin}}')"><b>${{physBtns[sig]}}</b><span>${{name}}${{detail ? ' • ' + detail : ''}}</span></button>`;
                 }}
                 document.getElementById('ctrl-list-phys').innerHTML = htmlPhys;
                 
                 let page = document.getElementById('ctrl-page').value;
                 let htmlScr = "";
                 document.getElementById('touch-page-label').innerText = `${{t('page_' + page) || 'Page ' + page}}`;
-                for (let i=1; i<=8; i++) {{
-                    let hidden = (page == 1 && i == 8) || (page > 1 && (i == 5 || i == 8));
-                    if (hidden) {{
+                for (let slot=0; slot<8; slot++) {{
+                    let sig = getTouchSignal(page, slot);
+                    if (!sig) {{
                         htmlScr += `<button class="touch-btn hidden-slot" tabindex="-1"></button>`;
                         continue;
                     }}
-                    let sig = `NEX:P${{page}}_B${{i}}`;
                     let cfg = currentConfig[sig] || {{}};
                     let name = cfg.name || t('empty');
-                    let text = (page >= 3 && cfg.btn_text) ? cfg.btn_text : `Buton ${{i}}`;
+                    let detail = cfgDetail(cfg);
+                    let visualNo = getTouchVisualNo(page, slot);
+                    let text = (page >= 3 && cfg.btn_text) ? cfg.btn_text : `Buton ${{visualNo}}`;
                     let emptyClass = cfg.name ? '' : ' empty';
-                    htmlScr += `<button class="touch-btn${{emptyClass}}" onclick="fetch('/${{token}}/exec?sig=${{sig}}&pin=${{pin}}')"><span class="top">${{text}}</span><span class="sub">${{name}}</span></button>`;
+                    htmlScr += `<button class="touch-btn${{emptyClass}}" onclick="fetch('/${{token}}/exec?sig=${{encodeURIComponent(sig)}}&pin=${{pin}}')"><span class="top">${{text}}</span><span class="sub">${{name}}${{detail ? ' • ' + detail : ''}}</span></button>`;
                 }}
                 document.getElementById('ctrl-list-scr').innerHTML = htmlScr;
             }}
@@ -1838,12 +3100,12 @@ class MobileHandler(BaseHTTPRequestHandler):
                     if (page >= 3) divText.style.display = 'block';
                     else divText.style.display = 'none';
                     
-                    for (let i=1; i<=8; i++) {{
-                        if (page == 1 && i == 8) continue;
-                        if (page > 1 && (i == 5 || i == 8)) continue;
-                        let sig = `NEX:P${{page}}_B${{i}}`;
+                    for (let slot=0; slot<8; slot++) {{
+                        let sig = getTouchSignal(page, slot);
+                        if (!sig) continue;
+                        let visualNo = getTouchVisualNo(page, slot);
                         let name = currentConfig[sig] ? currentConfig[sig].name : t('empty');
-                        btnSel.innerHTML += `<option value="${{sig}}">Buton ${{i}} (${{name}})</option>`;
+                        btnSel.innerHTML += `<option value="${{sig}}">Buton ${{visualNo}} (${{name}})</option>`;
                     }}
                 }}
                 
@@ -1916,7 +3178,7 @@ class MobileHandler(BaseHTTPRequestHandler):
                 let app_action = document.getElementById('sel-app-action').value;
                 let btn_text = document.getElementById('inp-screen-text').value;
                 
-                fetch(`/${{token}}/api/save?sig=${{sig}}&cat=${{cat}}&act=${{act}}&arg=${{arg}}&browser=${{browser}}&app_action=${{app_action}}&btn_text=${{btn_text}}&pin=${{pin}}`).then(() => {{
+                fetch(`/${{token}}/api/save?sig=${{encodeURIComponent(sig)}}&cat=${{encodeURIComponent(cat)}}&act=${{encodeURIComponent(act)}}&arg=${{encodeURIComponent(arg)}}&browser=${{encodeURIComponent(browser)}}&app_action=${{encodeURIComponent(app_action)}}&btn_text=${{encodeURIComponent(btn_text)}}&pin=${{pin}}`).then(() => {{
                     document.getElementById('save-msg').style.display = "block";
                     setTimeout(() => document.getElementById('save-msg').style.display = "none", 2000);
                     currentConfig[sig] = {{name: act, btn_text: btn_text}};
@@ -1926,6 +3188,55 @@ class MobileHandler(BaseHTTPRequestHandler):
                 }});
             }}
             
+            const accentPresets = ['#3B82F6', '#EF4444', '#10B981', '#8B5CF6', '#EC4899', '#F97316', '#22C55E', '#06B6D4', '#FACC15', '#64748B', '#FFFFFF', '#111827'];
+            let selectedAccent = '{APP_CONFIG.get('accent_color', '#3B82F6')}';
+
+            function normalizeAccent(color) {{
+                color = (color || '').trim();
+                if (!color.startsWith('#')) color = '#' + color;
+                return /^#[0-9A-Fa-f]{{6}}$/.test(color) ? color.toUpperCase() : null;
+            }}
+
+            function setAccentColor(color) {{
+                const normalized = normalizeAccent(color);
+                if (!normalized) return;
+                selectedAccent = normalized;
+                document.getElementById('web-accent-color').value = normalized;
+                document.documentElement.style.setProperty('--accent', normalized);
+                document.querySelectorAll('.accent-chip').forEach(chip => {{
+                    chip.classList.toggle('active', chip.dataset.color.toUpperCase() === normalized);
+                }});
+            }}
+
+            function renderAccentPalette() {{
+                const wrap = document.getElementById('accent-palette');
+                if (!wrap) return;
+                wrap.innerHTML = '';
+                accentPresets.forEach(color => {{
+                    const chip = document.createElement('button');
+                    chip.type = 'button';
+                    chip.className = 'accent-chip';
+                    chip.dataset.color = color;
+                    chip.style.background = color;
+                    chip.onclick = () => setAccentColor(color);
+                    wrap.appendChild(chip);
+                }});
+                setAccentColor(selectedAccent);
+            }}
+
+            function applyCustomAccent() {{
+                const color = normalizeAccent(document.getElementById('web-accent-color').value);
+                if (color) setAccentColor(color);
+            }}
+
+            function saveAccentColor() {{
+                applyCustomAccent();
+                fetch(`/${{token}}/api/save_accent?color=${{encodeURIComponent(selectedAccent)}}&pin=${{pin}}`).then(() => {{
+                    document.getElementById('save-msg-accent').style.display = "block";
+                    setTimeout(() => document.getElementById('save-msg-accent').style.display = "none", 2000);
+                }});
+            }}
+
             function savePageNames() {{
                 let p1 = document.getElementById('pn-1').value;
                 let p2 = document.getElementById('pn-2').value;
@@ -1944,29 +3255,821 @@ class MobileHandler(BaseHTTPRequestHandler):
             }}
             
             applyLang();
+            renderAccentPalette();
+            updateTrustStatus();
             initWebWheel();
             setTimeout(refreshMixerApps, 500);
         </script>
         </body></html>
         """
-        self.send_html(dashboard_html)
+        if not is_mobile_client:
+            desktop_html = f"""
+            <!DOCTYPE html>
+            <html lang="tr">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>NexStudio Desktop Web</title>
+                <style>
+                    :root {{
+                        --bg: #080D18;
+                        --panel: #101827;
+                        --panel2: #152033;
+                        --line: rgba(148,163,184,.18);
+                        --text: #F8FAFC;
+                        --muted: #94A3B8;
+                        --accent: {APP_CONFIG.get('accent_color', '#3B82F6')};
+                        --danger: #DC2626;
+                        --ok: #10B981;
+                    }}
+                    * {{ box-sizing: border-box; }}
+                    .brandmark img {{ width:100%; height:100%; object-fit:cover; display:block; }}
+                    .brandmark span {{ display:grid; place-items:center; width:100%; height:100%; font-weight:950; }}
+                    body {{
+                        margin: 0;
+                        min-height: 100vh;
+                        background:
+                            radial-gradient(circle at 0% 0%, rgba(59,130,246,.18), transparent 34%),
+                            linear-gradient(135deg, #07101D, #111827 54%, #151B2D);
+                        color: var(--text);
+                        font-family: Inter, 'Segoe UI', Arial, sans-serif;
+                        padding: 22px;
+                    }}
+                    .desktop-shell {{
+                        width: min(1440px, 100%);
+                        margin: 0 auto;
+                    }}
+                    .topbar {{
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        gap: 16px;
+                        margin-bottom: 18px;
+                    }}
+                    .brand h1 {{
+                        margin: 0;
+                        font-size: 30px;
+                        letter-spacing: -.04em;
+                    }}
+                    .brand p {{
+                        margin: 6px 0 0;
+                        color: var(--muted);
+                        font-weight: 700;
+                    }}
+                    .pill {{
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 8px;
+                        border: 1px solid var(--line);
+                        background: rgba(15,23,42,.72);
+                        color: #CBD5E1;
+                        padding: 10px 14px;
+                        border-radius: 999px;
+                        font-size: 13px;
+                        font-weight: 900;
+                    }}
+                    .tabs {{
+                        position: sticky;
+                        top: 12px;
+                        z-index: 20;
+                        display: flex;
+                        gap: 10px;
+                        background: rgba(8,13,24,.82);
+                        border: 1px solid var(--line);
+                        border-radius: 22px;
+                        padding: 8px;
+                        backdrop-filter: blur(10px);
+                        margin-bottom: 18px;
+                    }}
+                    .tabs button {{
+                        border: 0;
+                        background: transparent;
+                        color: var(--muted);
+                        padding: 13px 18px;
+                        border-radius: 16px;
+                        font-weight: 950;
+                        cursor: pointer;
+                    }}
+                    .tabs button.active {{
+                        color: white;
+                        background: var(--accent);
+                    }}
+                    .panel {{
+                        display: none;
+                    }}
+                    .panel.active {{
+                        display: block;
+                    }}
+                    .grid {{
+                        display: grid;
+                        grid-template-columns: repeat(12, 1fr);
+                        gap: 16px;
+                    }}
+                    .card {{
+                        background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.018)), var(--panel);
+                        border: 1px solid var(--line);
+                        border-radius: 22px;
+                        padding: 18px;
+                    }}
+                    .card h2, .card h3 {{
+                        margin: 0 0 12px;
+                        letter-spacing: -.02em;
+                    }}
+                    .muted {{
+                        color: var(--muted);
+                        font-size: 13px;
+                        font-weight: 700;
+                    }}
+                    .phys-card {{ grid-column: span 4; }}
+                    .touch-card {{ grid-column: span 5; }}
+                    .wheel-card {{ grid-column: span 3; }}
+                    .wide {{ grid-column: span 12; }}
+                    .button-grid {{
+                        display: grid;
+                        grid-template-columns: repeat(2, minmax(0, 1fr));
+                        gap: 10px;
+                    }}
+                    .action-btn {{
+                        border: 1px solid var(--line);
+                        background: var(--panel2);
+                        color: var(--text);
+                        border-radius: 16px;
+                        padding: 13px;
+                        min-height: 66px;
+                        text-align: left;
+                        cursor: pointer;
+                        font-weight: 950;
+                    }}
+                    .action-btn small {{
+                        display: block;
+                        color: var(--muted);
+                        margin-top: 6px;
+                        font-weight: 750;
+                    }}
+                    .action-btn:hover {{
+                        border-color: var(--accent);
+                    }}
+                    .touch-toolbar {{
+                        display: grid;
+                        grid-template-columns: 48px 1fr 48px;
+                        gap: 10px;
+                        margin-bottom: 12px;
+                    }}
+                    .small-btn {{
+                        border: 1px solid var(--line);
+                        background: #0B1220;
+                        color: white;
+                        border-radius: 14px;
+                        padding: 12px;
+                        font-weight: 950;
+                        cursor: pointer;
+                    }}
+                    .touch-grid {{
+                        display: grid;
+                        grid-template-columns: repeat(4, minmax(0, 1fr));
+                        gap: 10px;
+                        background: #07101D;
+                        border: 1px solid var(--line);
+                        border-radius: 20px;
+                        padding: 14px;
+                    }}
+                    .touch-btn {{
+                        min-height: 80px;
+                        border-radius: 16px;
+                        border: 1px solid var(--line);
+                        background: var(--panel2);
+                        color: white;
+                        cursor: pointer;
+                        text-align: left;
+                        padding: 12px;
+                        font-weight: 950;
+                    }}
+                    .touch-btn small {{
+                        display:block;
+                        color: var(--muted);
+                        margin-top: 8px;
+                    }}
+                    .touch-btn.hidden {{
+                        visibility: hidden;
+                        pointer-events: none;
+                    }}
+                    select, input {{
+                        width: 100%;
+                        padding: 13px;
+                        border-radius: 14px;
+                        border: 1px solid var(--line);
+                        background: #0B1220;
+                        color: white;
+                        margin: 7px 0 12px;
+                        font-weight: 800;
+                    }}
+                    .save {{
+                        width: 100%;
+                        border: 0;
+                        border-radius: 15px;
+                        padding: 14px;
+                        background: var(--accent);
+                        color: white;
+                        font-weight: 950;
+                        cursor: pointer;
+                    }}
+                    .wheel {{
+                        width: 96px;
+                        height: 96px;
+                        border-radius: 999px;
+                        margin: 12px auto;
+                        background: conic-gradient(from 0deg, var(--danger), #7C3AED, var(--accent), var(--danger));
+                        display: grid;
+                        place-items: center;
+                        cursor: grab;
+                        user-select: none;
+                        touch-action: none;
+                        position: relative;
+                    }}
+                    .wheel:active {{
+                        cursor: grabbing;
+                    }}
+                    .wheel::before {{
+                        content: "";
+                        position: absolute;
+                        top: 9px;
+                        left: 50%;
+                        width: 8px;
+                        height: 18px;
+                        border-radius: 999px;
+                        background: white;
+                        transform: translateX(-50%);
+                        opacity: .9;
+                    }}
+                    .wheel::after {{
+                        content: "";
+                        width: 46px;
+                        height: 46px;
+                        background: #0B1220;
+                        border-radius: 999px;
+                        border: 1px solid var(--line);
+                    }}
+                    .vol-row {{
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        gap: 10px;
+                    }}
+                    .accent-preview {{
+                        border: 1px solid var(--line);
+                        border-radius: 16px;
+                        padding: 14px;
+                        background: color-mix(in srgb, var(--accent) 14%, #101827);
+                        font-weight: 900;
+                        margin-bottom: 12px;
+                    }}
+                    .accent-palette {{
+                        display: grid;
+                        grid-template-columns: repeat(8, 42px);
+                        gap: 10px;
+                        margin: 8px 0 14px;
+                    }}
+                    .accent-chip {{
+                        width: 42px;
+                        height: 42px;
+                        border-radius: 14px;
+                        border: 2px solid rgba(255,255,255,.16);
+                        cursor: pointer;
+                        box-shadow: inset 0 0 0 1px rgba(0,0,0,.2);
+                    }}
+                    .accent-chip.active {{
+                        border-color: white;
+                        box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 26%, transparent);
+                    }}
+                    .custom-accent-row {{
+                        display: grid;
+                        grid-template-columns: minmax(220px, 1fr) auto;
+                        gap: 10px;
+                        align-items: center;
+                        margin-bottom: 14px;
+                    }}
+                    .custom-accent-row input {{
+                        margin: 0;
+                    }}
+
+                    .toast {{
+                        position: fixed;
+                        right: 20px;
+                        bottom: 20px;
+                        background: #052E1A;
+                        border: 1px solid #14532D;
+                        color: #D1FAE5;
+                        border-radius: 999px;
+                        padding: 12px 16px;
+                        display: none;
+                        font-weight: 900;
+                    }}
+                    @media (max-width: 1100px) {{
+                        .phys-card, .touch-card, .wheel-card {{ grid-column: span 12; }}
+                    }}
+                </style>
+            </head>
+            <body>
+                <main class="desktop-shell">
+                    <div class="topbar">
+                        <div class="brand" style="display:flex;align-items:center;gap:14px;">
+                            <div class="brandmark" style="width:48px;height:48px;border-radius:16px;overflow:hidden;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);display:grid;place-items:center;">{logo_html}</div>
+                            <div>
+                                <h1>NexStudio Web</h1>
+                                <p>Masaüstü kontrol paneli</p>
+                            </div>
+                        </div>
+                        <div class="pill">Güvenli bağlantı aktif</div>
+                    </div>
+
+                    <div class="tabs">
+                        <button id="dt-control" class="active" onclick="showDesktopTab('control')">⌁ Kontrol</button>
+                        <button id="dt-assign" onclick="showDesktopTab('assign')">✦ Atama Yap</button>
+                        <button id="dt-settings" onclick="showDesktopTab('settings')">⚙ Ayarlar</button>
+                    </div>
+
+                    <section id="d-control" class="panel active">
+                        <div class="grid">
+                            <div class="card phys-card">
+                                <h2>Fiziksel Tuşlar</h2>
+                                <p class="muted">Kısa/uzun basım ve tekerlek butonu görevleri</p>
+                                <div id="d-phys" class="button-grid"></div>
+                            </div>
+
+                            <div class="card touch-card">
+                                <h2>Dokunmatik Ekran</h2>
+                                <div class="touch-toolbar">
+                                    <button class="small-btn" onclick="changePage(-1)">‹</button>
+                                    <select id="d-page" onchange="renderDesktop()"></select>
+                                    <button class="small-btn" onclick="changePage(1)">›</button>
+                                </div>
+                                <div id="d-touch" class="touch-grid"></div>
+                            </div>
+
+                            <div class="card wheel-card">
+                                <h2>Tekerlek</h2>
+                                <div class="wheel" id="d-wheel"></div>
+                                <select id="d-encoder"></select>
+                                <select id="d-mixer"></select>
+                                <button class="small-btn" onclick="refreshMixerApps()">↻ Ses Uygulamaları</button>
+                                <div class="vol-row">
+                                    <button class="small-btn" onclick="webVolume('down', 2)">−</button>
+                                    <button class="small-btn" onclick="webVolume('up', 2)">+</button>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="d-assign" class="panel">
+                        <div class="grid">
+                            <div class="card wide">
+                                <h2>Atama Yap</h2>
+                                <label>Tür</label>
+                                <select id="d-assign-type" onchange="updateDesktopAssignUI()">
+                                    <option value="phys">Fiziksel Tuş</option>
+                                    <option value="screen">Dokunmatik Ekran</option>
+                                </select>
+                                <label>Sayfa</label>
+                                <select id="d-assign-page" onchange="updateDesktopAssignUI()"></select>
+                                <label>Tuş</label>
+                                <select id="d-sel-btn" onchange="loadDesktopAssign()"></select>
+                                <label>Kategori</label>
+                                <select id="d-sel-cat" onchange="updateDesktopActions()"></select>
+                                <label>Görev</label>
+                                <select id="d-sel-act" onchange="checkDesktopArg()"></select>
+                                <input id="d-screen-text" placeholder="Ekran yazısı" style="display:none;">
+                                <select id="d-browser" style="display:none;">
+                                    <option value="default">Varsayılan tarayıcı</option>
+                                    <option value="chrome">Google Chrome</option>
+                                    <option value="edge">Microsoft Edge</option>
+                                    <option value="firefox">Mozilla Firefox</option>
+                                </select>
+                                <select id="d-app-action" style="display:none;">
+                                    <option value="open">Uygulamayı Aç</option>
+                                    <option value="close">Uygulamayı Kapat</option>
+                                    <option value="force_close">Zorla Kapat</option>
+                                </select>
+                                <input id="d-arg" placeholder="Ek bilgi" style="display:none;">
+                                <button class="save" onclick="saveDesktopMacro()">💾 Kaydet</button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="d-settings" class="panel">
+                        <div class="card wide">
+                            <h2>Ayarlar</h2>
+                            <p class="muted">Sayfa isimleri ve temel web ayarları</p>
+                            <label>Bu Cihaz</label>
+                            <div class="muted" id="d-trust-status" style="border:1px solid var(--line);border-radius:14px;padding:12px;background:rgba(2,6,23,.30);margin-bottom:12px;">Cihaz durumu kontrol ediliyor...</div>
+                            <input id="d-trust-device-name" placeholder="Örn: Ali PC, Sunum Tableti">
+                            <button class="save" onclick="desktopTrustThisDevice()">✅ Bu Cihazı Tanı</button>
+                            <label>Web Genel Rengi</label>
+                            <div class="accent-preview" id="d-accent-preview">NexStudio vurgu rengi</div>
+                            <div class="accent-palette" id="d-accent-palette"></div>
+                            <div class="custom-accent-row">
+                                <input type="text" id="d-accent-color" value="{APP_CONFIG.get('accent_color', '#3B82F6')}" placeholder="#3B82F6" maxlength="7">
+                                <button class="small-btn" onclick="applyDesktopCustomAccent()">Uygula</button>
+                            </div>
+                            <button class="save" onclick="saveDesktopAccent()">🎨 Rengi Kaydet</button>
+
+                            <label>Sayfa 1</label><input id="d-pn-1">
+                            <label>Sayfa 2</label><input id="d-pn-2">
+                            <label>Sayfa 3</label><input id="d-pn-3">
+                            <label>Sayfa 4</label><input id="d-pn-4">
+                            <button class="save" onclick="saveDesktopPageNames()">💾 Sayfa İsimlerini Kaydet</button>
+                        </div>
+                    </section>
+                </main>
+
+                <div class="toast" id="d-toast">Kaydedildi</div>
+
+                <script>
+                    const pin = "{correct_pin}";
+                    const token = "{token}";
+                    const isTrustedDevice = {trusted_json};
+                    const trustedDeviceName = {trusted_name_json};
+                    if (window.location.search.includes('pin=')) {{ history.replaceState(null, '', '/' + token); }}
+                    function updateDesktopTrustStatus() {{
+                        const box = document.getElementById('d-trust-status');
+                        if (!box) return;
+                        if (isTrustedDevice) {{
+                            box.innerHTML = '✅ Bu cihaz tanınıyor' + (trustedDeviceName ? ': <b>' + trustedDeviceName + '</b>' : '') + '<br>Sonraki girişlerde PIN istenmez.';
+                        }} else {{
+                            box.innerHTML = '⚠️ Bu cihaz henüz tanınmıyor.<br>İstersen bu tarayıcıya güven kaydı bırakabilirsin.';
+                        }}
+                    }}
+                    async function desktopTrustThisDevice() {{
+                        const input = document.getElementById('d-trust-device-name');
+                        let name = (input && input.value.trim()) || '';
+                        if (!name) name = prompt('Bu cihaz için bir ad gir:', 'Benim Cihazım') || '';
+                        name = name.trim();
+                        if (!name) return;
+                        const res = await fetch(`/${{token}}/api/trust_device?pin=${{encodeURIComponent(pin)}}&name=${{encodeURIComponent(name)}}`);
+                        const data = await res.json().catch(() => ({{ok:false}}));
+                        if (data.ok) {{
+                            try {{ localStorage.setItem('nexstudio_trust_token', data.trust_token || ''); }} catch(e) {{}}
+                            alert('Cihaz tanındı. Sonraki girişlerde bu tarayıcıdan PIN istenmeyecek.');
+                            location.href = '/' + token;
+                        }} else {{ alert(data.error || 'Cihaz tanınamadı.'); }}
+                    }}
+                    const macros = {macros_json};
+                    const physBtns = {buttons_json};
+                    let pageNames = {page_names_json};
+                    let encoderConfig = {encoder_json};
+                    let audioApps = {audio_apps_json};
+                    let currentConfig = {json.dumps(APP_CONFIG.get("buttons", {}), ensure_ascii=False)};
+                    const touchMap = {touch_map_json};
+
+                    function toast(msg='Kaydedildi') {{
+                        const el = document.getElementById('d-toast');
+                        el.innerText = msg;
+                        el.style.display = 'block';
+                        setTimeout(() => el.style.display = 'none', 1600);
+                    }}
+                    function showDesktopTab(tab) {{
+                        ['control','assign','settings'].forEach(x => {{
+                            document.getElementById('d-' + x).classList.toggle('active', x === tab);
+                            document.getElementById('dt-' + x).classList.toggle('active', x === tab);
+                        }});
+                    }}
+                    function getTouchSignal(page, slot) {{
+                        const pm = touchMap[String(page)] || touchMap[page] || {{}};
+                        return pm[String(slot)] || pm[slot] || "";
+                    }}
+                    function getTouchVisualNo(page, slot) {{
+                        const pm = touchMap[String(page)] || touchMap[page] || {{}};
+                        return Object.keys(pm).map(x => parseInt(x)).filter(x => !Number.isNaN(x)).sort((a,b)=>a-b).filter(x => x <= slot).length;
+                    }}
+                    function desktopCfgDetail(cfg) {{
+                        if (!cfg) return '';
+                        if (cfg.details) return cfg.details;
+                        const a = cfg.action || {{}};
+                        if (a.custom_arg) return a.custom_arg;
+                        if (a.cmd) return a.cmd;
+                        if (a.vk) return 'VK: ' + a.vk;
+                        return '';
+                    }}
+                    function execSig(sig) {{
+                        fetch(`/${{token}}/exec?sig=${{encodeURIComponent(sig)}}&pin=${{pin}}`).catch(()=>{{}});
+                    }}
+                    function renderDesktop() {{
+                        const phys = document.getElementById('d-phys');
+                        phys.innerHTML = '';
+                        for (let sig in physBtns) {{
+                            let cfg = currentConfig[sig] || {{}};
+                            let detail = desktopCfgDetail(cfg);
+                            phys.innerHTML += `<button class="action-btn" onclick="execSig('${{sig}}')">${{physBtns[sig]}}<small>${{cfg.name || 'Boş'}}${{detail ? ' • ' + detail : ''}}</small></button>`;
+                        }}
+
+                        const page = parseInt(document.getElementById('d-page').value || '1');
+                        const touch = document.getElementById('d-touch');
+                        touch.innerHTML = '';
+                        for (let slot=0; slot<8; slot++) {{
+                            const sig = getTouchSignal(page, slot);
+                            if (!sig) {{
+                                touch.innerHTML += `<button class="touch-btn hidden"></button>`;
+                                continue;
+                            }}
+                            const cfg = currentConfig[sig] || {{}};
+                            const detail = desktopCfgDetail(cfg);
+                            const no = getTouchVisualNo(page, slot);
+                            const title = (page >= 3 && cfg.btn_text) ? cfg.btn_text : `Buton ${{no}}`;
+                            touch.innerHTML += `<button class="touch-btn" onclick="execSig('${{sig}}')">${{title}}<small>${{cfg.name || 'Boş'}}${{detail ? ' • ' + detail : ''}}</small></button>`;
+                        }}
+                    }}
+                    function changePage(delta) {{
+                        const el = document.getElementById('d-page');
+                        let v = parseInt(el.value || '1') + delta;
+                        v = Math.max(1, Math.min(4, v));
+                        el.value = String(v);
+                        renderDesktop();
+                    }}
+                    function initDesktop() {{
+                        const dPage = document.getElementById('d-page');
+                        const aPage = document.getElementById('d-assign-page');
+                        for (let i=1;i<=4;i++) {{
+                            const name = pageNames[String(i)] || `Sayfa ${{i}}`;
+                            dPage.innerHTML += `<option value="${{i}}">${{name}}</option>`;
+                            aPage.innerHTML += `<option value="${{i}}">${{name}}</option>`;
+                            document.getElementById('d-pn-' + i).value = name;
+                        }}
+                        for (let cat in macros) document.getElementById('d-sel-cat').innerHTML += `<option value="${{cat}}">${{cat}}</option>`;
+                        const enc = document.getElementById('d-encoder');
+                        enc.innerHTML = `<option value="general_volume">Genel Ses Seviyesi</option><option value="brightness">Ekran Parlaklığı</option>`;
+                        document.getElementById('d-mixer').innerHTML = `<option value="__none__">Uygulama seçilmedi</option>`;
+                        updateDesktopAssignUI();
+                        updateDesktopActions();
+                        renderDesktop();
+                        renderDesktopAccentPalette();
+                        initDesktopWheel();
+                        setTimeout(refreshMixerApps, 500);
+                    }}
+                    function updateDesktopAssignUI() {{
+                        const type = document.getElementById('d-assign-type').value;
+                        const pageSel = document.getElementById('d-assign-page');
+                        const btnSel = document.getElementById('d-sel-btn');
+                        const textInput = document.getElementById('d-screen-text');
+                        btnSel.innerHTML = '';
+                        if (type === 'phys') {{
+                            pageSel.style.display = 'none';
+                            textInput.style.display = 'none';
+                            for (let sig in physBtns) btnSel.innerHTML += `<option value="${{sig}}">${{physBtns[sig]}}</option>`;
+                        }} else {{
+                            pageSel.style.display = 'block';
+                            const page = parseInt(pageSel.value || '1');
+                            textInput.style.display = page >= 3 ? 'block' : 'none';
+                            for (let slot=0; slot<8; slot++) {{
+                                const sig = getTouchSignal(page, slot);
+                                if (!sig) continue;
+                                const no = getTouchVisualNo(page, slot);
+                                const cfg = currentConfig[sig] || {{}};
+                                btnSel.innerHTML += `<option value="${{sig}}">Buton ${{no}} (${{cfg.name || 'Boş'}})</option>`;
+                            }}
+                        }}
+                        loadDesktopAssign();
+                    }}
+                    function updateDesktopActions() {{
+                        const cat = document.getElementById('d-sel-cat').value;
+                        const act = document.getElementById('d-sel-act');
+                        act.innerHTML = '';
+                        for (let k in macros[cat]) act.innerHTML += `<option value="${{k}}">${{k}}</option>`;
+                        checkDesktopArg();
+                    }}
+                    function checkDesktopArg() {{
+                        const cat = document.getElementById('d-sel-cat').value;
+                        const act = document.getElementById('d-sel-act').value;
+                        const type = macros[cat][act].type;
+                        document.getElementById('d-arg').style.display = ["custom_web","custom_app","custom_hotkey","type_text"].includes(type) ? 'block' : 'none';
+                        document.getElementById('d-browser').style.display = ["custom_web","web"].includes(type) ? 'block' : 'none';
+                        document.getElementById('d-app-action').style.display = type === 'custom_app' ? 'block' : 'none';
+                    }}
+                    function loadDesktopAssign() {{
+                        const sig = document.getElementById('d-sel-btn').value;
+                        const cfg = currentConfig[sig] || {{}};
+                        document.getElementById('d-screen-text').value = cfg.btn_text || '';
+                        document.getElementById('d-arg').value = cfg.action?.custom_arg || '';
+                    }}
+                    function saveDesktopMacro() {{
+                        const sig = document.getElementById('d-sel-btn').value;
+                        const cat = document.getElementById('d-sel-cat').value;
+                        const act = document.getElementById('d-sel-act').value;
+                        const arg = document.getElementById('d-arg').value;
+                        const browser = document.getElementById('d-browser').value;
+                        const app_action = document.getElementById('d-app-action').value;
+                        const btn_text = document.getElementById('d-screen-text').value;
+                        fetch(`/${{token}}/api/save?sig=${{encodeURIComponent(sig)}}&cat=${{encodeURIComponent(cat)}}&act=${{encodeURIComponent(act)}}&arg=${{encodeURIComponent(arg)}}&browser=${{encodeURIComponent(browser)}}&app_action=${{encodeURIComponent(app_action)}}&btn_text=${{encodeURIComponent(btn_text)}}&pin=${{pin}}`).then(() => {{
+                            currentConfig[sig] = {{name: act, btn_text: btn_text}};
+                            toast();
+                            renderDesktop();
+                            updateDesktopAssignUI();
+                        }});
+                    }}
+                    const desktopAccentPresets = ['#3B82F6', '#EF4444', '#10B981', '#8B5CF6', '#EC4899', '#F97316', '#22C55E', '#06B6D4', '#FACC15', '#64748B', '#FFFFFF', '#111827'];
+                    let desktopSelectedAccent = '{APP_CONFIG.get('accent_color', '#3B82F6')}';
+
+                    function normalizeDesktopAccent(color) {{
+                        color = (color || '').trim();
+                        if (!color.startsWith('#')) color = '#' + color;
+                        return /^#[0-9A-Fa-f]{{6}}$/.test(color) ? color.toUpperCase() : null;
+                    }}
+
+                    function setDesktopAccent(color) {{
+                        const normalized = normalizeDesktopAccent(color);
+                        if (!normalized) return;
+                        desktopSelectedAccent = normalized;
+                        document.getElementById('d-accent-color').value = normalized;
+                        document.documentElement.style.setProperty('--accent', normalized);
+                        document.querySelectorAll('#d-accent-palette .accent-chip').forEach(chip => {{
+                            chip.classList.toggle('active', chip.dataset.color.toUpperCase() === normalized);
+                        }});
+                    }}
+
+                    function renderDesktopAccentPalette() {{
+                        const wrap = document.getElementById('d-accent-palette');
+                        if (!wrap) return;
+                        wrap.innerHTML = '';
+                        desktopAccentPresets.forEach(color => {{
+                            const chip = document.createElement('button');
+                            chip.type = 'button';
+                            chip.className = 'accent-chip';
+                            chip.dataset.color = color;
+                            chip.style.background = color;
+                            chip.onclick = () => setDesktopAccent(color);
+                            wrap.appendChild(chip);
+                        }});
+                        setDesktopAccent(desktopSelectedAccent);
+                    }}
+
+                    function applyDesktopCustomAccent() {{
+                        const color = normalizeDesktopAccent(document.getElementById('d-accent-color').value);
+                        if (color) setDesktopAccent(color);
+                    }}
+
+                    function saveDesktopAccent() {{
+                        applyDesktopCustomAccent();
+                        fetch(`/${{token}}/api/save_accent?color=${{encodeURIComponent(desktopSelectedAccent)}}&pin=${{pin}}`).then(() => toast('Renk kaydedildi'));
+                    }}
+
+                    function saveDesktopPageNames() {{
+                        let jobs = [];
+                        for (let i=1;i<=4;i++) {{
+                            const name = document.getElementById('d-pn-' + i).value;
+                            pageNames[String(i)] = name;
+                            jobs.push(fetch(`/${{token}}/api/save_page_name?page=${{i}}&name=${{encodeURIComponent(name)}}&pin=${{pin}}`));
+                        }}
+                        Promise.all(jobs).then(() => {{ toast(); location.reload(); }});
+                    }}
+                    function getCurrentEncoderMode() {{
+                        const mixer = document.getElementById('d-mixer').value;
+                        if (mixer && mixer !== '__none__') return mixer;
+                        return document.getElementById('d-encoder').value || 'general_volume';
+                    }}
+
+                    let desktopWheelSendTimer = null;
+                    let desktopWheelQueued = 0;
+                    function webVolume(dir, steps=1) {{
+                        const sign = dir === 'up' ? 1 : -1;
+                        desktopWheelQueued += sign * Math.max(1, steps || 1);
+                        desktopWheelQueued = Math.max(-20, Math.min(20, desktopWheelQueued));
+
+                        if (desktopWheelSendTimer) return;
+                        desktopWheelSendTimer = setTimeout(() => {{
+                            const amount = desktopWheelQueued;
+                            desktopWheelQueued = 0;
+                            desktopWheelSendTimer = null;
+                            if (!amount) return;
+                            const sendDir = amount > 0 ? 'up' : 'down';
+                            const sendSteps = Math.min(20, Math.abs(amount));
+                            fetch(`/${{token}}/api/volume?dir=${{sendDir}}&steps=${{sendSteps}}&mode=${{encodeURIComponent(getCurrentEncoderMode())}}&pin=${{pin}}`).catch(()=>{{}});
+                        }}, 70);
+                    }}
+
+                    let desktopWheelDragging = false;
+                    let desktopWheelLastAngle = 0;
+                    let desktopWheelVisualAngle = 0;
+                    let desktopWheelAccum = 0;
+
+                    function desktopPointerAngle(evt, el) {{
+                        const rect = el.getBoundingClientRect();
+                        const cx = rect.left + rect.width / 2;
+                        const cy = rect.top + rect.height / 2;
+                        return Math.atan2(evt.clientY - cy, evt.clientX - cx) * 180 / Math.PI;
+                    }}
+
+                    function desktopAngleDiff(a, b) {{
+                        let d = a - b;
+                        while (d > 180) d -= 360;
+                        while (d < -180) d += 360;
+                        return d;
+                    }}
+
+                    function initDesktopWheel() {{
+                        const wheel = document.getElementById('d-wheel');
+                        if (!wheel) return;
+
+                        wheel.addEventListener('pointerdown', (evt) => {{
+                            desktopWheelDragging = true;
+                            try {{ wheel.setPointerCapture(evt.pointerId); }} catch(e) {{}}
+                            desktopWheelLastAngle = desktopPointerAngle(evt, wheel);
+                            evt.preventDefault();
+                        }});
+
+                        wheel.addEventListener('pointermove', (evt) => {{
+                            if (!desktopWheelDragging) return;
+                            const a = desktopPointerAngle(evt, wheel);
+                            const d = desktopAngleDiff(a, desktopWheelLastAngle);
+                            desktopWheelLastAngle = a;
+                            desktopWheelAccum += d;
+                            desktopWheelVisualAngle += d;
+                            wheel.style.transform = `rotate(${{desktopWheelVisualAngle}}deg)`;
+
+                            const threshold = 14;
+                            if (Math.abs(desktopWheelAccum) >= threshold) {{
+                                const steps = Math.max(1, Math.min(8, Math.floor(Math.abs(desktopWheelAccum) / threshold)));
+                                const dir = desktopWheelAccum > 0 ? 'up' : 'down';
+                                desktopWheelAccum = 0;
+                                webVolume(dir, steps);
+                            }}
+                            evt.preventDefault();
+                        }});
+
+                        function endDesktopWheel(evt) {{
+                            if (!desktopWheelDragging) return;
+                            desktopWheelDragging = false;
+                            try {{ wheel.releasePointerCapture(evt.pointerId); }} catch(e) {{}}
+                        }}
+
+                        wheel.addEventListener('pointerup', endDesktopWheel);
+                        wheel.addEventListener('pointercancel', endDesktopWheel);
+                        wheel.addEventListener('lostpointercapture', () => {{
+                            desktopWheelDragging = false;
+                        }});
+                    }}
+                    function refreshMixerApps() {{
+                        fetch(`/${{token}}/api/audio_apps?pin=${{pin}}`).then(r=>r.json()).then(apps => {{
+                            audioApps = apps || [];
+                            const sel = document.getElementById('d-mixer');
+                            sel.innerHTML = `<option value="__none__">Uygulama seçilmedi</option>`;
+                            audioApps.forEach(app => {{
+                                const value = app.process || app.name || app;
+                                const label = app.label || app.display || app.name || value;
+                                sel.innerHTML += `<option value="${{value}}">${{label}}</option>`;
+                            }});
+                        }}).catch(()=>{{}});
+                    }}
+                    updateDesktopTrustStatus();
+                    initDesktop();
+                </script>
+            </body>
+            </html>
+            """
+            self.wfile.write(desktop_html.encode('utf-8'))
+            return
+
+        self.wfile.write(dashboard_html.encode('utf-8'))
+
+class NexStudioHTTPServer(ThreadingHTTPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+
 
 class MobileServerThread(QThread):
-    def __init__(self):
+    server_started = pyqtSignal(int)
+    server_failed = pyqtSignal(str)
+    server_stopped = pyqtSignal()
+
+    def __init__(self, port=DEFAULT_MOBILE_PORT):
         super().__init__()
+        self.port = port
         self.server = None
         self.is_running = False
+        self.start_error = ""
+
     def run(self):
         try:
-            self.server = HTTPServer(('0.0.0.0', 45729), MobileHandler)
+            self.server = NexStudioHTTPServer(('0.0.0.0', self.port), MobileHandler)
             self.is_running = True
-            self.server.serve_forever()
-        except: pass
+            self.server_started.emit(self.port)
+            self.server.serve_forever(poll_interval=0.2)
+        except Exception as e:
+            self.start_error = str(e)
+            self.server_failed.emit(self.start_error)
+            try:
+                print(f"Mobile web server error on port {self.port}: {e}")
+            except Exception:
+                pass
+        finally:
+            self.is_running = False
+            self.server_stopped.emit()
+
     def stop(self):
-        if self.server:
-            self.server.shutdown()
-            self.server.server_close()
+        try:
+            if self.server:
+                self.server.shutdown()
+                self.server.server_close()
+        except Exception:
+            pass
         self.is_running = False
+
 
 # =========================================================
 # 6. SERİ PORT HABERLEŞMESİ (ARDUINO)
@@ -2019,7 +4122,11 @@ def get_stylesheet(accent_color):
         background: transparent;
     }}
 
-    QWidget#AppRoot {{
+    QWidget#AppRoot, QWidget#ContentRoot, QStackedWidget#MainStack {{
+        background-color: #070B14;
+    }}
+
+    QWidget#MainPage, QWidget#PageSurface {{
         background-color: #070B14;
     }}
 
@@ -2867,14 +4974,28 @@ class NexHubApp(QMainWindow):
         MAIN_WINDOW = self
         
         self.config = load_config()
+        cleanup_old_log_files(7)
         load_locales()
         load_plugins()
         self.serial_thread = None
         self.mobile_thread = None
         self.current_signal = None
+        self.web_sensitive_visible = False
+        self._last_window_was_maximized = False
+        self._normal_window_size = (1100, 750)
         self.setWindowTitle("NexStudio")
+        if os.path.exists(APP_ICON_PATH):
+            self.setWindowIcon(QIcon(APP_ICON_PATH))
         self.setMinimumSize(1100, 750)
+        self.resize(*self._normal_window_size)
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        self.setAutoFillBackground(True)
         self.apply_theme()
+        self._window_bg = QFrame(self)
+        self._window_bg.setObjectName("WindowBackgroundLayer")
+        self._window_bg.setStyleSheet("QFrame#WindowBackgroundLayer { background-color: #070B14; }")
+        self._window_bg.setGeometry(self.rect())
+        self._window_bg.lower()
         self.init_ui()
         self.setup_tray()
         self.encoder_pending_steps = 0
@@ -2882,17 +5003,67 @@ class NexHubApp(QMainWindow):
         self.encoder_flush_timer.setSingleShot(True)
         self.encoder_flush_timer.timeout.connect(self.process_encoder_pending_steps)
         self.apply_startup_setting()
+        QTimer.singleShot(900, self.auto_connect_device)
+        if self.config.get("web_auto_start", False):
+            QTimer.singleShot(1300, self.auto_start_web_control)
 
+
+    def paintEvent(self, event):
+        # Ana pencere büyütülürken Qt'nin kısa süreli beyaz zemin göstermesini engeller.
+        super().paintEvent(event)
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), QColor("#070B14"))
+        painter.end()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
+        try:
+            if hasattr(self, "_window_bg") and self._window_bg:
+                self._window_bg.setGeometry(self.rect())
+                self._window_bg.lower()
+            if self.centralWidget():
+                self.centralWidget().updateGeometry()
+                self.centralWidget().update()
+            if hasattr(self, "stack"):
+                self.stack.updateGeometry()
+                self.stack.update()
+        except Exception:
+            pass
+
+    def force_full_repaint(self):
+        try:
+            if hasattr(self, "_window_bg") and self._window_bg:
+                self._window_bg.setGeometry(self.rect())
+                self._window_bg.lower()
+                self._window_bg.show()
+            if self.centralWidget():
+                self.centralWidget().updateGeometry()
+                self.centralWidget().update()
+            self.updateGeometry()
+            self.update()
+            self.repaint()
+        except Exception:
+            pass
 
 
     def current_accent(self):
         return self.config.get("accent_color", "#3B82F6")
 
     def apply_theme(self):
-        self.setStyleSheet(get_stylesheet(self.current_accent()))
+        self.setStyleSheet(get_stylesheet(self.current_accent()) + """
+            QMainWindow { background-color: #070B14; }
+            QWidget#AppRoot, QWidget#ContentRoot, QStackedWidget#MainStack, QWidget#MainPage, QWidget#PageSurface { background-color: #070B14; }
+        """)
+        try:
+            pal = self.palette()
+            pal.setColor(QPalette.Window, QColor("#070B14"))
+            pal.setColor(QPalette.Base, QColor("#070B14"))
+            pal.setColor(QPalette.AlternateBase, QColor("#0B1220"))
+            pal.setColor(QPalette.Text, QColor("#F8FAFC"))
+            pal.setColor(QPalette.WindowText, QColor("#F8FAFC"))
+            self.setPalette(pal)
+        except Exception:
+            pass
 
     def refresh_dynamic_button_styles(self):
         # Renk değişince mevcut arayüzü komple yeniden kurmadan,
@@ -2912,6 +5083,9 @@ class NexHubApp(QMainWindow):
     def init_ui(self):
         central_widget = QWidget()
         central_widget.setObjectName("AppRoot")
+        central_widget.setAttribute(Qt.WA_StyledBackground, True)
+        central_widget.setAutoFillBackground(True)
+        central_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.setCentralWidget(central_widget)
 
         root_layout = QHBoxLayout(central_widget)
@@ -2950,6 +5124,7 @@ class NexHubApp(QMainWindow):
         sidebar_layout.addSpacing(14)
 
         self.nav_buttons = []
+        self.nav_log_button = None
         nav_items = [
             ("⌂", self.current_accent(), tr("home"), 0),
             ("⌨", "#10B981", tr("tab_physical"), 1),
@@ -2961,8 +5136,11 @@ class NexHubApp(QMainWindow):
             btn = ColorNavButton(badge, color, label)
             btn.page_index = index
             btn.clicked.connect(lambda i=index: self.switch_main_page(i))
+            if index == 3:
+                self.nav_log_button = btn
             self.nav_buttons.append(btn)
             sidebar_layout.addWidget(btn)
+        self.update_system_log_nav_visibility()
 
         sidebar_layout.addStretch()
         self.quick_card = QWidget()
@@ -2984,6 +5162,10 @@ class NexHubApp(QMainWindow):
         root_layout.addWidget(self.sidebar)
 
         content = QWidget()
+        content.setObjectName("ContentRoot")
+        content.setAttribute(Qt.WA_StyledBackground, True)
+        content.setAutoFillBackground(True)
+        content.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         content_layout = QVBoxLayout(content)
         content_layout.setContentsMargins(0, 0, 0, 0)
         content_layout.setSpacing(16)
@@ -3026,6 +5208,9 @@ class NexHubApp(QMainWindow):
 
         self.stack = QStackedWidget()
         self.stack.setObjectName("MainStack")
+        self.stack.setAttribute(Qt.WA_StyledBackground, True)
+        self.stack.setAutoFillBackground(True)
+        self.stack.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.tab_home = QWidget()
         self.tab_physical = QWidget()
         self.tab_screen = QWidget()
@@ -3039,7 +5224,7 @@ class NexHubApp(QMainWindow):
         self.stack.addWidget(self.tab_log)
         self.stack.addWidget(self.tab_settings)
         self.stack.addWidget(self.tab_web)
-        content_layout.addWidget(self.stack)
+        content_layout.addWidget(self.stack, 1)
         self.toast = ToastLabel(self.sidebar)
 
         self.setup_home_tab()
@@ -3049,8 +5234,9 @@ class NexHubApp(QMainWindow):
         self.setup_settings_tab()
         self.setup_web_tab()
 
-        root_layout.addWidget(content)
+        root_layout.addWidget(content, 1)
         self.switch_main_page(0)
+        QTimer.singleShot(0, self.force_full_repaint)
 
     def get_changelog_entries(self):
         lang = self.config.get("language", "tr")
@@ -3171,6 +5357,246 @@ class NexHubApp(QMainWindow):
             self.lbl_page_subtitle.setText(page_subtitles[index])
         for btn in getattr(self, "nav_buttons", []):
             btn.setChecked(getattr(btn, "page_index", -1) == index)
+
+    def update_system_log_nav_visibility(self):
+        try:
+            visible = bool(self.config.get("show_system_log_menu", False))
+            if hasattr(self, "nav_log_button") and self.nav_log_button:
+                self.nav_log_button.setVisible(visible)
+        except Exception:
+            pass
+
+    def open_system_log_from_settings(self):
+        self.switch_main_page(3)
+
+    def toggle_system_log_menu(self):
+        self.config["show_system_log_menu"] = not self.config.get("show_system_log_menu", False)
+        save_config(self.config)
+        self.update_system_log_nav_visibility()
+        if hasattr(self, "btn_log_visibility"):
+            self.btn_log_visibility.setText(("✅ " if self.config.get("show_system_log_menu", False) else "❌ ") + "Sistem Günlüğü sol menüde görünsün")
+        if not self.config.get("show_system_log_menu", False) and hasattr(self, "stack") and self.stack.currentIndex() == 3:
+            self.switch_main_page(4)
+        self.show_saved_feedback(tr("saved_short"))
+
+
+    def clear_system_log(self):
+        try:
+            if hasattr(self, "log_area"):
+                self.log_area.clear()
+            append_system_log("🧹 Sistem Günlüğü temizlendi.")
+            self.show_saved_feedback("Günlük temizlendi")
+        except Exception:
+            pass
+
+    def export_system_log(self):
+        try:
+            default_name = f"nexstudio_log_export_{datetime.now().strftime('%Y-%m-%d_%H-%M')}.txt"
+            path, _ = QFileDialog.getSaveFileName(self, "Sistem Günlüğünü Dışa Aktar", os.path.join(os.path.expanduser("~"), default_name), "Metin Dosyası (*.txt)")
+            if not path:
+                return
+            if not path.lower().endswith(".txt"):
+                path += ".txt"
+            content = self.log_area.toPlainText() if hasattr(self, "log_area") else ""
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(content)
+            self.show_saved_feedback("Günlük dışa aktarıldı")
+        except Exception as e:
+            QMessageBox.warning(self, "Sistem Günlüğü", f"Günlük dışa aktarılamadı:\n{e}")
+
+    def toggle_web_history_panel(self):
+        if not hasattr(self, "list_web_history"):
+            return
+        visible = not self.list_web_history.isVisible()
+        self.list_web_history.setVisible(visible)
+        if hasattr(self, "btn_history_toggle"):
+            self.btn_history_toggle.setText("🙈 Web Giriş Geçmişini Gizle" if visible else "📜 Web Giriş Geçmişini Göster")
+        if visible:
+            self.refresh_web_history_list()
+
+    def refresh_web_history_list(self):
+        try:
+            if not hasattr(self, "list_web_history"):
+                return
+            self.list_web_history.clear()
+            for entry in self.config.get("web_access_history", [])[:120]:
+                if not isinstance(entry, dict):
+                    continue
+                device_name = entry.get("device_name") or "Bilinmeyen cihaz"
+                line = f"{entry.get('time','')} | {entry.get('event','')} | {device_name} | {entry.get('ip_display', entry.get('ip',''))} | {entry.get('device_type','')} / {entry.get('os_name','')} / {entry.get('browser','')}"
+                detail = entry.get("detail", "")
+                if detail:
+                    line += f" | {detail}"
+                item = QListWidgetItem(line)
+                item.setData(Qt.UserRole, entry.get("device_id", ""))
+                self.list_web_history.addItem(item)
+        except Exception:
+            pass
+
+    def refresh_known_devices_combo(self):
+        try:
+            if not hasattr(self, "combo_known_devices"):
+                return
+            current = self.combo_known_devices.currentData()
+            self.combo_known_devices.blockSignals(True)
+            self.combo_known_devices.clear()
+            known = self.config.get("known_web_devices", {})
+            if isinstance(known, dict) and known:
+                for device_id, data in sorted(known.items(), key=lambda item: item[1].get("last_seen", ""), reverse=True):
+                    name = data.get("name", "Tanınan cihaz")
+                    desc = f"{data.get('device_type','')} / {data.get('os_name','')} / {data.get('browser','')}"
+                    self.combo_known_devices.addItem(f"{name} — {desc}", device_id)
+            else:
+                self.combo_known_devices.addItem("Henüz tanınan cihaz yok", "")
+            if current:
+                idx = self.combo_known_devices.findData(current)
+                if idx >= 0:
+                    self.combo_known_devices.setCurrentIndex(idx)
+            self.combo_known_devices.blockSignals(False)
+        except Exception:
+            pass
+
+    def refresh_web_security_panel(self):
+        try:
+            self.config = APP_CONFIG
+            if hasattr(self, "btn_web_auto_start"):
+                self.btn_web_auto_start.setText(("✅ " if self.config.get("web_auto_start", False) else "❌ ") + "Uygulama açılınca Web Kontrolü otomatik başlasın")
+            if hasattr(self, "btn_web_private_log"):
+                self.btn_web_private_log.setText(("✅ " if self.config.get("web_private_log", False) else "❌ ") + "Günlükte IP adreslerini gizle")
+            if hasattr(self, "btn_web_known_only"):
+                self.btn_web_known_only.setText(("✅ " if self.config.get("web_known_only", False) else "❌ ") + "Sadece tanınan cihazlar Web Kontrolü kullanabilsin")
+            self.refresh_known_devices_combo()
+            self.refresh_web_history_list()
+            if hasattr(self, "lbl_settings_last_device"):
+                history = self.config.get("web_access_history", []) if isinstance(self.config.get("web_access_history", []), list) else []
+                last = history[0] if history else {}
+                if isinstance(last, dict) and last:
+                    self.lbl_settings_last_device.setText(
+                        f"Son bağlantı: {last.get('device_name', '-')} • {last.get('time', '-')}\n"
+                        f"Cihaz: {last.get('device_type', '-')} / {last.get('browser', '-')} • IP: {last.get('ip_display', last.get('ip', '-'))}"
+                    )
+                else:
+                    self.lbl_settings_last_device.setText("Son bağlantı: -")
+            if hasattr(self, "refresh_web_control_status"):
+                self.refresh_web_control_status()
+        except Exception:
+            pass
+
+    def toggle_web_auto_start(self):
+        self.config["web_auto_start"] = not self.config.get("web_auto_start", False)
+        save_config(self.config)
+        self.refresh_web_security_panel()
+        self.show_saved_feedback(tr("saved_short"))
+
+    def toggle_web_private_log(self):
+        self.config["web_private_log"] = not self.config.get("web_private_log", False)
+        save_config(self.config)
+        self.refresh_web_security_panel()
+        self.show_saved_feedback(tr("saved_short"))
+
+    def toggle_web_known_only(self):
+        self.config["web_known_only"] = not self.config.get("web_known_only", False)
+        save_config(self.config)
+        self.refresh_web_security_panel()
+        self.show_saved_feedback(tr("saved_short"))
+
+    def regenerate_web_pin(self):
+        try:
+            alphabet = string.ascii_uppercase + string.digits
+            new_pin = ''.join(secrets.choice(alphabet) for _ in range(6))
+            self.config["mobile_pin"] = new_pin
+            save_config(self.config)
+            if hasattr(self, "lbl_mobile_ip") and self.mobile_thread and self.mobile_thread.is_running:
+                self.lbl_mobile_ip.setText(f"PIN: {new_pin}")
+            self.refresh_web_control_status()
+            append_system_log("🔐 Web Kontrolü PIN kodu yenilendi.")
+            self.show_saved_feedback("PIN yenilendi")
+        except Exception as e:
+            QMessageBox.warning(self, "Web Güvenliği", f"PIN yenilenemedi:\n{e}")
+
+    def reset_web_sessions(self):
+        try:
+            alphabet = string.ascii_uppercase + string.digits
+            self.config["mobile_pin"] = ''.join(secrets.choice(alphabet) for _ in range(6))
+            self.config["web_token"] = secrets.token_urlsafe(8)
+            WEB_ACCESS_SESSIONS.clear()
+            WEB_PIN_FAILURES.clear()
+            WEB_BLOCKED_CLIENTS.clear()
+            save_config(self.config)
+            self.update_current_web_url_after_token_change()
+            self.refresh_web_control_status()
+            append_system_log("🔁 Web oturumları sıfırlandı; QR/link ve PIN yenilendi. Tanınan cihaz kayıtları korunur.")
+            self.show_saved_feedback("QR / link yenilendi")
+        except Exception as e:
+            QMessageBox.warning(self, "Web Güvenliği", f"Oturumlar sıfırlanamadı:\n{e}")
+
+    def update_current_web_url_after_token_change(self):
+        try:
+            if self.mobile_thread and self.mobile_thread.is_running:
+                ip = get_local_ip()
+                port = self.current_mobile_port or self.config.get("last_mobile_port", DEFAULT_MOBILE_PORT)
+                url = f"http://{ip}:{port}/{self.config.get('web_token', '')}"
+                self.current_web_url = url
+                if hasattr(self, "lbl_mobile_ip"):
+                    self.lbl_mobile_ip.setText(f"PIN: {self.config.get('mobile_pin','')}")
+                if hasattr(self, "lbl_web_url"):
+                    self.lbl_web_url.setText(url)
+                if HAS_QR and hasattr(self, "lbl_qr_image"):
+                    qr = qrcode.QRCode(version=1, box_size=4, border=4)
+                    qr.add_data(url)
+                    qr.make(fit=True)
+                    img = qr.make_image(fill_color="black", back_color="white")
+                    img = img.convert("RGBA")
+                    data = img.tobytes("raw", "RGBA")
+                    qim = QImage(data, img.size[0], img.size[1], QImage.Format_RGBA8888)
+                    self.lbl_qr_image.setPixmap(QPixmap.fromImage(qim))
+                self.refresh_web_control_status()
+        except Exception:
+            pass
+
+    def rename_known_device(self):
+        try:
+            if not hasattr(self, "combo_known_devices"):
+                return
+            device_id = self.combo_known_devices.currentData()
+            if not device_id:
+                QMessageBox.information(self, "Tanınan Cihazlar", "Henüz adlandırılacak cihaz yok.")
+                return
+            known = self.config.get("known_web_devices", {})
+            current_name = known.get(device_id, {}).get("name", "Tanınan cihaz")
+            new_name, ok = QInputDialog.getText(self, "Cihazı Adlandır", "Bu cihaz için görünen ad:", text=current_name)
+            if ok and new_name.strip():
+                known[device_id]["name"] = new_name.strip()
+                self.config["known_web_devices"] = known
+                save_config(self.config)
+                self.refresh_web_security_panel()
+                self.show_saved_feedback("Cihaz adı kaydedildi")
+        except Exception as e:
+            QMessageBox.warning(self, "Tanınan Cihazlar", f"Cihaz adı değiştirilemedi:\n{e}")
+
+    def forget_known_device(self):
+        try:
+            device_id = self.combo_known_devices.currentData() if hasattr(self, "combo_known_devices") else ""
+            if not device_id:
+                return
+            known = self.config.get("known_web_devices", {})
+            name = known.get(device_id, {}).get("name", "Bu cihaz")
+            reply = QMessageBox.question(self, "Cihazı Unut", f"'{name}' tanınan cihaz listesinden kaldırılsın mı?", QMessageBox.Yes | QMessageBox.No)
+            if reply == QMessageBox.Yes:
+                known.pop(device_id, None)
+                self.config["known_web_devices"] = known
+                save_config(self.config)
+                self.refresh_web_security_panel()
+                self.show_saved_feedback("Cihaz unutuldu")
+        except Exception:
+            pass
+
+    def auto_start_web_control(self):
+        try:
+            if not self.mobile_thread or not self.mobile_thread.is_running:
+                self.toggle_mobile_server()
+        except Exception:
+            pass
 
 
     def setup_physical_tab(self):
@@ -3339,7 +5765,7 @@ class NexHubApp(QMainWindow):
         self.lbl_selected_btn.setText(f"{phys_btns[self.current_signal]}")
         self.right_panel.setEnabled(True)
         cfg = self.config.get("buttons", {}).get(self.current_signal, {})
-        self.lbl_current_assignment.setText(f"{tr('current_assign')} {cfg.get('name', tr('empty'))}")
+        self.lbl_current_assignment.setText(f"{tr('current_assign')} {format_assignment_label(cfg) if cfg else tr('empty')}")
         if cfg.get("action"):
             act = cfg["action"]
             if act.get("type") in ["custom_web", "web"]:
@@ -3393,9 +5819,13 @@ class NexHubApp(QMainWindow):
         if action_data and action_data.get("type") in ["custom_web", "web"]: action_data["browser"] = ["default", "chrome", "edge", "firefox"][self.combo_browser_phys.currentIndex()]
         if action_data and action_data.get("type") == "custom_app": action_data["app_action"] = ["open", "close", "force_close"][self.combo_app_act_phys.currentIndex()]
         if "buttons" not in self.config: self.config["buttons"] = {}
-        self.config["buttons"][self.current_signal] = {"name": action_name, "action": action_data}
+        self.config["buttons"][self.current_signal] = {
+            "name": action_name,
+            "action": action_data,
+            "details": format_action_details(action_data)
+        }
         save_config(self.config)
-        self.lbl_current_assignment.setText(f"{tr('current_assign')} {action_name}")
+        self.lbl_current_assignment.setText(f"{tr('current_assign')} {format_assignment_label(self.config['buttons'][self.current_signal])}")
         self.show_saved_feedback()
 
     def setup_screen_tab(self):
@@ -3602,70 +6032,146 @@ class NexHubApp(QMainWindow):
 
     def refresh_screen_buttons(self):
         page = self.combo_page.currentIndex() + 1
+        signal_map = TOUCH_UI_SLOT_TO_SIGNAL.get(page, {})
         for i, btn in enumerate(self.screen_btns):
-            if page == 1 and i == 7: btn.setText(tr("btn_next")); btn.setStyleSheet("background-color: #1E293B; color: #64748B;"); continue
-            elif page in [2, 3, 4] and i == 4: btn.setText(tr("btn_prev")); btn.setStyleSheet("background-color: #1E293B; color: #64748B;"); continue
-            elif page in [2, 3, 4] and i == 7: btn.setText(tr("btn_next")); btn.setStyleSheet("background-color: #1E293B; color: #64748B;"); continue
+            # Gezinti tuşları görev almaz.
+            if page == 1 and i == 7:
+                btn.setText(tr("btn_next"))
+                btn.setStyleSheet("background-color: #1E293B; color: #64748B;")
+                continue
+            elif page in [2, 3, 4] and i == 4:
+                btn.setText(tr("btn_prev"))
+                btn.setStyleSheet("background-color: #1E293B; color: #64748B;")
+                continue
+            elif page in [2, 3, 4] and i == 7:
+                btn.setText(tr("btn_next") if page != 4 else "—")
+                btn.setStyleSheet("background-color: #1E293B; color: #64748B;")
+                continue
+
             btn.setStyleSheet("")
-            sig = f"NEX:P{page}_B{i+1}"
+            sig = signal_map.get(i)
+            if not sig:
+                btn.setText("—")
+                btn.setEnabled(False)
+                continue
+
+            btn.setEnabled(True)
             cfg = self.config.get("buttons", {}).get(sig, {})
-            if page >= 3 and cfg.get("btn_text"): btn.setText(f"{cfg.get('btn_text')}\n({cfg.get('name', tr('empty'))})")
-            else: btn.setText(f"{tr('button_label').format(i+1)}\n({cfg.get('name', tr('empty'))})")
+            display_name = cfg.get("name", tr("empty"))
+            details = cfg.get("details") or format_action_details(cfg.get("action", {}))
+            detail_line = f"\n{details[:28]}" if details else ""
+            if page >= 3 and cfg.get("btn_text"):
+                btn.setText(f"{cfg.get('btn_text')}\n({display_name}){detail_line}")
+            else:
+                btn.setText(f"{tr('button_label').format(len([x for x in signal_map if x <= i]))}\n({display_name}){detail_line}")
+
 
     def on_screen_btn_clicked(self, idx):
         page = self.combo_page.currentIndex() + 1
-        if page == 1 and idx == 7: self.combo_page.setCurrentIndex(1); return
-        if page in [2, 3, 4] and idx == 4: self.combo_page.setCurrentIndex(page - 2); return
-        if page in [2, 3] and idx == 7: self.combo_page.setCurrentIndex(page); return
-        if page == 4 and idx == 7: return
-        
-        self.current_screen_signal = f"NEX:P{page}_B{idx+1}"
-        self.lbl_screen_selected.setText(f"{tr('screen_selected')} {tr('page_label').format(page)} - {tr('button_label').format(idx+1)}")
+
+        # Gezinti tuşları.
+        if page == 1 and idx == 7:
+            self.combo_page.setCurrentIndex(1)
+            return
+        if page in [2, 3, 4] and idx == 4:
+            self.combo_page.setCurrentIndex(page - 2)
+            return
+        if page in [2, 3] and idx == 7:
+            self.combo_page.setCurrentIndex(page)
+            return
+        if page == 4 and idx == 7:
+            return
+
+        signal_map = TOUCH_UI_SLOT_TO_SIGNAL.get(page, {})
+        sig = signal_map.get(idx)
+        if not sig:
+            self.show_saved_feedback("Bu tuş sayfa geçişi için ayrılmış")
+            return
+
+        self.current_screen_signal = sig
+        visual_no = len([x for x in signal_map if x <= idx])
+        self.current_screen_slot_index = idx
+        self.lbl_screen_selected.setText(f"{tr('screen_selected')} {tr('page_label').format(page)} - {tr('button_label').format(visual_no)}")
+
         cfg = self.config.get("buttons", {}).get(self.current_screen_signal, {})
         self.input_btn_text.setText(cfg.get("btn_text", ""))
-        
-        if page < 3: self.input_btn_text.setEnabled(False); self.input_btn_text.setPlaceholderText(tr("placeholder_readonly"))
-        else: self.input_btn_text.setEnabled(True); self.input_btn_text.setPlaceholderText(tr("placeholder_text"))
-            
+
+        if page < 3:
+            self.input_btn_text.setEnabled(False)
+            self.input_btn_text.setPlaceholderText(tr("placeholder_readonly"))
+        else:
+            self.input_btn_text.setEnabled(True)
+            self.input_btn_text.setPlaceholderText(tr("placeholder_text"))
+
         if cfg.get("action"):
             act = cfg["action"]
             if act.get("type") in ["custom_web", "web"]:
                 idx_b = self.combo_browser_scr.findData(act.get("browser", "default"))
-                if idx_b >= 0: self.combo_browser_scr.setCurrentIndex(idx_b)
+                if idx_b >= 0:
+                    self.combo_browser_scr.setCurrentIndex(idx_b)
             if act.get("type") == "custom_app":
                 idx_a = self.combo_app_act_scr.findData(act.get("app_action", "open"))
-                if idx_a >= 0: self.combo_app_act_scr.setCurrentIndex(idx_a)
-            
+                if idx_a >= 0:
+                    self.combo_app_act_scr.setCurrentIndex(idx_a)
+
         self.screen_macro_panel.setEnabled(True)
 
+
     def save_screen_macro(self):
+        if not hasattr(self, "current_screen_signal") or not self.current_screen_signal:
+            self.show_saved_feedback("Önce dokunmatik ekrandan bir tuş seç")
+            return
+
         cat = self.combo_screen_cat.currentText()
-        if cat == tr("no_action"): self.config["buttons"].pop(self.current_screen_signal, None)
+        if "buttons" not in self.config:
+            self.config["buttons"] = {}
+
+        page = self.combo_page.currentIndex() + 1
+        slot_idx = getattr(self, "current_screen_slot_index", None)
+
+        if cat == tr("no_action"):
+            self.config["buttons"].pop(self.current_screen_signal, None)
+
+            # İşlem yok seçilirse Sayfa 3-4 için ekrandaki yazıyı da temizle.
+            if page >= 3 and self.serial_thread and self.serial_thread.is_running:
+                obj_name = NEXTION_TEXT_OBJ_BY_SLOT.get(page, {}).get(slot_idx)
+                if obj_name:
+                    nextion_page = f"page{page}"
+                    cmd = f'NEXCMD:{nextion_page}.{obj_name}.txt=""' + chr(10)
+                    self.serial_thread.send_data(cmd)
         else:
             action_data = self.combo_screen_act.currentData()
-            if action_data: action_data = action_data.copy()
+            if action_data:
+                action_data = action_data.copy()
             action_name = self.combo_screen_act.currentText()
             btn_text = self.input_btn_text.text().strip()
-            page = self.combo_page.currentIndex() + 1
-            
-            if action_data and action_data.get("type") in ["custom_web", "custom_app", "custom_hotkey", "type_text"]: action_data["custom_arg"] = self.input_screen_custom.text().strip()
-            if action_data and action_data.get("type") in ["custom_web", "web"]: action_data["browser"] = ["default", "chrome", "edge", "firefox"][self.combo_browser_scr.currentIndex()]
-            if action_data and action_data.get("type") == "custom_app": action_data["app_action"] = ["open", "close", "force_close"][self.combo_app_act_scr.currentIndex()]
-            
-            if "buttons" not in self.config: self.config["buttons"] = {}
-            self.config["buttons"][self.current_screen_signal] = {"name": action_name, "action": action_data, "btn_text": btn_text}
-            
+
+            if action_data and action_data.get("type") in ["custom_web", "custom_app", "custom_hotkey", "type_text"]:
+                action_data["custom_arg"] = self.input_screen_custom.text().strip()
+            if action_data and action_data.get("type") in ["custom_web", "web"]:
+                action_data["browser"] = ["default", "chrome", "edge", "firefox"][self.combo_browser_scr.currentIndex()]
+            if action_data and action_data.get("type") == "custom_app":
+                action_data["app_action"] = ["open", "close", "force_close"][self.combo_app_act_scr.currentIndex()]
+
+            self.config["buttons"][self.current_screen_signal] = {
+                "name": action_name,
+                "action": action_data,
+                "btn_text": btn_text,
+                "details": format_action_details(action_data),
+            }
+
+            # Sayfa 3-4 için ekrandaki yazıyı güncelle.
             if page >= 3 and self.serial_thread and self.serial_thread.is_running:
-                if page in NEXTION_OBJ_MAP:
+                obj_name = NEXTION_TEXT_OBJ_BY_SLOT.get(page, {}).get(slot_idx)
+                if obj_name:
                     nextion_page = f"page{page}"
-                    btn_idx = int(self.current_screen_signal.split("_")[1][1:]) - 1
-                    obj_name = NEXTION_OBJ_MAP[page][btn_idx]
                     cmd = f'NEXCMD:{nextion_page}.{obj_name}.txt="{btn_text}"\n'
                     self.serial_thread.send_data(cmd)
-                
+
         save_config(self.config)
         self.refresh_screen_buttons()
         self.show_saved_feedback()
+
 
     def setup_log_tab(self):
         layout = QVBoxLayout(self.tab_log)
@@ -3702,6 +6208,42 @@ class NexHubApp(QMainWindow):
         btn_help.setHoverHeights(50, 6)
         btn_help.clicked.connect(self.show_help_popup)
         s_layout.addWidget(btn_help)
+
+        group_profile = QGroupBox("Profil Sistemi")
+        l_profile = QVBoxLayout(group_profile)
+
+        lbl_profile_info = QLabel("Farklı kullanım senaryoları için ayrı tuş, ekran ve tekerlek ayarları oluşturabilirsiniz.")
+        lbl_profile_info.setWordWrap(True)
+        lbl_profile_info.setObjectName("Muted")
+        l_profile.addWidget(lbl_profile_info)
+
+        profile_row = QHBoxLayout()
+        self.combo_profile = QComboBox()
+        self.refresh_profile_combo()
+        self.combo_profile.currentIndexChanged.connect(self.change_profile)
+        profile_row.addWidget(QLabel("Aktif Profil"))
+        profile_row.addWidget(self.combo_profile, 1)
+        l_profile.addLayout(profile_row)
+
+        profile_btns = QHBoxLayout()
+        self.btn_profile_new = AnimatedButton("➕ Yeni Profil", accent=lambda: self.current_accent())
+        self.btn_profile_new.setHoverHeights(42, 5)
+        self.btn_profile_new.clicked.connect(self.create_profile)
+
+        self.btn_profile_copy = AnimatedButton("📋 Kopyala", accent=lambda: self.current_accent())
+        self.btn_profile_copy.setHoverHeights(42, 5)
+        self.btn_profile_copy.clicked.connect(self.copy_profile)
+
+        self.btn_profile_delete = AnimatedButton("🗑️ Sil", accent=lambda: self.current_accent())
+        self.btn_profile_delete.setHoverHeights(42, 5)
+        self.btn_profile_delete.clicked.connect(self.delete_profile)
+
+        profile_btns.addWidget(self.btn_profile_new)
+        profile_btns.addWidget(self.btn_profile_copy)
+        profile_btns.addWidget(self.btn_profile_delete)
+        l_profile.addLayout(profile_btns)
+
+        s_layout.addWidget(group_profile)
 
         group_lang = QGroupBox(tr("language"))
         l_lang = QHBoxLayout(group_lang)
@@ -3740,9 +6282,104 @@ class NexHubApp(QMainWindow):
         self.chk_bg = AnimatedButton("✅ " + tr("run_bg") if self.config.get("run_in_bg") else "❌ " + tr("run_bg"), accent=lambda: self.current_accent())
         self.chk_bg.setHoverHeights(42, 5)
         self.chk_bg.clicked.connect(self.toggle_bg)
+
+        self.chk_auto_connect = AnimatedButton("✅ Cihazı otomatik bağla" if self.config.get("auto_connect", True) else "❌ Cihazı otomatik bağla", accent=lambda: self.current_accent())
+        self.chk_auto_connect.setHoverHeights(42, 5)
+        self.chk_auto_connect.clicked.connect(self.toggle_auto_connect)
+
         l_sys.addWidget(self.chk_startup)
         l_sys.addWidget(self.chk_bg)
+        l_sys.addWidget(self.chk_auto_connect)
         s_layout.addWidget(group_sys)
+
+        group_log_settings = QGroupBox("Sistem Günlüğü")
+        l_log_settings = QVBoxLayout(group_log_settings)
+        lbl_log_settings = QLabel("Web girişleri, hatalı PIN denemeleri, yetkisiz erişimler ve cihaz sinyalleri burada takip edilir. Normal kullanıcılar için sol menüde gizlenebilir.")
+        lbl_log_settings.setWordWrap(True)
+        lbl_log_settings.setObjectName("Muted")
+        l_log_settings.addWidget(lbl_log_settings)
+
+        self.btn_log_visibility = AnimatedButton(("✅ " if self.config.get("show_system_log_menu", False) else "❌ ") + "Sistem Günlüğü sol menüde görünsün", accent=lambda: self.current_accent())
+        self.btn_log_visibility.setHoverHeights(42, 5)
+        self.btn_log_visibility.clicked.connect(self.toggle_system_log_menu)
+        l_log_settings.addWidget(self.btn_log_visibility)
+
+        btn_open_log = AnimatedButton("📜 Sistem Günlüğünü Aç", accent=lambda: self.current_accent())
+        btn_open_log.setHoverHeights(42, 5)
+        btn_open_log.clicked.connect(self.open_system_log_from_settings)
+        l_log_settings.addWidget(btn_open_log)
+
+        log_btn_row = QHBoxLayout()
+        self.btn_clear_log = AnimatedButton("🧹 Sistem Günlüğünü Temizle", accent=lambda: self.current_accent())
+        self.btn_clear_log.setHoverHeights(42, 5)
+        self.btn_clear_log.clicked.connect(self.clear_system_log)
+        self.btn_export_log = AnimatedButton("💾 Günlüğü TXT Dışa Aktar", accent=lambda: self.current_accent())
+        self.btn_export_log.setHoverHeights(42, 5)
+        self.btn_export_log.clicked.connect(self.export_system_log)
+        log_btn_row.addWidget(self.btn_clear_log)
+        log_btn_row.addWidget(self.btn_export_log)
+        l_log_settings.addLayout(log_btn_row)
+
+        self.btn_history_toggle = AnimatedButton("📜 Web Giriş Geçmişini Göster", accent=lambda: self.current_accent())
+        self.btn_history_toggle.setHoverHeights(42, 5)
+        self.btn_history_toggle.clicked.connect(self.toggle_web_history_panel)
+        l_log_settings.addWidget(self.btn_history_toggle)
+        self.list_web_history = QListWidget()
+        self.list_web_history.setMinimumHeight(140)
+        self.list_web_history.setVisible(False)
+        l_log_settings.addWidget(self.list_web_history)
+        s_layout.addWidget(group_log_settings)
+
+        group_web_sec = QGroupBox("Web Güvenliği ve Tanınan Cihazlar")
+        l_web_sec = QVBoxLayout(group_web_sec)
+        lbl_web_sec = QLabel("PIN, oturum, otomatik web başlatma ve tanınan cihaz ayarlarını buradan yönetebilirsiniz.")
+        lbl_web_sec.setWordWrap(True)
+        lbl_web_sec.setObjectName("Muted")
+        l_web_sec.addWidget(lbl_web_sec)
+
+        self.btn_web_auto_start = AnimatedButton(("✅ " if self.config.get("web_auto_start", False) else "❌ ") + "Uygulama açılınca Web Kontrolü otomatik başlasın", accent=lambda: self.current_accent())
+        self.btn_web_auto_start.setHoverHeights(42, 5)
+        self.btn_web_auto_start.clicked.connect(self.toggle_web_auto_start)
+        l_web_sec.addWidget(self.btn_web_auto_start)
+
+        self.btn_web_private_log = AnimatedButton(("✅ " if self.config.get("web_private_log", False) else "❌ ") + "Günlükte IP adreslerini gizle", accent=lambda: self.current_accent())
+        self.btn_web_private_log.setHoverHeights(42, 5)
+        self.btn_web_private_log.clicked.connect(self.toggle_web_private_log)
+        l_web_sec.addWidget(self.btn_web_private_log)
+
+        self.btn_web_known_only = AnimatedButton(("✅ " if self.config.get("web_known_only", False) else "❌ ") + "Sadece tanınan cihazlar Web Kontrolü kullanabilsin", accent=lambda: self.current_accent())
+        self.btn_web_known_only.setHoverHeights(42, 5)
+        self.btn_web_known_only.clicked.connect(self.toggle_web_known_only)
+        l_web_sec.addWidget(self.btn_web_known_only)
+
+        lbl_web_quick_hint = QLabel("PIN yenileme ve web oturumlarını sıfırlama işlemleri artık Web Kontrolü sekmesindeki hızlı güvenlik kartından yapılır.")
+        lbl_web_quick_hint.setWordWrap(True)
+        lbl_web_quick_hint.setObjectName("Muted")
+        l_web_sec.addWidget(lbl_web_quick_hint)
+
+        self.lbl_settings_last_device = QLabel("Son bağlantı: -")
+        self.lbl_settings_last_device.setWordWrap(True)
+        self.lbl_settings_last_device.setStyleSheet("color: #C7D2FE; font-weight: 800; background: rgba(59,130,246,.08); border: 1px solid rgba(96,165,250,.16); border-radius: 10px; padding: 8px 10px;")
+        l_web_sec.addWidget(self.lbl_settings_last_device)
+
+        device_row = QHBoxLayout()
+        self.combo_known_devices = QComboBox()
+        device_row.addWidget(QLabel("Tanınan cihaz:"))
+        device_row.addWidget(self.combo_known_devices, 1)
+        l_web_sec.addLayout(device_row)
+
+        device_btn_row = QHBoxLayout()
+        self.btn_rename_device = AnimatedButton("✏️ Cihazı Adlandır", accent=lambda: self.current_accent())
+        self.btn_rename_device.setHoverHeights(42, 5)
+        self.btn_rename_device.clicked.connect(self.rename_known_device)
+        self.btn_forget_device = AnimatedButton("🗑️ Cihazı Unut", accent=lambda: self.current_accent())
+        self.btn_forget_device.setHoverHeights(42, 5)
+        self.btn_forget_device.clicked.connect(self.forget_known_device)
+        device_btn_row.addWidget(self.btn_rename_device)
+        device_btn_row.addWidget(self.btn_forget_device)
+        l_web_sec.addLayout(device_btn_row)
+        s_layout.addWidget(group_web_sec)
+        self.refresh_web_security_panel()
 
         group_account = QGroupBox(tr("tab_account"))
         l_acc = QVBoxLayout(group_account)
@@ -3849,63 +6486,136 @@ class NexHubApp(QMainWindow):
 
         layout.addLayout(top_row)
 
-        middle_row = QHBoxLayout()
+        middle_row = QVBoxLayout()
         middle_row.setSpacing(18)
 
         group_mobile = HoverScaleFrame(grow_by=8)
         group_mobile.setObjectName("GlassCard")
-        group_mobile.setHoverHeights(250, 10)
+        group_mobile.setHoverHeights(360, 10)
         l_mobile = QVBoxLayout(group_mobile)
         l_mobile.setContentsMargins(20, 20, 20, 20)
         l_mobile.setSpacing(12)
         lbl_mobile_title = QLabel(tr("tab_web"))
         lbl_mobile_title.setObjectName("SectionTitle")
         l_mobile.addWidget(lbl_mobile_title)
-        mobile_layout = QHBoxLayout()
-        self.btn_mobile = AnimatedButton(tr("mobile_server"), accent=lambda: self.current_accent())
-        self.btn_mobile.setHoverHeights(46, 6)
+        mobile_layout = QGridLayout()
+        mobile_layout.setContentsMargins(0, 0, 0, 0)
+        mobile_layout.setHorizontalSpacing(8)
+        mobile_layout.setVerticalSpacing(8)
+
+        self.btn_mobile = AnimatedButton("📱 Başlat", accent=lambda: self.current_accent())
+        self.btn_mobile.setHoverHeights(40, 4)
+        self.btn_mobile.setMinimumWidth(118)
         self.btn_mobile.clicked.connect(self.toggle_mobile_server)
-        mobile_layout.addWidget(self.btn_mobile)
+        mobile_layout.addWidget(self.btn_mobile, 0, 0)
 
-        self.btn_qr = AnimatedButton(tr("toggle_qr"), accent=lambda: self.current_accent())
-        self.btn_qr.setHoverHeights(46, 6)
-        self.btn_qr.clicked.connect(self.toggle_qr)
-        self.btn_qr.setVisible(False)
-        mobile_layout.addWidget(self.btn_qr)
+        self.btn_web_sensitive_toggle = AnimatedButton("🔐 Gizli Bilgiler", accent=lambda: self.current_accent())
+        self.btn_web_sensitive_toggle.setHoverHeights(40, 4)
+        self.btn_web_sensitive_toggle.setMinimumWidth(150)
+        self.btn_web_sensitive_toggle.clicked.connect(self.show_web_sensitive_dialog)
+        mobile_layout.addWidget(self.btn_web_sensitive_toggle, 0, 1)
 
-        self.lbl_mobile_ip = QLabel("")
-        self.lbl_mobile_ip.setStyleSheet("color: #10B981; font-weight: bold; font-size: 14px;")
-        mobile_layout.addWidget(self.lbl_mobile_ip)
-        mobile_layout.addStretch()
+        self.btn_copy_web_url = AnimatedButton("🔗 Kopyala", accent=lambda: self.current_accent())
+        self.btn_copy_web_url.setHoverHeights(40, 4)
+        self.btn_copy_web_url.setMinimumWidth(108)
+        self.btn_copy_web_url.clicked.connect(self.copy_web_url)
+        self.btn_copy_web_url.setVisible(False)
+        mobile_layout.addWidget(self.btn_copy_web_url, 0, 2)
+
+        self.btn_big_qr = AnimatedButton("🔍 QR Büyüt", accent=lambda: self.current_accent())
+        self.btn_big_qr.setHoverHeights(40, 4)
+        self.btn_big_qr.setMinimumWidth(118)
+        self.btn_big_qr.clicked.connect(self.show_qr_large)
+        self.btn_big_qr.setVisible(False)
+        mobile_layout.addWidget(self.btn_big_qr, 0, 3)
+
+        mobile_layout.setColumnStretch(4, 1)
         l_mobile.addLayout(mobile_layout)
 
+        self.lbl_web_status_public = QLabel("Web Kontrolü: Kapalı")
+        self.lbl_web_status_public.setWordWrap(True)
+        self.lbl_web_status_public.setStyleSheet("color: #CBD5E1; font-weight: 800; font-size: 12px; background: rgba(15,23,42,.45); border: 1px solid rgba(148,163,184,.16); border-radius: 12px; padding: 8px 10px;")
+        l_mobile.addWidget(self.lbl_web_status_public)
+
+        self.lbl_last_device = QLabel("Son bağlantı: -")
+        self.lbl_last_device.setWordWrap(True)
+        self.lbl_last_device.setStyleSheet("color: #C7D2FE; font-weight: 800; font-size: 12px; background: rgba(59,130,246,.08); border: 1px solid rgba(96,165,250,.16); border-radius: 12px; padding: 8px 10px;")
+        l_mobile.addWidget(self.lbl_last_device)
+
+        # Son cihazı adlandırma yönetimi Ayarlar > Tanınan Cihazlar bölümünde tutulur.
+        self.btn_rename_last_device = AnimatedButton("✏️ Son Cihazı Adlandır", accent=lambda: self.current_accent())
+        self.btn_rename_last_device.setHoverHeights(40, 4)
+        self.btn_rename_last_device.clicked.connect(self.rename_last_web_device)
+        self.btn_rename_last_device.setVisible(False)
+
+        self.web_sensitive_panel = QFrame()
+        self.web_sensitive_panel.setObjectName("GlassCard")
+        self.web_sensitive_panel.setStyleSheet("QFrame#GlassCard { background: rgba(2,6,23,.22); border: 1px solid rgba(148,163,184,.14); border-radius: 16px; }")
+        self.web_sensitive_panel.setVisible(False)
+        sensitive_layout = QVBoxLayout(self.web_sensitive_panel)
+        sensitive_layout.setContentsMargins(12, 12, 12, 12)
+        sensitive_layout.setSpacing(10)
+
+        self.lbl_mobile_ip = QLabel("")
+        self.lbl_mobile_ip.setAlignment(Qt.AlignCenter)
+        self.lbl_mobile_ip.setStyleSheet("color: #10B981; font-weight: 950; font-size: 13px; background: rgba(16,185,129,.10); border: 1px solid rgba(16,185,129,.30); border-radius: 12px; padding: 8px 10px;")
+        sensitive_layout.addWidget(self.lbl_mobile_ip)
+
+        self.lbl_web_status = QLabel("Web Kontrolü: Kapalı")
+        self.lbl_web_status.setWordWrap(True)
+        self.lbl_web_status.setStyleSheet("color: #CBD5E1; font-weight: 800; font-size: 12px; background: rgba(15,23,42,.45); border: 1px solid rgba(148,163,184,.16); border-radius: 12px; padding: 8px 10px;")
+        sensitive_layout.addWidget(self.lbl_web_status)
+
+        security_tools_row = QGridLayout()
+        security_tools_row.setHorizontalSpacing(8)
+        security_tools_row.setVerticalSpacing(8)
+
+        self.btn_toggle_url = AnimatedButton("👁 URL", accent=lambda: self.current_accent())
+        self.btn_toggle_url.setHoverHeights(40, 4)
+        self.btn_toggle_url.clicked.connect(self.toggle_web_url)
+        self.btn_toggle_url.setVisible(False)
+        security_tools_row.addWidget(self.btn_toggle_url, 0, 0)
+
+        self.btn_qr = AnimatedButton("👁 QR", accent=lambda: self.current_accent())
+        self.btn_qr.setHoverHeights(40, 4)
+        self.btn_qr.clicked.connect(self.toggle_qr)
+        self.btn_qr.setVisible(False)
+        security_tools_row.addWidget(self.btn_qr, 0, 1)
+
+        self.btn_web_page_regen_pin = AnimatedButton("🔐 PIN Yenile", accent=lambda: self.current_accent())
+        self.btn_web_page_regen_pin.setHoverHeights(40, 4)
+        self.btn_web_page_regen_pin.clicked.connect(self.regenerate_web_pin)
+        security_tools_row.addWidget(self.btn_web_page_regen_pin, 1, 0)
+
+        self.btn_web_page_reset_sessions = AnimatedButton("🔁 QR / Link Yenile", accent=lambda: self.current_accent())
+        self.btn_web_page_reset_sessions.setHoverHeights(40, 4)
+        self.btn_web_page_reset_sessions.clicked.connect(self.reset_web_sessions)
+        security_tools_row.addWidget(self.btn_web_page_reset_sessions, 1, 1)
+        sensitive_layout.addLayout(security_tools_row)
+
+        self.lbl_web_url = QLabel("")
+        self.lbl_web_url.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.lbl_web_url.setWordWrap(True)
+        self.lbl_web_url.setStyleSheet("color: #93C5FD; font-weight: 800; font-size: 12px; background: rgba(15,23,42,.45); border: 1px solid rgba(148,163,184,.16); border-radius: 12px; padding: 7px 10px;")
+        self.lbl_web_url.setVisible(False)
+        sensitive_layout.addWidget(self.lbl_web_url)
+
+        qr_wrap = QHBoxLayout()
         self.lbl_qr_image = QLabel()
-        self.lbl_qr_image.setFixedSize(150, 150)
+        self.lbl_qr_image.setFixedSize(176, 176)
         self.lbl_qr_image.setScaledContents(True)
         self.lbl_qr_image.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.lbl_qr_image.setVisible(False)
-        l_mobile.addWidget(self.lbl_qr_image, alignment=Qt.AlignLeft)
-
-        self.lbl_web_url = QLabel("")
-        self.lbl_web_url.setWordWrap(True)
-        self.lbl_web_url.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        self.lbl_web_url.setObjectName("Muted")
-        self.lbl_web_url.setVisible(False)
-        self.lbl_web_url.setMaximumHeight(0)
-        l_mobile.addWidget(self.lbl_web_url)
-
-        self.btn_copy_web_url = AnimatedButton(tr("copy_web_url"), accent=lambda: self.current_accent())
-        self.btn_copy_web_url.setHoverHeights(42, 5)
-        self.btn_copy_web_url.clicked.connect(self.copy_web_url)
-        self.btn_copy_web_url.setVisible(False)
-        l_mobile.addWidget(self.btn_copy_web_url)
-
+        qr_wrap.addWidget(self.lbl_qr_image, alignment=Qt.AlignLeft)
+        qr_wrap.addStretch()
+        sensitive_layout.addLayout(qr_wrap)
+        l_mobile.addWidget(self.web_sensitive_panel)
         l_mobile.addStretch()
-        middle_row.addWidget(group_mobile, 3)
+        middle_row.addWidget(group_mobile)
 
         roadmap_card = HoverScaleFrame(grow_by=8)
         roadmap_card.setObjectName("GlassCard")
-        roadmap_card.setHoverHeights(250, 10)
+        roadmap_card.setHoverHeights(190, 8)
         rr_l = QVBoxLayout(roadmap_card)
         rr_l.setContentsMargins(20, 20, 20, 20)
         rr_l.setSpacing(10)
@@ -3918,7 +6628,7 @@ class NexHubApp(QMainWindow):
             lbl_item.setObjectName("Muted")
             rr_l.addWidget(lbl_item)
         rr_l.addStretch()
-        middle_row.addWidget(roadmap_card, 2)
+        middle_row.addWidget(roadmap_card)
 
         layout.addLayout(middle_row)
         layout.addStretch()
@@ -3945,46 +6655,118 @@ class NexHubApp(QMainWindow):
         l.addWidget(btn_yt)
         dialog.exec_()
 
-    def copy_web_url(self):
-        url = self.config.get("mobile_url", "")
-        if url:
-            QApplication.clipboard().setText(url)
-            self.show_saved_feedback(tr("web_url_copied"))
+    def refresh_web_control_status(self):
+        try:
+            is_on = bool(self.mobile_thread and self.mobile_thread.is_running)
+            port = self.current_mobile_port or self.config.get("last_mobile_port", DEFAULT_MOBILE_PORT)
+            pin = self.config.get("mobile_pin", "") or "-"
+            known_count = len(self.config.get("known_web_devices", {}) or {})
+            history = self.config.get("web_access_history", []) if isinstance(self.config.get("web_access_history", []), list) else []
+            last = history[0] if history else {}
+            last_name = last.get("device_name", "-")
+            last_time = last.get("time", "-")
+            last_type = last.get("device_type", "")
+            last_browser = last.get("browser", "")
+            last_ip = last.get("ip_display", last.get("ip", "-"))
+            self.last_web_device_id = last.get("device_id", "") if isinstance(last, dict) else ""
+            status = "Açık" if is_on else "Kapalı"
+            url = getattr(self, "current_web_url", "") or "-"
+            public_text = f"Web Kontrolü: {status}  •  Port: {port}  •  Tanınan cihaz: {known_count}\nGüvenlik: PIN + özel bağlantı aktif  •  Gizli bilgiler ayrı panelde"
+            detail_text = f"Web Kontrolü: {status}  •  Port: {port}  •  PIN: {pin}\nSon giriş: {last_name} ({last_time})  •  Tanınan cihaz: {known_count}\nBağlantı: {url}"
+            last_text = f"Son bağlantı: {last_name}"
+            if last_time and last_time != "-":
+                last_text += f" • {last_time}"
+            if last_type or last_browser:
+                last_text += f"\nCihaz: {last_type or '-'} / {last_browser or '-'}  •  IP: {last_ip}"
+            if hasattr(self, "lbl_web_status_public"):
+                self.lbl_web_status_public.setText(public_text)
+            if hasattr(self, "lbl_web_status"):
+                self.lbl_web_status.setText(detail_text)
+            if hasattr(self, "lbl_last_device"):
+                self.lbl_last_device.setText(last_text)
+            if hasattr(self, "btn_rename_last_device"):
+                self.btn_rename_last_device.setVisible(False)
+            self.update_web_sensitive_widgets()
+        except Exception:
+            pass
 
     def toggle_mobile_server(self):
         if self.mobile_thread and self.mobile_thread.is_running:
-            self.mobile_thread.stop()
+            thread = self.mobile_thread
+            try:
+                thread.stop()
+                thread.wait(1500)
+            except Exception:
+                pass
             self.mobile_thread = None
-            self.btn_mobile.setText(tr("mobile_server"))
+            self.current_mobile_port = None
+
+            self.btn_mobile.setText("📱 Başlat")
             self.lbl_mobile_ip.setText("")
-            self.btn_qr.setVisible(False)
-            self.lbl_qr_image.setVisible(False)
             if hasattr(self, "lbl_web_url"):
-                self.lbl_web_url.setVisible(False)
                 self.lbl_web_url.setText("")
+                self.lbl_web_url.setVisible(False)
+            if hasattr(self, "btn_toggle_url"):
+                self.btn_toggle_url.setText("👁 URL")
+                self.btn_toggle_url.setVisible(False)
             if hasattr(self, "btn_copy_web_url"):
                 self.btn_copy_web_url.setVisible(False)
+            self.btn_qr.setText("👁 QR")
+            self.btn_qr.setVisible(False)
+            self.lbl_qr_image.setVisible(False)
+            self.refresh_web_control_status()
+            self.update_web_sensitive_widgets()
         else:
             alphabet = string.ascii_uppercase + string.digits
             new_pin = ''.join(secrets.choice(alphabet) for _ in range(6))
             self.config["mobile_pin"] = new_pin
             token = secrets.token_urlsafe(8)
             self.config["web_token"] = token
-            save_config(self.config)
+            port = find_available_port()
+
+            if port is None:
+
+                QMessageBox.warning(self, "Web Kontrolü", "Boş web portu bulunamadı. Açık NexDeck.exe süreçlerini kapatıp tekrar deneyin.")
+
+                return
+
             
-            self.mobile_thread = MobileServerThread()
-            self.mobile_thread.start()
-            self.btn_mobile.setText(tr("mobile_stop"))
-            ip = get_local_ip()
-            url = f"http://{ip}:45729/{token}?pin={new_pin}"
-            self.config["mobile_url"] = url
+
+            self.config["last_mobile_port"] = port
+
+            if hasattr(self, "log_area"):
+                if port != DEFAULT_MOBILE_PORT:
+                    self.log_area.append(f"🌐 Varsayılan port dolu olduğu için Web Kontrolü {port} portundan başlatılacak.")
+                else:
+                    self.log_area.append(f"🌐 Web Kontrolü için port ayrıldı: {port}")
+
             save_config(self.config)
+
+            
+
+            self.refresh_web_security_panel()
+            self.mobile_thread = MobileServerThread(port)
+            self.mobile_thread.server_started.connect(self.on_mobile_server_started)
+            self.mobile_thread.server_failed.connect(self.on_mobile_server_failed)
+
+            self.current_mobile_port = port
+
+            self.mobile_thread.start()
+            self.btn_mobile.setText("⏹ Durdur")
+
+            ip = get_local_ip()
+
+            url = f"http://{ip}:{port}/{token}"
+            self.current_web_url = url
+            self.lbl_mobile_ip.setText(f"PIN: {new_pin}")
             if hasattr(self, "lbl_web_url"):
-                self.lbl_web_url.setText("")
+                self.lbl_web_url.setText(url)
                 self.lbl_web_url.setVisible(False)
+            if hasattr(self, "btn_toggle_url"):
+                self.btn_toggle_url.setText("👁 URL")
+                self.btn_toggle_url.setVisible(True)
             if hasattr(self, "btn_copy_web_url"):
                 self.btn_copy_web_url.setVisible(True)
-            self.lbl_mobile_ip.setText(tr("pin_code").format(new_pin))
             
             if HAS_QR:
                 qr = qrcode.QRCode(version=1, box_size=4, border=4)
@@ -3997,33 +6779,413 @@ class NexHubApp(QMainWindow):
                 self.lbl_qr_image.setPixmap(QPixmap.fromImage(qim))
                 self.btn_qr.setVisible(True)
             else: self.lbl_mobile_ip.setText(tr("qr_missing").format(url))
+            self.refresh_web_control_status()
+            self.update_web_sensitive_widgets()
+
+    def on_mobile_server_started(self, port):
+        try:
+            if hasattr(self, "log_area"):
+                self.log_area.append(f"🌐 Web Kontrolü başlatıldı: Port {port}")
+            self.refresh_web_control_status()
+        except Exception:
+            pass
+
+    def on_mobile_server_failed(self, error_text):
+        try:
+            self.mobile_thread = None
+            self.current_mobile_port = None
+            if hasattr(self, "btn_mobile"):
+                self.btn_mobile.setText("📱 Başlat")
+            if hasattr(self, "lbl_mobile_ip"):
+                self.lbl_mobile_ip.setText("Web Hatası")
+            if hasattr(self, "log_area"):
+                self.log_area.append(f"⚠️ Web Kontrolü Hatası: {error_text}")
+            self.refresh_web_control_status()
+            QMessageBox.warning(
+                self,
+                "Web Kontrolü",
+                "Web sunucusu başlatılamadı.\n\n"
+                f"Hata:\n{error_text}\n\n"
+                "Olası sebepler:\n"
+                "- Aynı portu kullanan eski NexStudio süreci açık olabilir.\n"
+                "- Windows Güvenlik Duvarı exe bağlantısını engelliyor olabilir.\n"
+                "- PyInstaller paketine gerekli modüller eklenmemiş olabilir."
+            )
+        except Exception:
+            pass
+
+    def copy_web_url(self):
+        url = getattr(self, "current_web_url", "")
+        if url:
+            QApplication.clipboard().setText(url)
+            self.show_saved_feedback("Web bağlantısı kopyalandı")
+
+    def update_web_sensitive_widgets(self):
+        try:
+            is_on = bool(self.mobile_thread and self.mobile_thread.is_running)
+            sensitive = False
+            if hasattr(self, "web_sensitive_panel"):
+                self.web_sensitive_panel.setVisible(False)
+            if hasattr(self, "btn_web_sensitive_toggle"):
+                self.btn_web_sensitive_toggle.setText("🔐 Gizli Bilgiler")
+            if hasattr(self, "btn_copy_web_url"):
+                self.btn_copy_web_url.setVisible(is_on)
+            if hasattr(self, "btn_big_qr"):
+                self.btn_big_qr.setVisible(is_on and HAS_QR)
+            if hasattr(self, "btn_toggle_url"):
+                self.btn_toggle_url.setVisible(is_on)
+            if hasattr(self, "btn_qr"):
+                self.btn_qr.setVisible(is_on and HAS_QR)
+            if not sensitive:
+                if hasattr(self, "lbl_web_url"):
+                    self.lbl_web_url.setVisible(False)
+                if hasattr(self, "lbl_qr_image"):
+                    self.lbl_qr_image.setVisible(False)
+                if hasattr(self, "btn_toggle_url"):
+                    self.btn_toggle_url.setText("👁 URL")
+                if hasattr(self, "btn_qr"):
+                    self.btn_qr.setText("👁 QR")
+        except Exception:
+            pass
+
+    def toggle_web_sensitive_panel(self):
+        self.show_web_sensitive_dialog()
+
+    def toggle_web_url(self):
+        if not hasattr(self, "lbl_web_url"):
+            return
+        self.web_sensitive_visible = True
+        visible = not self.lbl_web_url.isVisible()
+        self.lbl_web_url.setVisible(visible)
+        if hasattr(self, "btn_toggle_url"):
+            self.btn_toggle_url.setText("🙈 URL" if visible else "👁 URL")
+        self.update_web_sensitive_widgets()
 
     def toggle_qr(self):
-        show = not self.lbl_qr_image.isVisible()
-        self.lbl_qr_image.setVisible(show)
-        if hasattr(self, "lbl_web_url"):
-            self.lbl_web_url.setVisible(False)
-        if hasattr(self, "btn_copy_web_url"):
-            self.btn_copy_web_url.setVisible(show)
+        self.web_sensitive_visible = True
+        visible = not self.lbl_qr_image.isVisible()
+        self.lbl_qr_image.setVisible(visible)
+        self.btn_qr.setText("🙈 QR" if visible else "👁 QR")
+        self.update_web_sensitive_widgets()
+
+    def show_web_sensitive_dialog(self):
+        try:
+            if not (self.mobile_thread and self.mobile_thread.is_running):
+                self.show_saved_feedback("Web Kontrolü kapalı")
+                return
+
+            dialog = QDialog(self)
+            dialog.setWindowTitle("Gizli Web Bilgileri")
+            dialog.setMinimumSize(520, 430)
+            dialog.setStyleSheet(get_stylesheet(self.config.get("accent_color", "#3B82F6")))
+            layout = QVBoxLayout(dialog)
+            layout.setSpacing(12)
+
+            title = QLabel("Gizli Web Bilgileri")
+            title.setObjectName("SectionTitle")
+            layout.addWidget(title)
+
+            hint = QLabel("PIN ve bağlantı bilgileri yalnızca güvenilir kişilerle paylaşılmalıdır. QR kodu ayrı büyütme penceresinde gösterilir.")
+            hint.setWordWrap(True)
+            hint.setObjectName("Muted")
+            layout.addWidget(hint)
+
+            pin_lbl = QLabel(f"PIN: {self.config.get('mobile_pin', '-')}")
+            pin_lbl.setAlignment(Qt.AlignCenter)
+            pin_lbl.setStyleSheet("font-size: 24px; font-weight: 950; letter-spacing: 4px; color: #10B981; background: rgba(16,185,129,.10); border: 1px solid rgba(16,185,129,.30); border-radius: 14px; padding: 12px;")
+            layout.addWidget(pin_lbl)
+
+            url_lbl = QLabel(getattr(self, "current_web_url", "-"))
+            url_lbl.setWordWrap(True)
+            url_lbl.setTextInteractionFlags(Qt.TextSelectableByMouse)
+            url_lbl.setStyleSheet("color: #93C5FD; font-weight: 800; background: rgba(15,23,42,.45); border: 1px solid rgba(148,163,184,.16); border-radius: 12px; padding: 10px;")
+            layout.addWidget(url_lbl)
+
+            btn_grid = QGridLayout()
+            btn_grid.setHorizontalSpacing(8)
+            btn_grid.setVerticalSpacing(8)
+
+            btn_copy = AnimatedButton("🔗 Bağlantıyı Kopyala", accent=lambda: self.current_accent())
+            btn_copy.setHoverHeights(42, 5)
+            btn_copy.clicked.connect(lambda: (self.copy_web_url(), dialog.raise_()))
+            btn_grid.addWidget(btn_copy, 0, 0)
+
+            btn_pin = AnimatedButton("🔐 PIN Yenile", accent=lambda: self.current_accent())
+            btn_pin.setHoverHeights(42, 5)
+            btn_pin.clicked.connect(lambda: (self.regenerate_web_pin(), pin_lbl.setText(f"PIN: {self.config.get('mobile_pin', '-')}")))
+            btn_grid.addWidget(btn_pin, 0, 1)
+
+            btn_reset = AnimatedButton("🔁 QR / Link Yenile", accent=lambda: self.current_accent())
+            btn_reset.setHoverHeights(42, 5)
+            def _reset_and_update():
+                self.reset_web_sessions()
+                pin_lbl.setText(f"PIN: {self.config.get('mobile_pin', '-')}")
+                url_lbl.setText(getattr(self, "current_web_url", "-"))
+            btn_reset.clicked.connect(_reset_and_update)
+            btn_grid.addWidget(btn_reset, 1, 0)
+
+            layout.addLayout(btn_grid)
+
+            qr_hint = QLabel("QR kodu ana Web Kontrolü ekranındaki 'QR Büyüt' butonundan ayrı pencerede açılır. Bu panelde QR bilerek gösterilmez.")
+            qr_hint.setWordWrap(True)
+            qr_hint.setObjectName("Muted")
+            layout.addWidget(qr_hint)
+
+            layout.addStretch()
+            dialog.exec_()
+        except Exception as e:
+            QMessageBox.warning(self, "Gizli Web Bilgileri", f"Panel açılamadı:\n{e}")
+
+    def show_qr_large(self):
+        try:
+            if not hasattr(self, "lbl_qr_image") or self.lbl_qr_image.pixmap() is None or self.lbl_qr_image.pixmap().isNull():
+                self.show_saved_feedback("QR henüz oluşturulmadı")
+                return
+            dialog = QDialog(self)
+            dialog.setWindowTitle("NexStudio QR Kodu")
+            dialog.setMinimumSize(460, 560)
+            dialog.setStyleSheet(get_stylesheet(self.config.get("accent_color", "#3B82F6")))
+            layout = QVBoxLayout(dialog)
+            title = QLabel("Web Kontrolü QR Kodu")
+            title.setObjectName("SectionTitle")
+            layout.addWidget(title)
+            hint = QLabel("Telefon veya tablet ile bu QR kodu okutabilirsin. PIN kodu aşağıdadır.")
+            hint.setWordWrap(True)
+            hint.setObjectName("Muted")
+            layout.addWidget(hint)
+            qr_lbl = QLabel()
+            qr_lbl.setAlignment(Qt.AlignCenter)
+            qr_lbl.setPixmap(self.lbl_qr_image.pixmap().scaled(360, 360, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            layout.addWidget(qr_lbl, alignment=Qt.AlignCenter)
+            pin_lbl = QLabel(f"PIN: {self.config.get('mobile_pin', '-')}")
+            pin_lbl.setAlignment(Qt.AlignCenter)
+            pin_lbl.setStyleSheet("font-size: 24px; font-weight: 950; letter-spacing: 4px; color: #10B981;")
+            layout.addWidget(pin_lbl)
+            dialog.exec_()
+        except Exception as e:
+            QMessageBox.warning(self, "QR Kodu", f"QR büyütülemedi:\n{e}")
+
+    def rename_last_web_device(self):
+        try:
+            device_id = getattr(self, "last_web_device_id", "")
+            if not device_id:
+                self.show_saved_feedback("Son cihaz bulunamadı")
+                return
+            known = self.config.get("known_web_devices", {})
+            if not isinstance(known, dict) or device_id not in known:
+                self.show_saved_feedback("Cihaz henüz tanınan listede değil")
+                return
+            current_name = known.get(device_id, {}).get("name", "")
+            new_name, ok = QInputDialog.getText(self, "Cihazı Adlandır", "Bu cihaz için görünen ad:", text=current_name)
+            if ok and new_name.strip():
+                known[device_id]["name"] = new_name.strip()
+                self.config["known_web_devices"] = known
+                save_config(self.config)
+                self.refresh_web_security_panel()
+                self.refresh_web_control_status()
+                self.show_saved_feedback("Cihaz adı kaydedildi")
+        except Exception as e:
+            QMessageBox.warning(self, "Tanınan Cihaz", f"Cihaz adı değiştirilemedi:\n{e}")
+
+    def refresh_current_ui_state(self):
+        """Profil değişimi/sıfırlama sonrası uygulamayı kapatmadan ekranları yeniler."""
+        try:
+            self.apply_theme()
+            self.refresh_dynamic_button_styles()
+        except Exception:
+            pass
+
+        try:
+            if hasattr(self, "update_page_combo"):
+                current_idx = self.combo_page.currentIndex() if hasattr(self, "combo_page") else 0
+                self.update_page_combo()
+                if hasattr(self, "combo_page"):
+                    self.combo_page.setCurrentIndex(max(0, min(current_idx, self.combo_page.count() - 1)))
+        except Exception:
+            pass
+
+        for method_name in [
+            "refresh_screen_buttons",
+            "update_screen_bg",
+            "refresh_audio_app_combos",
+            "refresh_profile_combo",
+        ]:
+            try:
+                if hasattr(self, method_name):
+                    getattr(self, method_name)()
+            except Exception:
+                pass
+
+        try:
+            if hasattr(self, "lbl_current_assignment") and getattr(self, "current_signal", None):
+                cfg = self.config.get("buttons", {}).get(self.current_signal, {})
+                self.lbl_current_assignment.setText(f"{tr('current_assign')} {cfg.get('name', tr('empty'))}")
+        except Exception:
+            pass
+
+        try:
+            if hasattr(self, "screen_macro_panel"):
+                self.screen_macro_panel.setEnabled(False)
+        except Exception:
+            pass
+
+        try:
+            APP_CONFIG.update(self.config)
+        except Exception:
+            pass
+
+    def auto_connect_device(self):
+        """Uygulama açılınca NexDeck portu bulunursa otomatik bağlanır."""
+        if not self.config.get("auto_connect", True):
+            return
+        if self.serial_thread and self.serial_thread.is_running:
+            return
+        try:
+            if hasattr(self, "port_combo") and self.port_combo.currentData():
+                self.toggle_connection()
+        except Exception as e:
+            try:
+                self.log_area.append(f"Otomatik bağlantı başarısız: {e}")
+            except Exception:
+                pass
+
+    def refresh_profile_combo(self):
+        if not hasattr(self, "combo_profile"):
+            return
+        self.combo_profile.blockSignals(True)
+        self.combo_profile.clear()
+        ensure_profiles(self.config, update_active=False)
+        active = self.config.get("active_profile", DEFAULT_PROFILE_NAME)
+        for name in self.config.get("profiles", {}).keys():
+            self.combo_profile.addItem(name, name)
+        idx = self.combo_profile.findData(active)
+        if idx >= 0:
+            self.combo_profile.setCurrentIndex(idx)
+        self.combo_profile.blockSignals(False)
+
+    def persist_current_profile(self):
+        ensure_profiles(self.config, update_active=False)
+        active = self.config.get("active_profile", DEFAULT_PROFILE_NAME)
+        self.config["profiles"][active] = snapshot_profile_data(self.config)
+
+    def switch_to_profile(self, profile_name):
+        profile_name = (profile_name or "").strip()
+        if not profile_name:
+            return
+        ensure_profiles(self.config, update_active=False)
+        if profile_name not in self.config.get("profiles", {}):
+            return
+        self.persist_current_profile()
+        self.config["active_profile"] = profile_name
+        apply_active_profile(self.config)
+        save_config(self.config)
+        self.refresh_current_ui_state()
+        self.show_saved_feedback(f"Profil yüklendi: {profile_name}")
+
+    def change_profile(self):
+        if not hasattr(self, "combo_profile"):
+            return
+        profile_name = self.combo_profile.currentData()
+        if profile_name and profile_name != self.config.get("active_profile"):
+            self.switch_to_profile(profile_name)
+
+    def create_profile(self):
+        name, ok = QInputDialog.getText(self, "Yeni Profil", "Profil adı:", QLineEdit.Normal, "")
+        if not ok:
+            return
+        name = name.strip()
+        if not name:
+            return
+        ensure_profiles(self.config, update_active=True)
+        if name in self.config["profiles"]:
+            QMessageBox.warning(self, "Profil Var", "Bu isimde bir profil zaten var.")
+            return
+        self.config["profiles"][name] = {
+            "buttons": copy.deepcopy(FACTORY_DEFAULT_BUTTONS),
+            "encoder": {"turn": "general_volume"},
+            "page_names": {},
+            "screen_bg": ""
+        }
+        self.config["active_profile"] = name
+        apply_active_profile(self.config)
+        save_config(self.config)
+        self.refresh_current_ui_state()
+        self.show_saved_feedback(f"Profil oluşturuldu: {name}")
+
+    def copy_profile(self):
+        current = self.config.get("active_profile", DEFAULT_PROFILE_NAME)
+        name, ok = QInputDialog.getText(self, "Profili Kopyala", "Yeni profil adı:", QLineEdit.Normal, f"{current} Kopya")
+        if not ok:
+            return
+        name = name.strip()
+        if not name:
+            return
+        ensure_profiles(self.config, update_active=True)
+        if name in self.config["profiles"]:
+            QMessageBox.warning(self, "Profil Var", "Bu isimde bir profil zaten var.")
+            return
+        self.config["profiles"][name] = copy.deepcopy(self.config["profiles"].get(current, snapshot_profile_data(self.config)))
+        self.config["active_profile"] = name
+        apply_active_profile(self.config)
+        save_config(self.config)
+        self.refresh_current_ui_state()
+        self.show_saved_feedback(f"Profil kopyalandı: {name}")
+
+    def delete_profile(self):
+        ensure_profiles(self.config, update_active=True)
+        current = self.config.get("active_profile", DEFAULT_PROFILE_NAME)
+        if len(self.config.get("profiles", {})) <= 1:
+            QMessageBox.warning(self, "Silinemez", "En az bir profil kalmalı.")
+            return
+        cevap = QMessageBox.question(self, "Profili Sil", f"'{current}' profilini silmek istiyor musun?", QMessageBox.Yes | QMessageBox.No)
+        if cevap != QMessageBox.Yes:
+            return
+        self.config["profiles"].pop(current, None)
+        next_profile = next(iter(self.config["profiles"].keys()))
+        self.config["active_profile"] = next_profile
+        apply_active_profile(self.config)
+        save_config(self.config)
+        self.refresh_current_ui_state()
+        self.show_saved_feedback(f"Profil silindi. Aktif profil: {next_profile}")
 
     def change_language(self):
         new_lang = self.combo_lang.currentData()
         if new_lang != self.config.get("language", "tr"):
             self.config["language"] = new_lang
             save_config(self.config)
-            self.restart_app()
+            self.refresh_current_ui_state()
+            self.show_saved_feedback("Aktif profil fabrika ayarlarına döndürüldü")
 
     def factory_reset(self):
         cevap = QMessageBox.question(self, tr("confirm"), tr("reset_confirm"), QMessageBox.Yes | QMessageBox.No)
         if cevap == QMessageBox.Yes:
-            self.config["buttons"] = FACTORY_DEFAULT_BUTTONS.copy()
+            # Sadece aktif profili sıfırla; uygulamayı kapat/aç yapma.
+            self.config["buttons"] = copy.deepcopy(FACTORY_DEFAULT_BUTTONS)
+            self.config["encoder"] = {"turn": "general_volume"}
+            self.config["page_names"] = {}
+            self.config["screen_bg"] = ""
+
+            try:
+                self.persist_current_profile()
+            except Exception:
+                ensure_profiles(self.config, update_active=True)
+
+            self.reset_nextion_texts()
             save_config(self.config)
-            self.restart_app()
+            self.refresh_current_ui_state()
+            self.show_saved_feedback("Aktif profil fabrika ayarlarına döndürüldü")
+
 
     def restart_app(self):
         save_config(self.config)
-        if self.serial_thread: self.serial_thread.stop()
-        if self.mobile_thread: self.mobile_thread.stop()
+        if self.serial_thread:
+            self.serial_thread.stop()
+            try: self.serial_thread.wait(1500)
+            except Exception: pass
+        if self.mobile_thread:
+            self.mobile_thread.stop()
+            try: self.mobile_thread.wait(1500)
+            except Exception: pass
         QApplication.quit()
         subprocess.Popen([sys.executable] + sys.argv)
 
@@ -4069,23 +7231,45 @@ class NexHubApp(QMainWindow):
                 if MAIN_WINDOW: MAIN_WINDOW.log_area.append(tr("connected_log"))
                 QTimer.singleShot(2500, self.sync_nextion_texts)
 
+    def reset_nextion_texts(self):
+        """Sayfa 3-4 özel yazılarını cihaz ekranında temizler."""
+        if not self.serial_thread or not self.serial_thread.is_running:
+            return
+
+        for page_num, obj_list in NEXTION_TEXT_RESET_OBJS.items():
+            nextion_page = f"page{page_num}"
+            for obj_name in obj_list:
+                cmd = f'NEXCMD:{nextion_page}.{obj_name}.txt=""' + chr(10)
+                self.serial_thread.send_data(cmd)
+                time.sleep(0.03)
+
+
     def sync_nextion_texts(self):
-        if not self.serial_thread or not self.serial_thread.is_running: return
-        for sig, cfg in self.config.get("buttons", {}).items():
-            if sig.startswith("NEX:P3_") or sig.startswith("NEX:P4_"):
-                page_num = int(sig.split("_")[0][-1])
-                btn_idx = int(sig.split("_")[1][1:]) - 1
+        if not self.serial_thread or not self.serial_thread.is_running:
+            return
+
+        # Sayfa 3-4'te kayıtlı özel yazıları cihaza tekrar bas.
+        for page_num, slot_map in NEXTION_TEXT_OBJ_BY_SLOT.items():
+            signal_map = TOUCH_UI_SLOT_TO_SIGNAL.get(page_num, {})
+            for slot_idx, obj_name in slot_map.items():
+                sig = signal_map.get(slot_idx)
+                if not sig:
+                    continue
+                cfg = self.config.get("buttons", {}).get(sig, {})
                 btn_text = cfg.get("btn_text", "")
-                if btn_text and page_num in NEXTION_OBJ_MAP:
+                if btn_text:
                     nextion_page = f"page{page_num}"
-                    obj_name = NEXTION_OBJ_MAP[page_num][btn_idx]
                     cmd = f'NEXCMD:{nextion_page}.{obj_name}.txt="{btn_text}"\n'
                     self.serial_thread.send_data(cmd)
                     time.sleep(0.05)
 
+
     def handle_serial_data(self, data):
         if MAIN_WINDOW: MAIN_WINDOW.log_area.append(f"{tr('log_signal')} {data}")
         
+        if should_ignore_serial_signal(data):
+            return
+
         if data in ["ENC:UP", "ENC:DOWN"]:
             # Hızlı çevirmede gelen seri sinyalleri tek tek uygulamak yerine
             # kısa bir tamponda topluyoruz. Bu, yukarı/aşağı zıplamayı ve
@@ -4095,7 +7279,12 @@ class NexHubApp(QMainWindow):
                 self.encoder_flush_timer.start(35)
             return
 
-        cfg = self.config.get("buttons", {}).get(data)
+        buttons_cfg = self.config.get("buttons", {})
+        resolved_data = resolve_nextion_signal(data, buttons_cfg)
+        if resolved_data != data and MAIN_WINDOW:
+            MAIN_WINDOW.log_area.append(f"{tr('log_signal')} {data} → {resolved_data}")
+
+        cfg = buttons_cfg.get(resolved_data)
         if cfg and cfg.get("action"):
             if MAIN_WINDOW: MAIN_WINDOW.log_area.append(tr("found_task").format(cfg.get("name")))
             execute_macro(cfg["action"])
@@ -4542,6 +7731,12 @@ class NexHubApp(QMainWindow):
         save_config(self.config)
         self.apply_startup_setting()
 
+    def toggle_auto_connect(self):
+        self.config["auto_connect"] = not self.config.get("auto_connect", True)
+        save_config(self.config)
+        if hasattr(self, "chk_auto_connect"):
+            self.chk_auto_connect.setText(("✅ " if self.config.get("auto_connect", True) else "❌ ") + "Cihazı otomatik bağla")
+
     def toggle_bg(self):
         self.config["run_in_bg"] = not self.config.get("run_in_bg", False)
         self.chk_bg.setText("✅ " + tr("run_bg") if self.config.get("run_in_bg") else "❌ " + tr("run_bg"))
@@ -4562,27 +7757,90 @@ class NexHubApp(QMainWindow):
 
     def setup_tray(self):
         self.tray_icon = QSystemTrayIcon(self)
-        pixmap = QPixmap(32, 32); pixmap.fill(QColor(self.current_accent()))
-        self.tray_icon.setIcon(QIcon(pixmap))
+        app_icon = QIcon(APP_ICON_PATH) if os.path.exists(APP_ICON_PATH) else QIcon()
+        if not app_icon.isNull():
+            self.tray_icon.setIcon(app_icon)
+        else:
+            pixmap = QPixmap(32, 32)
+            pixmap.fill(QColor(self.current_accent()))
+            self.tray_icon.setIcon(QIcon(pixmap))
+
         tray_menu = QMenu()
-        tray_menu.addAction(QAction(tr("tray_show"), self, triggered=self.show))
-        tray_menu.addAction(QAction(tr("tray_exit"), self, triggered=self.force_quit))
+        show_action = QAction(tr("tray_show"), self)
+        show_action.triggered.connect(self.show_main_window)
+        tray_menu.addAction(show_action)
+        exit_action = QAction(tr("tray_exit"), self)
+        exit_action.triggered.connect(self.force_quit)
+        tray_menu.addAction(exit_action)
         self.tray_icon.setContextMenu(tray_menu)
-        self.tray_icon.activated.connect(lambda r: self.show() if r == QSystemTrayIcon.DoubleClick else None)
+        self.tray_icon.activated.connect(
+            lambda reason: self.show_main_window()
+            if reason in [QSystemTrayIcon.DoubleClick, QSystemTrayIcon.Trigger]
+            else None
+        )
         self.tray_icon.show()
+
+    def show_main_window(self):
+        try:
+            # Tray/arka plandan dönerken her zaman normal boyutta açıyoruz.
+            # Kullanıcı isterse sonrasında yine manuel olarak tam ekran/maximize yapabilir.
+            self.showNormal()
+            self.resize(*getattr(self, "_normal_window_size", (1100, 750)))
+            self.show()
+            self.raise_()
+            self.activateWindow()
+            QTimer.singleShot(0, self.force_full_repaint)
+            QTimer.singleShot(120, self.force_full_repaint)
+            QTimer.singleShot(300, self.force_full_repaint)
+        except Exception:
+            self.show()
 
     def closeEvent(self, event):
         if self.config.get("run_in_bg"):
-            event.ignore(); self.hide()
-            self.tray_icon.showMessage("NexStudio", tr("running_bg"), QSystemTrayIcon.Information, 2000)
-        else: self.force_quit()
+            event.ignore()
+            try:
+                if not self.isMaximized() and not self.isFullScreen():
+                    self._normal_window_size = (max(self.width(), 1100), max(self.height(), 750))
+            except Exception:
+                pass
+            self.hide()
+            if self.tray_icon:
+                self.tray_icon.showMessage("NexStudio", tr("running_bg"), QSystemTrayIcon.Information, 2000)
+        else:
+            self.force_quit()
 
     def force_quit(self):
-        if self.serial_thread: self.serial_thread.stop()
-        if self.mobile_thread: self.mobile_thread.stop()
+        try:
+            if self.tray_icon:
+                self.tray_icon.hide()
+        except Exception:
+            pass
+
+        if self.mobile_thread:
+            try:
+                self.mobile_thread.stop()
+                self.mobile_thread.wait(1500)
+            except Exception:
+                pass
+            self.mobile_thread = None
+
+        if self.serial_thread:
+            try:
+                self.serial_thread.stop()
+                self.serial_thread.wait(1000)
+            except Exception:
+                pass
+            self.serial_thread = None
+
         QApplication.quit()
 
+
 if __name__ == "__main__":
+    try:
+        QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
+        QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
+    except Exception:
+        pass
     app = QApplication(sys.argv)
     
     try: 
@@ -4592,6 +7850,17 @@ if __name__ == "__main__":
     
     app.setStyle("Fusion")
     app.setWindowIcon(QIcon(get_resource_path("app_icon.ico")))
+    try:
+        app_palette = app.palette()
+        app_palette.setColor(QPalette.Window, QColor("#070B14"))
+        app_palette.setColor(QPalette.Base, QColor("#070B14"))
+        app_palette.setColor(QPalette.AlternateBase, QColor("#0B1220"))
+        app_palette.setColor(QPalette.Text, QColor("#F8FAFC"))
+        app_palette.setColor(QPalette.WindowText, QColor("#F8FAFC"))
+        app.setPalette(app_palette)
+    except Exception:
+        pass
+    app.setStyleSheet("QMainWindow { background-color: #070B14; } QWidget#AppRoot { background-color: #070B14; }")
     
     MAIN_WINDOW = NexHubApp()
     MAIN_WINDOW.show()
