@@ -3306,6 +3306,8 @@ class NexHubApp(QMainWindow):
             self.launch_ui_window()
 
     def launch_ui_window(self):
+        if os.environ.get("QT_QPA_PLATFORM") == "offscreen":
+            return  # 2.7.2: test modunda (ekransız) pencere açılmaz; testler masaüstünde pencere bırakmasın
         if self.ui_process and self.ui_process.poll() is None:
             self._focus_ui_window()
             return

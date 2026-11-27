@@ -723,8 +723,8 @@ function renderLibrary() {
   if (key === ui.libKey) return; ui.libKey = key;
   const box = $("#library"); box.innerHTML = "";
   S.library.forEach(({ cat, items }) => {
-    // 2.7.1: "Özel uygulama" yalnızca bilgisayardan atanabilir; telefonda listede gösterilmez
-    const hits = items.filter(i => !(REMOTE && i.needs === "app")).filter(i => !q || i.name.toLocaleLowerCase("tr").includes(q) || cat.toLocaleLowerCase("tr").includes(q));
+    // 2.7.1/2.7.2: özel uygulama, özel kısayol ve metin yazdırma yalnızca bilgisayardan atanır; telefonda listede gösterilmez
+    const hits = items.filter(i => !(REMOTE && ["app", "hotkey", "text"].includes(i.needs))).filter(i => !q || i.name.toLocaleLowerCase("tr").includes(q) || cat.toLocaleLowerCase("tr").includes(q));
     if (!hits.length) return;
     const h = document.createElement("div"); h.className = "cat"; h.textContent = cat; box.append(h);
     hits.forEach(it => {

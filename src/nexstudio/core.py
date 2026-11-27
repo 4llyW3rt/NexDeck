@@ -172,6 +172,11 @@ NEXSTUDIO_ZERO_WIDTH_WATERMARK = "​‌​‌‍​​‌‌‍‌​‌​‍�
 # =========================================================
 NEXSTUDIO_CHANGELOG = {
     "tr": [
+        ("2.7.2", "27.11.2026", [
+            "Güvenlik: telefondan 'Özel kısayol' ve 'Metin yazdırma' görevleri de atanamaz (yalnızca bilgisayardan); atanmış tuşa telefondan basmak çalışır.",
+            "Telefondaki giriş, onay bekleniyor, engellendi ve 'kod değişti' sayfaları artık seçili dilde.",
+            "Eklenti görevleri (Discord, Spotify, OBS, Zoom…) ve profil görevleri İngilizce/Almanca çevrildi.",
+        ]),
         ("2.7.1", "27.11.2026", [
             "Düzen menüsü artık panellerin arkasında açılmıyor; üst çubuk gizliyken sağ alttaki 'Düzen' düğmesinden de açılır, 'Tümünü göster' eklendi.",
             "Ekstra tekerlek ekleme/düzenleme penceresi açılmıyordu; düzeltildi.",
@@ -286,6 +291,11 @@ NEXSTUDIO_CHANGELOG = {
         ]),
     ],
     "en": [
+        ("2.7.2", "2026-11-27", [
+            "Security: 'Custom shortcut' and 'Type text' tasks can no longer be assigned from the phone either (computer only); pressing an assigned key from the phone still works.",
+            "The phone's sign-in, waiting-for-approval, blocked and 'code changed' pages now use the selected language.",
+            "Plugin tasks (Discord, Spotify, OBS, Zoom…) and profile tasks translated to English/German.",
+        ]),
         ("2.7.1", "2026-11-27", [
             "The Layout menu no longer opens behind the panels; with the top bar hidden it opens from the 'Layout' button at the bottom right, and 'Show all' was added.",
             "The add/edit extra wheel dialog did not open; fixed.",
@@ -394,7 +404,7 @@ import traceback
 import shutil
 from PyQt5.QtCore import QObject
 
-APP_VERSION = "2.7.1"
+APP_VERSION = "2.7.2"
 ERROR_LOG_FILE = os.path.join(LOGS_DIR, "error.log")
 CONFIG_BACKUP_FILE = CONFIG_FILE + ".bak"
 WEB_HISTORY_LIMIT = 100

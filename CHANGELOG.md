@@ -5,6 +5,18 @@ Uygulama içindeki "Güncelleme Rehberi" kartı da aynı bilgiyi kısaca göster
 
 ---
 
+## 2.7.2 — 27.11.2026 (Telefon güvenliği ve çeviriler)
+
+- **Güvenlik:** `custom_hotkey` ve `type_text` de `_LOCAL_ONLY_TASK_TYPES`'a eklendi. PIN'i bilen biri telefondan
+  "win+r" kısayolu ile komut yazdırmayı birleştirip bilgisayarda komut çalıştırabiliyordu. Telefondan atanmış tuşa basmak çalışır;
+  telefondaki görev listesinde bu türler gösterilmez.
+- **Telefon sayfaları çevrildi** (`webserver._t`): PIN girişi, yanlış PIN/kilit, onay bekleniyor/reddedildi/zaman aşımı,
+  engellendi ve "bağlantı kodu değişti" sayfaları aktif dile göre; `<html lang>` doğru.
+- **Eklenti ve profil görevleri** İngilizce/Almanca (109 yeni anahtar). Çeviri işini Antigravity CLI (Gemini) yaptı, kontrol ve testler Claude'da.
+- Test modunda (`QT_QPA_PLATFORM=offscreen`) arayüz penceresi açılmaz; testler masaüstünde pencere bırakmaz.
+
+---
+
 ## 2.7.1 — 27.11.2026 (Çoklu ajan testi düzeltmeleri)
 
 ### Nasıl test edildi

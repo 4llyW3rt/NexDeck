@@ -39,6 +39,7 @@ from .engine import (  # noqa: F401
     get_physical_buttons,
     save_config,
 )
+from .i18n import load_language_packs  # 2.7.2: telefon sayfaları için aktif dil paketi
 from .state import lazy as _lazy
 
 # =========================================================
@@ -420,6 +421,29 @@ def html_escape(text):
         return ""
 
 
+def _active_lang():
+    """2.7.2: yapılandırmadaki aktif dil kodunu döndürür ('tr', 'en', 'de', ...)."""
+    try:
+        return str(state.APP_CONFIG.get("language", "tr") or "tr")
+    except Exception:
+        return "tr"
+
+
+def _t(text, *args):
+    """2.7.2: Türkçe metni aktif dil paketinin 'ui' bölümünden çevirir; yoksa Türkçe kalır."""
+    out = str(text)
+    lang = _active_lang()
+    if lang != "tr":
+        try:
+            ui = (load_language_packs().get(lang) or {}).get("ui") or {}
+            out = ui.get(out, out)
+        except Exception:
+            pass
+    for i, val in enumerate(args):
+        out = out.replace(f"{{{i}}}", str(val))
+    return out
+
+
 def parse_web_client_info(user_agent):
     """Tarayıcı User-Agent bilgisinden cihaz türü, işletim sistemi, tarayıcı ve mümkünse model tahmini üretir."""
     ua = str(user_agent or "")
@@ -682,12 +706,19 @@ class MobileHandler(BaseHTTPRequestHandler):
             return sess["device"]
 
     def _send_waiting_page(self, remaining):
-        html = f"""<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="refresh" content="2"><title>NexStudio</title>
+        # 2.7.2: bekleme sayfası aktif dile göre çevrilir
+        lang = html_escape(_active_lang())
+        title = html_escape(_t("Onay bekleniyor"))
+        body_text = html_escape(_t(
+            "Bilgisayardaki NexStudio'da bu cihazın bağlanmasına izin verilmesi bekleniyor. Kalan süre: {0} sn",
+            max(0, int(remaining)),
+        ))
+        html = f"""<!doctype html><html lang="{lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="refresh" content="2"><title>{title} · NexStudio</title>
 <style>body{{margin:0;min-height:100vh;display:grid;place-items:center;background:#171A21;color:#ECEEF3;font-family:Segoe UI,system-ui,sans-serif;text-align:center;padding:24px}}
 .b{{max-width:360px}}.s{{width:46px;height:46px;border:4px solid #363C4B;border-top-color:#F2601C;border-radius:50%;margin:0 auto 18px;animation:r 1s linear infinite}}
 @keyframes r{{to{{transform:rotate(360deg)}}}}p{{color:#9097A8;line-height:1.5}}</style></head>
-<body><div class="b"><div class="s"></div><h2>Onay bekleniyor</h2><p>Bilgisayardaki NexStudio'da bu cihazın bağlanmasına izin verilmesi bekleniyor. Kalan süre: {int(remaining)} sn</p></div></body></html>"""
+<body><div class="b"><div class="s"></div><h2>{title}</h2><p>{body_text}</p></div></body></html>"""
         data = html.encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -697,12 +728,15 @@ class MobileHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def _send_notice_page(self, title, text, status=200):
-        """2.7.1: telefonda düz metin yerine bilgi sayfası (ör. bağlantı kodu değişti)."""
-        html = f"""<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NexStudio</title>
+        """2.7.1/2.7.2: telefonda düz metin yerine aktif dilde bilgi sayfası (ör. bağlantı kodu değişti, engel, zaman aşımı)."""
+        lang = html_escape(_active_lang())
+        t_title = html_escape(_t(title))
+        t_text = html_escape(_t(text))
+        html = f"""<!doctype html><html lang="{lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{t_title} · NexStudio</title>
 <style>body{{margin:0;min-height:100vh;display:grid;place-items:center;background:#171A21;color:#ECEEF3;font-family:Segoe UI,system-ui,sans-serif;text-align:center;padding:24px}}
 .b{{max-width:360px}}p{{color:#9097A8;line-height:1.5}}</style></head>
-<body><div class="b"><h2>{html_escape(title)}</h2><p>{html_escape(text)}</p></div></body></html>"""
+<body><div class="b"><h2>{t_title}</h2><p>{t_text}</p></div></body></html>"""
         data = html.encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -769,7 +803,7 @@ class MobileHandler(BaseHTTPRequestHandler):
             self.send_header('Content-Length', str(len(data)))
             self.end_headers(); self.wfile.write(data)
         except Exception as e:
-            self._send_plain_text(f"Asset okunamadı: {e}", status=500)
+            self._send_plain_text(_t("Asset okunamadı: {0}", e), status=500)
 
     def _send_json(self, payload, status=200, trust_cookie=""):
         data = json.dumps(payload, ensure_ascii=False).encode('utf-8', errors='replace')
@@ -784,19 +818,31 @@ class MobileHandler(BaseHTTPRequestHandler):
 
 
     def _send_login_page(self, token, error_message="", sub_message="", attempts_remaining=None, blocked_remaining=0, status=200):
+        # 2.7.2: giriş sayfası aktif dile göre çevrilir
+        lang = html_escape(_active_lang())
         accent = state.APP_CONFIG.get('accent_color', '#3B82F6')
         logo_html = get_nexstudio_logo_html()
-        error_message = html_escape(error_message)
-        sub_message = html_escape(sub_message)
+        error_message = html_escape(_t(error_message)) if error_message else ""
+        sub_message = html_escape(_t(sub_message)) if sub_message else ""
         blocked_remaining = max(0, int(blocked_remaining or 0))
         locked = blocked_remaining > 0
         attempts_html = ""
         if attempts_remaining is not None and not locked:
-            attempts_html = f"<div class='attempts'>Kalan deneme: <b>{int(attempts_remaining)}</b> / {WEB_PIN_FAIL_LIMIT}</div>"
+            attempts_tpl = html_escape(_t("Kalan deneme: {0} / {1}"))
+            attempts_text = attempts_tpl.replace("{0}", f"<b>{int(attempts_remaining)}</b>").replace("{1}", str(WEB_PIN_FAIL_LIMIT))
+            attempts_html = f"<div class='attempts'>{attempts_text}</div>"
         alert_html = ""
         if error_message:
             alert_html = f"<div class='alert {'locked' if locked else 'error'}'><strong>{error_message}</strong><span>{sub_message}</span>{attempts_html}</div>"
         disabled = "disabled" if locked else ""
+        if locked:
+            btn_html = html_escape(_t("Kilitli · {0} sonra tekrar dene")).replace("{0}", '<span id="lock-timer" class="timer"></span>')
+        else:
+            btn_html = html_escape(_t("Giriş Yap"))
+        page_title = html_escape(_t("NexStudio Web Kontrolü"))
+        subtitle = html_escape(_t("Web Kontrolü"))
+        pin_prompt = html_escape(_t("Lütfen bilgisayar ekranındaki 6 haneli PIN kodunu girin."))
+        qr_hint = html_escape(_t("Güvenli bağlantı için QR kodu tekrar okutabilirsin."))
         timer_script = ""
         if locked:
             timer_script = f"""
@@ -824,11 +870,11 @@ class MobileHandler(BaseHTTPRequestHandler):
             """
         html = f"""
         <!DOCTYPE html>
-        <html lang="tr">
+        <html lang="{lang}">
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
-            <title>NexStudio Web Kontrolü</title>
+            <title>{page_title}</title>
             <style>
             :root {{
                 --accent: {accent};
@@ -921,16 +967,16 @@ class MobileHandler(BaseHTTPRequestHandler):
                     <div class="logo">{logo_html}</div>
                     <div>
                         <h2>NexStudio</h2>
-                        <p style="margin:3px 0 0;">Web Kontrolü</p>
+                        <p style="margin:3px 0 0;">{subtitle}</p>
                     </div>
                 </div>
-                <p>Lütfen bilgisayar ekranındaki 6 haneli PIN kodunu girin.</p>
+                <p>{pin_prompt}</p>
                 {alert_html}
                 <form id="pin-form" action="/{token}" method="GET">
                     <input type="text" name="pin" placeholder="PIN" maxlength="6" required autocomplete="off" autocapitalize="characters" {disabled} oninput="this.value=this.value.toUpperCase()" autofocus><br>
-                    <button type="submit" {disabled}>{'Kilitli · ' if locked else ''}<span id="lock-timer" class="timer"></span>{' sonra tekrar dene' if locked else 'Giriş Yap'}</button>
+                    <button type="submit" {disabled}>{btn_html}</button>
                 </form>
-                <div class="hint">Güvenli bağlantı için QR kodu tekrar okutabilirsin.</div>
+                <div class="hint">{qr_hint}</div>
             </main>
             {timer_script}
         </body>
@@ -952,14 +998,19 @@ class MobileHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def _send_error_page(self, error_text):
+        # 2.7.2: hata sayfası aktif dile göre çevrilir
+        lang = html_escape(_active_lang())
+        err_title = html_escape(_t("NexStudio Web Hatası"))
+        err_heading = html_escape(_t("NexStudio Web Kontrolü açılırken hata oluştu"))
+        err_desc = html_escape(_t("Bu ekran boş sayfa yerine gerçek hatayı göstermek için eklendi. Aşağıdaki mesajı bana gönderirsen doğrudan düzeltebiliriz."))
         safe_error = str(error_text).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
         html = f"""
         <!DOCTYPE html>
-        <html lang="tr">
+        <html lang="{lang}">
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>NexStudio Web Hatası</title>
+            <title>{err_title}</title>
             <style>
                 body {{ margin:0; min-height:100vh; display:grid; place-items:center; padding:22px; background:#070B14; color:#F8FAFC; font-family:'Segoe UI',Arial,sans-serif; }}
                 .card {{ max-width:720px; width:100%; background:#0B1220; border:1px solid #263244; border-radius:24px; padding:22px; box-shadow:0 20px 70px rgba(0,0,0,.35); }}
@@ -970,8 +1021,8 @@ class MobileHandler(BaseHTTPRequestHandler):
         </head>
         <body>
             <main class="card">
-                <h1>NexStudio Web Kontrolü açılırken hata oluştu</h1>
-                <p>Bu ekran boş sayfa yerine gerçek hatayı göstermek için eklendi. Aşağıdaki mesajı bana gönderirsen doğrudan düzeltebiliriz.</p>
+                <h1>{err_heading}</h1>
+                <p>{err_desc}</p>
                 <pre>{safe_error}</pre>
             </main>
         </body>
@@ -1016,7 +1067,8 @@ class MobileHandler(BaseHTTPRequestHandler):
             if is_web_device_blocked(trusted, make_web_device_id(ip, ua)):
                 return self._send_json({"ok": False, "error": "Bu cihazın erişimi engellendi."}, status=401)
             if not trusted and web_access_mode() != "pin":
-                return self._send_json({"ok": False, "error": "Oturum yok. Sayfayı yenileyin."}, status=401)
+                # 2.7.2: uygulama tonuyla uyumlu teklifsiz dil ("yenile")
+                return self._send_json({"ok": False, "error": "Oturum yok. Sayfayı yenile."}, status=401)
             if not trusted:
                 if get_pin_block_remaining(ip) > 0:
                     return self._send_json({"ok": False, "error": "Çok fazla hatalı PIN. Biraz bekleyin."}, status=429)
@@ -1066,7 +1118,8 @@ class MobileHandler(BaseHTTPRequestHandler):
             record_web_event("Engellenen cihaz erişmeye çalıştı", client_ip, client_ua, "", "⛔", add_to_history=False)
             if parsed_path.startswith(f"/{token}/api") or parsed_path.startswith(f"/{token}/icons/"):
                 return self._send_json({"ok": False, "error": "Bu cihazın erişimi engellendi."}, status=401)
-            return self._send_plain_text("Bu cihazın NexStudio'ya erişimi engellendi.", status=403)
+            # 2.7.2: engellenen cihaza aktif dilde bilgi sayfası
+            return self._send_notice_page("Erişim engellendi", "Bu cihazın NexStudio'ya erişimi engellendi.", status=403)
         access_mode = web_access_mode()
         trusted_auth = bool(trusted_device_id or session_device)
         is_api_path = parsed_path.startswith(f"/{token}/api") or parsed_path.startswith(f"/{token}/icons/") or parsed_path.startswith(f"/{token}/exec")
@@ -1110,7 +1163,7 @@ class MobileHandler(BaseHTTPRequestHandler):
         if not trusted_auth:
             if access_mode in ("approve", "pin_approve"):
                 if is_api_path:
-                    return self._send_json({"ok": False, "error": "Oturum yok. Sayfayı yenileyin."}, status=401)
+                    return self._send_json({"ok": False, "error": "Oturum yok. Sayfayı yenile."}, status=401)
                 if raw_device not in WEB_APPROVED and not web_device_record(raw_device).get("auto_approve"):
                     touch_web_device(raw_device, client_ip, client_ua, allowed_default=not state.APP_CONFIG.get("web_known_only", False))
                     decision = web_approval_status(raw_device, client_ip, client_ua)
@@ -1118,8 +1171,10 @@ class MobileHandler(BaseHTTPRequestHandler):
                         req = WEB_PENDING.get(raw_device) or {"since": time.time()}
                         return self._send_waiting_page(APPROVAL_TIMEOUT - (time.time() - req["since"]))
                     if decision[0] != "allow":
-                        msg = "Bağlantı isteği reddedildi." if decision[0] == "deny" else "Onay zamanında gelmedi. Tekrar denemek için sayfayı yenileyin."
-                        return self._send_plain_text(msg, status=403)
+                        # 2.7.2: reddedilen ve zaman aşımına uğrayan istekler başlıklı bilgi sayfası döner
+                        if decision[0] == "deny":
+                            return self._send_notice_page("Bağlantı reddedildi", "Bağlantı isteği reddedildi.", status=403)
+                        return self._send_notice_page("Onay süresi doldu", "Onay zamanında gelmedi. Tekrar denemek için sayfayı yenile.", status=403)
                     if decision[1]:  # "hatırla" seçildi: kalıcı tanınan cihaz çerezi
                         # 2.7.1: güven anahtarı cihazın kendi kaydına yazılır (ayrı TRUST- satırı yok)
                         trust_token, trusted_id, _data = create_trusted_web_device(client_ip, client_ua, web_device_record(raw_device).get("name", ""), device_id=raw_device)
@@ -1275,7 +1330,8 @@ class MobileHandler(BaseHTTPRequestHandler):
             if new_session:
                 end_web_sessions(raw_device)
             record_web_event("Tanınmayan cihaz engellendi", self._client_ip(), self._client_user_agent(), "Sadece tanınan cihazlar modu açık", "⛔")
-            return self._send_plain_text("Bu cihaz tanınan cihazlar listesinde olmadığı için Web Kontrolü kullanılamaz.", status=403)
+            # 2.7.2: izin listesinde olmayan cihaza aktif dilde bilgi sayfası
+            return self._send_notice_page("İzin gerekli", "Bu cihaz tanınan cihazlar listesinde olmadığı için Web Kontrolü kullanılamaz.", status=403)
 
         # 2.7.1: giriş türü doğru yazılsın (onay modunda "Başarılı PIN girişi" değil)
         if trusted_auth:

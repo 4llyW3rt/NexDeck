@@ -194,7 +194,9 @@ _TURN_NAMES = {"general_volume", "Genel Ses Seviyesi", "General Volume", "bright
 
 # 2.7.1: serbest yol alan görev türü telefondan atanamaz (custom_app: os.startfile ile herhangi bir program).
 # cmd/ps/nircmd türlerinin komutu sabittir (kütüphaneden gelir, istekten alınmaz), onlar serbest.
-_LOCAL_ONLY_TASK_TYPES = {"custom_app"}
+# 2.7.2: özel kısayol (ör. win+r) ve metin yazdırma birleşince telefondan komut çalıştırılabiliyordu; bunlar da
+# yalnızca bilgisayardan atanır. Telefondan atanmış tuşa basmak yine çalışır.
+_LOCAL_ONLY_TASK_TYPES = {"custom_app", "custom_hotkey", "type_text"}
 # 2.7.1: telefondan atanan web adresi: isteğe bağlı http(s)://, tırnak, boşluk, kontrol karakteri ve % yok
 _REMOTE_URL_RE = re.compile(r'^(?!http(?!s?://))[^\s"%\x00-\x1f\x7f]{1,2000}$', re.I)
 
